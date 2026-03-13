@@ -9,3 +9,4 @@ depend
 expsfc.*
 EXPSFC/
 *.so
+ps2boot/smw.sfc
