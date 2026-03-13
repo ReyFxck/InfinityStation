@@ -207,6 +207,7 @@ int main(int argc, char *argv[])
 
     scr_printf("retro_load_game() OK\n");
     scr_printf("entrando no loop...\n");
+    scr_clear();
 
     while (1) {
         retro_run();
