@@ -41,7 +41,7 @@ CORE_SRCS = \
 	$(SRC_DIR)/spc700.c \
 	$(CORE_DIR)/libretro.c
 
-EE_OBJS = main.o ps2_video.o ps2_input.o smw_blob.o $(CORE_SRCS:.c=.o)
+EE_OBJS = main.o ps2_video.o ps2_input.o ps2_menu.o smw_blob.o $(CORE_SRCS:.c=.o)
 
 EE_INCS += -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
 EE_CFLAGS += -O2 -G0 -DLOAD_FROM_MEMORY -DLAGFIX

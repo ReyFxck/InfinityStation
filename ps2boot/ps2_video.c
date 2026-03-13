@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include <packet.h>
 #include <dma.h>
@@ -9,13 +10,14 @@
 #include <draw.h>
 #include <gs_psm.h>
 
-/* 0 = mais rapido no emulador
- * 1 = espera vsync do PS2
- */
 #define VIDEO_WAIT_VSYNC 0
 
 static int g_video_ready = 0;
 static int g_lut_ready = 0;
+static int g_video_off_x = 0;
+static int g_video_off_y = 0;
+static int g_aspect_mode = PS2_ASPECT_4_3;
+static ps2_aspect_mode_t g_aspect_mode = PS2_ASPECT_PIXEL_PERFECT;
 
 static framebuffer_t g_frame;
 static zbuffer_t g_z;
@@ -24,12 +26,20 @@ static packet_t *g_tex_packet = 0;
 static packet_t *g_draw_packet = 0;
 
 static uint16_t g_upload[256 * 224] __attribute__((aligned(64)));
+static uint16_t g_frame_base[256 * 224] __attribute__((aligned(64)));
 static uint16_t g_rgb565_lut[65536] __attribute__((aligned(64)));
 
 static char g_dbg1[48] = "";
 static char g_dbg2[48] = "";
 static char g_dbg3[48] = "";
 static char g_dbg4[48] = "";
+
+static int clamp_int(int v, int lo, int hi)
+{
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
 
 static void ps2_video_build_lut(void)
 {
@@ -60,6 +70,41 @@ void ps2_video_set_debug(const char *line1, const char *line2, const char *line3
     if (line4) { strncpy(g_dbg4, line4, sizeof(g_dbg4) - 1); g_dbg4[sizeof(g_dbg4) - 1] = 0; }
 }
 
+static void ps2_video_apply_display_offset(void)
+{
+    graph_set_screen(g_video_off_x, g_video_off_y, g_frame.width, g_frame.height);
+}
+
+void ps2_video_set_offsets(int x, int y)
+{
+    g_video_off_x = clamp_int(x, -96, 96);
+    g_video_off_y = clamp_int(y, -64, 64);
+
+    if (g_video_ready)
+        ps2_video_apply_display_offset();
+}
+
+void ps2_video_get_offsets(int *x, int *y)
+{
+    if (x) *x = g_video_off_x;
+    if (y) *y = g_video_off_y;
+}
+
+void ps2_video_set_aspect(int mode)
+{
+    if (mode < PS2_ASPECT_4_3)
+        mode = PS2_ASPECT_4_3;
+    if (mode > PS2_ASPECT_PIXEL)
+        mode = PS2_ASPECT_PIXEL;
+
+    g_aspect_mode = mode;
+}
+
+int ps2_video_get_aspect(void)
+{
+    return g_aspect_mode;
+}
+
 static uint8_t dbg_glyph_row(char c, int row)
 {
     switch (c) {
@@ -74,17 +119,32 @@ static uint8_t dbg_glyph_row(char c, int row)
         case '8': { static const uint8_t g[7] = {0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E}; return g[row]; }
         case '9': { static const uint8_t g[7] = {0x0E,0x11,0x11,0x0F,0x01,0x02,0x1C}; return g[row]; }
         case 'A': { static const uint8_t g[7] = {0x0E,0x11,0x11,0x1F,0x11,0x11,0x11}; return g[row]; }
+        case 'B': { static const uint8_t g[7] = {0x1E,0x11,0x11,0x1E,0x11,0x11,0x1E}; return g[row]; }
+        case 'C': { static const uint8_t g[7] = {0x0E,0x11,0x10,0x10,0x10,0x11,0x0E}; return g[row]; }
         case 'D': { static const uint8_t g[7] = {0x1E,0x11,0x11,0x11,0x11,0x11,0x1E}; return g[row]; }
+        case 'E': { static const uint8_t g[7] = {0x1F,0x10,0x10,0x1E,0x10,0x10,0x1F}; return g[row]; }
         case 'F': { static const uint8_t g[7] = {0x1F,0x10,0x10,0x1E,0x10,0x10,0x10}; return g[row]; }
+        case 'G': { static const uint8_t g[7] = {0x0E,0x11,0x10,0x17,0x11,0x11,0x0E}; return g[row]; }
+        case 'I': { static const uint8_t g[7] = {0x0E,0x04,0x04,0x04,0x04,0x04,0x0E}; return g[row]; }
+        case 'K': { static const uint8_t g[7] = {0x11,0x12,0x14,0x18,0x14,0x12,0x11}; return g[row]; }
+        case 'L': { static const uint8_t g[7] = {0x10,0x10,0x10,0x10,0x10,0x10,0x1F}; return g[row]; }
         case 'M': { static const uint8_t g[7] = {0x11,0x1B,0x15,0x15,0x11,0x11,0x11}; return g[row]; }
+        case 'N': { static const uint8_t g[7] = {0x11,0x19,0x15,0x13,0x11,0x11,0x11}; return g[row]; }
+        case 'O': { static const uint8_t g[7] = {0x0E,0x11,0x11,0x11,0x11,0x11,0x0E}; return g[row]; }
         case 'P': { static const uint8_t g[7] = {0x1E,0x11,0x11,0x1E,0x10,0x10,0x10}; return g[row]; }
         case 'R': { static const uint8_t g[7] = {0x1E,0x11,0x11,0x1E,0x14,0x12,0x11}; return g[row]; }
         case 'S': { static const uint8_t g[7] = {0x0F,0x10,0x10,0x0E,0x01,0x01,0x1E}; return g[row]; }
         case 'T': { static const uint8_t g[7] = {0x1F,0x04,0x04,0x04,0x04,0x04,0x04}; return g[row]; }
+        case 'U': { static const uint8_t g[7] = {0x11,0x11,0x11,0x11,0x11,0x11,0x0E}; return g[row]; }
+        case 'V': { static const uint8_t g[7] = {0x11,0x11,0x11,0x11,0x11,0x0A,0x04}; return g[row]; }
         case 'X': { static const uint8_t g[7] = {0x11,0x11,0x0A,0x04,0x0A,0x11,0x11}; return g[row]; }
-        case 'Z': { static const uint8_t g[7] = {0x1F,0x01,0x02,0x04,0x08,0x10,0x1F}; return g[row]; }
+        case 'Y': { static const uint8_t g[7] = {0x11,0x11,0x0A,0x04,0x04,0x04,0x04}; return g[row]; }
         case '=': { static const uint8_t g[7] = {0x00,0x1F,0x00,0x1F,0x00,0x00,0x00}; return g[row]; }
-        case ' ': default: return 0x00;
+        case '-': { static const uint8_t g[7] = {0x00,0x00,0x00,0x1F,0x00,0x00,0x00}; return g[row]; }
+        case '>': { static const uint8_t g[7] = {0x10,0x08,0x04,0x02,0x04,0x08,0x10}; return g[row]; }
+        case ' ':
+        default:
+            return 0x00;
     }
 }
 
@@ -109,16 +169,20 @@ static void dbg_draw_char(unsigned x, unsigned y, char c, uint16_t color)
     }
 }
 
-static void dbg_draw_string(unsigned x, unsigned y, const char *s)
+static void dbg_draw_string_color(unsigned x, unsigned y, const char *s, uint16_t color)
 {
     unsigned i;
     uint16_t shadow = 0x8000;
-    uint16_t white  = 0xFFFF;
 
     for (i = 0; s[i]; i++) {
         dbg_draw_char(x + i * 6 + 1, y + 1, s[i], shadow);
-        dbg_draw_char(x + i * 6,     y,     s[i], white);
+        dbg_draw_char(x + i * 6,     y,     s[i], color);
     }
+}
+
+static void dbg_draw_string(unsigned x, unsigned y, const char *s)
+{
+    dbg_draw_string_color(x, y, s, 0xFFFF);
 }
 
 static void dbg_overlay(void)
@@ -130,6 +194,189 @@ static void dbg_overlay(void)
     dbg_draw_string(2, 10, g_dbg2);
     dbg_draw_string(2, 18, g_dbg3);
     dbg_draw_string(2, 26, g_dbg4);
+}
+
+static void menu_tint_blue(void)
+{
+    unsigned i;
+
+    for (i = 0; i < 256u * 224u; i++) {
+        uint16_t c = g_upload[i];
+        uint16_t r =  c        & 0x1f;
+        uint16_t g = (c >> 5)  & 0x1f;
+        uint16_t b = (c >> 10) & 0x1f;
+
+        r = (uint16_t)((r * 2) / 5);
+        g = (uint16_t)((g * 2) / 5);
+        b = (uint16_t)clamp_int((int)((b * 3) / 5) + 10, 0, 31);
+
+        g_upload[i] = (1u << 15) | (b << 10) | (g << 5) | r;
+    }
+}
+
+static void ps2_video_upload_and_draw(unsigned width, unsigned height, int wait_vsync)
+{
+    qword_t *q;
+    texrect_t rect;
+    float x0, y0, x1, y1;
+
+    dma_wait_fast();
+
+    q = g_tex_packet->data;
+    q = draw_texture_transfer(q, g_upload, 256, 224, GS_PSM_16, g_tex.address, g_tex.width);
+    q = draw_texture_flush(q);
+    dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
+    dma_wait_fast();
+
+    switch (g_aspect_mode) {
+        case PS2_ASPECT_16_9:
+            x0 = 0.0f;
+            y0 = 44.0f;
+            x1 = 640.0f;
+            y1 = 404.0f;
+            break;
+
+        case PS2_ASPECT_FULL:
+            x0 = 0.0f;
+            y0 = 0.0f;
+            x1 = 640.0f;
+            y1 = 448.0f;
+            break;
+
+        case PS2_ASPECT_PIXEL:
+            x0 = 96.0f;
+            y0 = 28.0f;
+            x1 = 544.0f;
+            y1 = 420.0f;
+            break;
+
+        case PS2_ASPECT_4_3:
+        default:
+            x0 = 64.0f;
+            y0 = 0.0f;
+            x1 = 576.0f;
+            y1 = 448.0f;
+            break;
+    }
+
+    memset(&rect, 0, sizeof(rect));
+
+    rect.v0.x = x0;
+    rect.v0.y = y0;
+    rect.v0.z = 0;
+
+    rect.v1.x = x1;
+    rect.v1.y = y1;
+    rect.v1.z = 0;
+
+    rect.t0.u = 0.0f;
+    rect.t0.v = 0.0f;
+    rect.t1.u = (float)width - 1.0f;
+    rect.t1.v = (float)height - 1.0f;
+
+    rect.color.r = 0x80;
+    rect.color.g = 0x80;
+    rect.color.b = 0x80;
+    rect.color.a = 0x80;
+    rect.color.q = 1.0f;
+
+    q = g_draw_packet->data;
+    q = draw_setup_environment(q, 0, &g_frame, &g_z);
+    q = draw_clear(q, 0, 0.0f, 0.0f, (float)g_frame.width, (float)g_frame.height, 0, 0, 0);
+    q = draw_rect_textured(q, 0, &rect);
+    q = draw_finish(q);
+
+    dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
+    draw_wait_finish();
+
+    if (wait_vsync)
+        graph_wait_vsync();
+}
+
+void ps2_video_draw_menu(int page, int main_sel, int video_sel, int aspect_sel)
+{
+    char buf_x[40];
+    char buf_y[40];
+    uint16_t white  = 0xFFFF;
+    uint16_t yellow = 0x83FF;
+
+    (void)main_sel;
+
+    memcpy(g_upload, g_frame_base, sizeof(g_upload));
+    menu_tint_blue();
+
+    if (page == PS2_MENU_MAIN) {
+        dbg_draw_string_color(115, 18, "MENU", white);
+
+        dbg_draw_string_color(104, 92,
+                              main_sel == 0 ? "> RESUME" : "  RESUME",
+                              main_sel == 0 ? yellow : white);
+
+        dbg_draw_string_color(116, 110,
+                              main_sel == 1 ? "> VIDEO" : "  VIDEO",
+                              main_sel == 1 ? yellow : white);
+
+        dbg_draw_string_color(8, 194, "SELECT CLOSE", white);
+    }
+    else if (page == PS2_MENU_VIDEO) {
+        dbg_draw_string_color(110, 18, "VIDEO", white);
+
+        dbg_draw_string_color(62, 88,
+                              video_sel == 0 ? "> DISPLAY POSITION" : "  DISPLAY POSITION",
+                              video_sel == 0 ? yellow : white);
+
+        dbg_draw_string_color(80, 106,
+                              video_sel == 1 ? "> ASPECT RATIO" : "  ASPECT RATIO",
+                              video_sel == 1 ? yellow : white);
+
+        dbg_draw_string_color(116, 124,
+                              video_sel == 2 ? "> BACK" : "  BACK",
+                              video_sel == 2 ? yellow : white);
+
+        dbg_draw_string_color(8, 180, "CROSS = OPEN", white);
+        dbg_draw_string_color(8, 194, "SELECT CLOSE", white);
+    }
+    else if (page == PS2_MENU_VIDEO_DISPLAY) {
+        dbg_draw_string_color(74, 18, "DISPLAY POSITION", white);
+        dbg_draw_string_color(80, 74, "D-PAD MOVES OUTPUT", white);
+
+        snprintf(buf_x, sizeof(buf_x), "X = %d", g_video_off_x);
+        snprintf(buf_y, sizeof(buf_y), "Y = %d", g_video_off_y);
+
+        dbg_draw_string_color(104, 94, buf_x, yellow);
+        dbg_draw_string_color(104, 108, buf_y, yellow);
+
+        dbg_draw_string_color(47, 130, "CROSS START CIRCLE = BACK", white);
+        dbg_draw_string_color(8, 194, "SELECT CLOSE", white);
+    }
+    else {
+        dbg_draw_string_color(86, 18, "ASPECT RATIO", white);
+
+        dbg_draw_string_color(118, 74,
+                              aspect_sel == 0 ? "> 4:3" : "  4:3",
+                              aspect_sel == 0 ? yellow : white);
+
+        dbg_draw_string_color(114, 88,
+                              aspect_sel == 1 ? "> 16:9" : "  16:9",
+                              aspect_sel == 1 ? yellow : white);
+
+        dbg_draw_string_color(74, 102,
+                              aspect_sel == 2 ? "> FULL SCREEN" : "  FULL SCREEN",
+                              aspect_sel == 2 ? yellow : white);
+
+        dbg_draw_string_color(68, 116,
+                              aspect_sel == 3 ? "> PIXEL PERFECT" : "  PIXEL PERFECT",
+                              aspect_sel == 3 ? yellow : white);
+
+        dbg_draw_string_color(114, 130,
+                              aspect_sel == 4 ? "> BACK" : "  BACK",
+                              aspect_sel == 4 ? yellow : white);
+
+        dbg_draw_string_color(38, 170, "CROSS START = APPLY", white);
+        dbg_draw_string_color(8, 194, "SELECT CLOSE", white);
+    }
+
+    ps2_video_upload_and_draw(256, 224, 1);
 }
 
 int ps2_video_init_once(void)
@@ -170,6 +417,8 @@ int ps2_video_init_once(void)
         g_frame.address, g_frame.width, g_frame.height, g_frame.psm, 0, 0
     );
 
+    ps2_video_apply_display_offset();
+
     packet = packet_init(32, PACKET_NORMAL);
     if (!packet)
         return 0;
@@ -209,7 +458,7 @@ int ps2_video_init_once(void)
     packet_free(packet);
 
     g_tex_packet = packet_init(128, PACKET_NORMAL);
-    g_draw_packet = packet_init(64, PACKET_NORMAL);
+    g_draw_packet = packet_init(128, PACKET_NORMAL);
 
     if (!g_tex_packet || !g_draw_packet)
         return 0;
@@ -221,8 +470,6 @@ int ps2_video_init_once(void)
 void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
 {
     const uint8_t *src = (const uint8_t *)data;
-    qword_t *q;
-    texrect_t rect;
     unsigned y;
 
     if (!g_video_ready || !data || width == 0 || height == 0)
@@ -243,45 +490,8 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         }
     }
 
+    memcpy(g_frame_base, g_upload, sizeof(g_upload));
+
     dbg_overlay();
-
-    dma_wait_fast();
-
-    q = g_tex_packet->data;
-    q = draw_texture_transfer(q, g_upload, 256, 224, GS_PSM_16, g_tex.address, g_tex.width);
-    q = draw_texture_flush(q);
-    dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
-    dma_wait_fast();
-
-    memset(&rect, 0, sizeof(rect));
-
-    rect.v0.x = 64.0f;
-    rect.v0.y = 0.0f;
-    rect.v0.z = 0;
-
-    rect.v1.x = 576.0f;
-    rect.v1.y = 448.0f;
-    rect.v1.z = 0;
-
-    rect.t0.u = 0.0f;
-    rect.t0.v = 0.0f;
-    rect.t1.u = (float)width - 1.0f;
-    rect.t1.v = (float)height - 1.0f;
-
-    rect.color.r = 0x80;
-    rect.color.g = 0x80;
-    rect.color.b = 0x80;
-    rect.color.a = 0x80;
-    rect.color.q = 1.0f;
-
-    q = g_draw_packet->data;
-    q = draw_rect_textured(q, 0, &rect);
-    q = draw_finish(q);
-
-    dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
-    draw_wait_finish();
-
-#if VIDEO_WAIT_VSYNC
-    graph_wait_vsync();
-#endif
+    ps2_video_upload_and_draw(width, height, VIDEO_WAIT_VSYNC);
 }

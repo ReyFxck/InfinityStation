@@ -2,6 +2,7 @@
 #include <kernel.h>
 #include <debug.h>
 #include <sifrpc.h>
+#include <libpad.h>
 
 #include <string.h>
 #include <stdint.h>
@@ -11,6 +12,7 @@
 #include "libretro.h"
 #include "ps2_video.h"
 #include "ps2_input.h"
+#include "ps2_menu.h"
 
 extern unsigned char smw_sfc_start[];
 extern unsigned char smw_sfc_end[];
@@ -21,6 +23,7 @@ extern unsigned char smw_sfc_end[];
 static unsigned g_frame_count = 0;
 static unsigned g_input_tick  = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
+static uint32_t g_prev_buttons = 0;
 
 static void die(const char *msg)
 {
@@ -112,7 +115,6 @@ static size_t audio_batch_cb(const int16_t *data, size_t frames)
 static void input_poll_cb(void)
 {
     g_input_tick++;
-    ps2_input_poll();
 }
 
 static int16_t input_state_cb(unsigned port, unsigned device, unsigned index, unsigned id)
@@ -172,6 +174,8 @@ int main(int argc, char *argv[])
     else
         scr_printf("input init falhou\n");
 
+    ps2_menu_init();
+
     retro_set_environment(environ_cb);
     retro_set_video_refresh(video_cb);
     retro_set_audio_sample(audio_cb);
@@ -210,7 +214,32 @@ int main(int argc, char *argv[])
     scr_clear();
 
     while (1) {
+        uint32_t buttons;
+        uint32_t pressed;
+
+        ps2_input_poll();
+        buttons = ps2_input_buttons();
+        pressed = buttons & ~g_prev_buttons;
+
+        if (ps2_menu_is_open()) {
+            ps2_menu_handle(pressed);
+
+            if (ps2_menu_is_open())
+                ps2_menu_draw();
+
+            g_prev_buttons = buttons;
+            continue;
+        }
+
+        if (pressed & PAD_SELECT) {
+            ps2_menu_open();
+            ps2_menu_draw();
+            g_prev_buttons = buttons;
+            continue;
+        }
+
         retro_run();
+        g_prev_buttons = buttons;
     }
 
     return 0;
