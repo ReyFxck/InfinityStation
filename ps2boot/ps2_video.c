@@ -17,7 +17,6 @@ static int g_lut_ready = 0;
 static int g_video_off_x = 0;
 static int g_video_off_y = 0;
 static int g_aspect_mode = PS2_ASPECT_4_3;
-static ps2_aspect_mode_t g_aspect_mode = PS2_ASPECT_PIXEL_PERFECT;
 
 static framebuffer_t g_frame;
 static zbuffer_t g_z;
