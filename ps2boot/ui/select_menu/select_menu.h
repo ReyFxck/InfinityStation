@@ -10,4 +10,7 @@ void select_menu_close(void);
 void select_menu_handle(uint32_t pressed);
 void select_menu_draw(void);
 
+int select_menu_show_fps_enabled(void);
+int select_menu_frame_limit_mode(void);
+
 #endif

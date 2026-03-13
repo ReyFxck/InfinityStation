@@ -1,9 +1,20 @@
 #include "select_menu_pages.h"
 
-#include "../../ps2_video.h"
 #include <stdio.h>
+#include "../../ps2_video.h"
 #include "select_menu_theme.h"
 #include "font/select_menu_font.h"
+
+static const char *frame_limit_label(int mode)
+{
+    if (mode == SELECT_MENU_FRAME_LIMIT_50)
+        return "50";
+    if (mode == SELECT_MENU_FRAME_LIMIT_60)
+        return "60";
+    if (mode == SELECT_MENU_FRAME_LIMIT_OFF)
+        return "OFF";
+    return "AUTO";
+}
 
 static void draw_main_page(const select_menu_state_t *state)
 {
@@ -19,6 +30,12 @@ static void draw_main_page(const select_menu_state_t *state)
         SELECT_MENU_MAIN_VIDEO_X, SELECT_MENU_MAIN_VIDEO_Y,
         state->main_sel == 1 ? "> VIDEO" : "  VIDEO",
         state->main_sel == 1 ? SELECT_MENU_COLOR_HIGHLIGHT : SELECT_MENU_COLOR_TEXT
+    );
+
+    select_menu_font_draw_string_color(
+        SELECT_MENU_MAIN_GAME_X, SELECT_MENU_MAIN_GAME_Y,
+        state->main_sel == 2 ? "> GAME OPTIONS" : "  GAME OPTIONS",
+        state->main_sel == 2 ? SELECT_MENU_COLOR_HIGHLIGHT : SELECT_MENU_COLOR_TEXT
     );
 
     select_menu_font_draw_string_color(8, SELECT_MENU_HINT_BOTTOM_Y, "SELECT CLOSE", SELECT_MENU_COLOR_TEXT);
@@ -108,6 +125,41 @@ static void draw_aspect_page(const select_menu_state_t *state)
     select_menu_font_draw_string_color(8, SELECT_MENU_HINT_BOTTOM_Y, "SELECT CLOSE", SELECT_MENU_COLOR_TEXT);
 }
 
+static void draw_game_options_page(const select_menu_state_t *state)
+{
+    char line0[40];
+    char line1[40];
+
+    snprintf(line0, sizeof(line0), "%s SHOW FPS: %s",
+             state->game_sel == 0 ? ">" : " ",
+             state->show_fps ? "ON" : "OFF");
+
+    snprintf(line1, sizeof(line1), "%s FRAME LIMIT: %s",
+             state->game_sel == 1 ? ">" : " ",
+             frame_limit_label(state->frame_limit));
+
+    select_menu_font_draw_string_color(70, SELECT_MENU_TITLE_Y, "GAME OPTIONS", SELECT_MENU_COLOR_TEXT);
+
+    select_menu_font_draw_string_color(
+        56, 84, line0,
+        state->game_sel == 0 ? SELECT_MENU_COLOR_HIGHLIGHT : SELECT_MENU_COLOR_TEXT
+    );
+
+    select_menu_font_draw_string_color(
+        44, 100, line1,
+        state->game_sel == 1 ? SELECT_MENU_COLOR_HIGHLIGHT : SELECT_MENU_COLOR_TEXT
+    );
+
+    select_menu_font_draw_string_color(
+        114, 118,
+        state->game_sel == 2 ? "> BACK" : "  BACK",
+        state->game_sel == 2 ? SELECT_MENU_COLOR_HIGHLIGHT : SELECT_MENU_COLOR_TEXT
+    );
+
+    select_menu_font_draw_string_color(18, 170, "LEFT RIGHT OR CROSS TO CHANGE", SELECT_MENU_COLOR_TEXT);
+    select_menu_font_draw_string_color(8, SELECT_MENU_HINT_BOTTOM_Y, "SELECT CLOSE", SELECT_MENU_COLOR_TEXT);
+}
+
 void select_menu_pages_draw(const select_menu_state_t *state)
 {
     if (!state)
@@ -119,6 +171,8 @@ void select_menu_pages_draw(const select_menu_state_t *state)
         draw_video_page(state);
     else if (state->page == SELECT_MENU_PAGE_VIDEO_DISPLAY)
         draw_display_page();
-    else
+    else if (state->page == SELECT_MENU_PAGE_VIDEO_ASPECT)
         draw_aspect_page(state);
+    else
+        draw_game_options_page(state);
 }

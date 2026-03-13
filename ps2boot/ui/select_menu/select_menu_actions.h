@@ -11,4 +11,7 @@ void select_menu_actions_close(void);
 void select_menu_actions_handle(uint32_t pressed);
 const select_menu_state_t *select_menu_actions_state(void);
 
+int select_menu_actions_show_fps_enabled(void);
+int select_menu_actions_frame_limit_mode(void);
+
 #endif

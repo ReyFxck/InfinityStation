@@ -34,3 +34,13 @@ void select_menu_draw(void)
 
     select_menu_render(select_menu_actions_state());
 }
+
+int select_menu_show_fps_enabled(void)
+{
+    return select_menu_actions_show_fps_enabled();
+}
+
+int select_menu_frame_limit_mode(void)
+{
+    return select_menu_actions_frame_limit_mode();
+}
