@@ -1,10 +1,15 @@
-snes9x2005 libretro core.
+# PS2 SNES Concept
 
-A Super Nintendo emulator core using the libretro API.
+Primeiro conceito funcional de um port de SNES para PS2 usando base do Snes9x 2005.
 
-Based on:
-* Snes9x 1.43, by the Snes9x team (with research by the ZSNES folks, anomie,
-  zsKnight, etc.)
-* NDSSFC 1.06, by the Supercard team (porting to the MIPS processor)
-* BAGSFC, by BassAceGold (improving over NDSSFC)
-* CATSFC, by ShadauxCat and Nebuleon (improving over BAGSFC)
+## Status atual
+- Bootando no NetherSX2
+- Vídeo funcionando
+- Cores corrigidas
+- Input funcionando
+- Jogo entra e roda
+
+## Limitações atuais
+- Performance ainda baixa
+- Backend de vídeo ainda simples
+- Ainda é prova de conceito
