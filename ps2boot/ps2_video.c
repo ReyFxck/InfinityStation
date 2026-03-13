@@ -9,6 +9,11 @@
 #include <draw.h>
 #include <gs_psm.h>
 
+/* 0 = mais rapido no emulador
+ * 1 = espera vsync do PS2
+ */
+#define VIDEO_WAIT_VSYNC 0
+
 static int g_video_ready = 0;
 static int g_lut_ready = 0;
 
@@ -18,7 +23,7 @@ static texbuffer_t g_tex;
 static packet_t *g_tex_packet = 0;
 static packet_t *g_draw_packet = 0;
 
-static uint16_t g_upload[256 * 256] __attribute__((aligned(64)));
+static uint16_t g_upload[256 * 224] __attribute__((aligned(64)));
 static uint16_t g_rgb565_lut[65536] __attribute__((aligned(64)));
 
 static char g_dbg1[48] = "";
@@ -58,89 +63,28 @@ void ps2_video_set_debug(const char *line1, const char *line2, const char *line3
 static uint8_t dbg_glyph_row(char c, int row)
 {
     switch (c) {
-        case '0': {
-            static const uint8_t g[7] = {0x0E,0x11,0x13,0x15,0x19,0x11,0x0E};
-            return g[row];
-        }
-        case '1': {
-            static const uint8_t g[7] = {0x04,0x0C,0x04,0x04,0x04,0x04,0x0E};
-            return g[row];
-        }
-        case '2': {
-            static const uint8_t g[7] = {0x0E,0x11,0x01,0x02,0x04,0x08,0x1F};
-            return g[row];
-        }
-        case '3': {
-            static const uint8_t g[7] = {0x1E,0x01,0x01,0x0E,0x01,0x01,0x1E};
-            return g[row];
-        }
-        case '4': {
-            static const uint8_t g[7] = {0x02,0x06,0x0A,0x12,0x1F,0x02,0x02};
-            return g[row];
-        }
-        case '5': {
-            static const uint8_t g[7] = {0x1F,0x10,0x10,0x1E,0x01,0x01,0x1E};
-            return g[row];
-        }
-        case '6': {
-            static const uint8_t g[7] = {0x06,0x08,0x10,0x1E,0x11,0x11,0x0E};
-            return g[row];
-        }
-        case '7': {
-            static const uint8_t g[7] = {0x1F,0x01,0x02,0x04,0x08,0x08,0x08};
-            return g[row];
-        }
-        case '8': {
-            static const uint8_t g[7] = {0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E};
-            return g[row];
-        }
-        case '9': {
-            static const uint8_t g[7] = {0x0E,0x11,0x11,0x0F,0x01,0x02,0x1C};
-            return g[row];
-        }
-        case 'A': {
-            static const uint8_t g[7] = {0x0E,0x11,0x11,0x1F,0x11,0x11,0x11};
-            return g[row];
-        }
-        case 'D': {
-            static const uint8_t g[7] = {0x1E,0x11,0x11,0x11,0x11,0x11,0x1E};
-            return g[row];
-        }
-        case 'F': {
-            static const uint8_t g[7] = {0x1F,0x10,0x10,0x1E,0x10,0x10,0x10};
-            return g[row];
-        }
-        case 'M': {
-            static const uint8_t g[7] = {0x11,0x1B,0x15,0x15,0x11,0x11,0x11};
-            return g[row];
-        }
-        case 'P': {
-            static const uint8_t g[7] = {0x1E,0x11,0x11,0x1E,0x10,0x10,0x10};
-            return g[row];
-        }
-        case 'R': {
-            static const uint8_t g[7] = {0x1E,0x11,0x11,0x1E,0x14,0x12,0x11};
-            return g[row];
-        }
-        case 'S': {
-            static const uint8_t g[7] = {0x0F,0x10,0x10,0x0E,0x01,0x01,0x1E};
-            return g[row];
-        }
-        case 'X': {
-            static const uint8_t g[7] = {0x11,0x11,0x0A,0x04,0x0A,0x11,0x11};
-            return g[row];
-        }
-        case 'Z': {
-            static const uint8_t g[7] = {0x1F,0x01,0x02,0x04,0x08,0x10,0x1F};
-            return g[row];
-        }
-        case '=': {
-            static const uint8_t g[7] = {0x00,0x1F,0x00,0x1F,0x00,0x00,0x00};
-            return g[row];
-        }
-        case ' ':
-        default:
-            return 0x00;
+        case '0': { static const uint8_t g[7] = {0x0E,0x11,0x13,0x15,0x19,0x11,0x0E}; return g[row]; }
+        case '1': { static const uint8_t g[7] = {0x04,0x0C,0x04,0x04,0x04,0x04,0x0E}; return g[row]; }
+        case '2': { static const uint8_t g[7] = {0x0E,0x11,0x01,0x02,0x04,0x08,0x1F}; return g[row]; }
+        case '3': { static const uint8_t g[7] = {0x1E,0x01,0x01,0x0E,0x01,0x01,0x1E}; return g[row]; }
+        case '4': { static const uint8_t g[7] = {0x02,0x06,0x0A,0x12,0x1F,0x02,0x02}; return g[row]; }
+        case '5': { static const uint8_t g[7] = {0x1F,0x10,0x10,0x1E,0x01,0x01,0x1E}; return g[row]; }
+        case '6': { static const uint8_t g[7] = {0x06,0x08,0x10,0x1E,0x11,0x11,0x0E}; return g[row]; }
+        case '7': { static const uint8_t g[7] = {0x1F,0x01,0x02,0x04,0x08,0x08,0x08}; return g[row]; }
+        case '8': { static const uint8_t g[7] = {0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E}; return g[row]; }
+        case '9': { static const uint8_t g[7] = {0x0E,0x11,0x11,0x0F,0x01,0x02,0x1C}; return g[row]; }
+        case 'A': { static const uint8_t g[7] = {0x0E,0x11,0x11,0x1F,0x11,0x11,0x11}; return g[row]; }
+        case 'D': { static const uint8_t g[7] = {0x1E,0x11,0x11,0x11,0x11,0x11,0x1E}; return g[row]; }
+        case 'F': { static const uint8_t g[7] = {0x1F,0x10,0x10,0x1E,0x10,0x10,0x10}; return g[row]; }
+        case 'M': { static const uint8_t g[7] = {0x11,0x1B,0x15,0x15,0x11,0x11,0x11}; return g[row]; }
+        case 'P': { static const uint8_t g[7] = {0x1E,0x11,0x11,0x1E,0x10,0x10,0x10}; return g[row]; }
+        case 'R': { static const uint8_t g[7] = {0x1E,0x11,0x11,0x1E,0x14,0x12,0x11}; return g[row]; }
+        case 'S': { static const uint8_t g[7] = {0x0F,0x10,0x10,0x0E,0x01,0x01,0x1E}; return g[row]; }
+        case 'T': { static const uint8_t g[7] = {0x1F,0x04,0x04,0x04,0x04,0x04,0x04}; return g[row]; }
+        case 'X': { static const uint8_t g[7] = {0x11,0x11,0x0A,0x04,0x0A,0x11,0x11}; return g[row]; }
+        case 'Z': { static const uint8_t g[7] = {0x1F,0x01,0x02,0x04,0x08,0x10,0x1F}; return g[row]; }
+        case '=': { static const uint8_t g[7] = {0x00,0x1F,0x00,0x1F,0x00,0x00,0x00}; return g[row]; }
+        case ' ': default: return 0x00;
     }
 }
 
@@ -150,17 +94,6 @@ static void dbg_put_pixel(unsigned x, unsigned y, uint16_t color)
         return;
 
     g_upload[y * 256 + x] = color;
-}
-
-static void dbg_fill_rect(unsigned x, unsigned y, unsigned w, unsigned h, uint16_t color)
-{
-    unsigned yy, xx;
-
-    for (yy = 0; yy < h; yy++) {
-        for (xx = 0; xx < w; xx++) {
-            dbg_put_pixel(x + xx, y + yy, color);
-        }
-    }
 }
 
 static void dbg_draw_char(unsigned x, unsigned y, char c, uint16_t color)
@@ -190,6 +123,9 @@ static void dbg_draw_string(unsigned x, unsigned y, const char *s)
 
 static void dbg_overlay(void)
 {
+    if (!g_dbg1[0] && !g_dbg2[0] && !g_dbg3[0] && !g_dbg4[0])
+        return;
+
     dbg_draw_string(2,  2, g_dbg1);
     dbg_draw_string(2, 10, g_dbg2);
     dbg_draw_string(2, 18, g_dbg3);
@@ -312,7 +248,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
     dma_wait_fast();
 
     q = g_tex_packet->data;
-    q = draw_texture_transfer(q, g_upload, 256, 256, GS_PSM_16, g_tex.address, g_tex.width);
+    q = draw_texture_transfer(q, g_upload, 256, 224, GS_PSM_16, g_tex.address, g_tex.width);
     q = draw_texture_flush(q);
     dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
     dma_wait_fast();
@@ -344,5 +280,8 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 
     dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
     draw_wait_finish();
+
+#if VIDEO_WAIT_VSYNC
     graph_wait_vsync();
+#endif
 }

@@ -16,6 +16,7 @@ extern unsigned char smw_sfc_start[];
 extern unsigned char smw_sfc_end[];
 
 #define AUTO_INPUT_TEST 0
+#define DEBUG_OVERLAY   0
 
 static unsigned g_frame_count = 0;
 static unsigned g_input_tick  = 0;
@@ -76,10 +77,13 @@ static bool environ_cb(unsigned cmd, void *data)
 
 static void video_cb(const void *data, unsigned width, unsigned height, size_t pitch)
 {
+#if DEBUG_OVERLAY
     char l1[32], l2[32], l3[32], l4[32];
+#endif
 
     g_frame_count++;
 
+#if DEBUG_OVERLAY
     if ((g_frame_count % 30) == 0 || g_frame_count == 1) {
         snprintf(l1, sizeof(l1), "PAD=%04X", (unsigned)ps2_input_buttons());
         snprintf(l2, sizeof(l2), "%ux%u", width, height);
@@ -87,6 +91,7 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
         snprintf(l4, sizeof(l4), "FMT=%d", g_pixel_format);
         ps2_video_set_debug(l1, l2, l3, l4);
     }
+#endif
 
     if (g_pixel_format == RETRO_PIXEL_FORMAT_RGB565)
         ps2_video_present_rgb565(data, width, height, pitch);
