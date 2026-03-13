@@ -292,6 +292,26 @@ static void ps2_video_upload_and_draw(unsigned width, unsigned height, int wait_
         graph_wait_vsync();
 }
 
+
+void ps2_video_menu_put_pixel(unsigned x, unsigned y, uint16_t color)
+{
+    if (x >= 256 || y >= 224)
+        return;
+
+    g_upload[y * 256 + x] = color;
+}
+
+void ps2_video_menu_begin_frame(void)
+{
+    memcpy(g_upload, g_frame_base, sizeof(g_upload));
+    menu_tint_blue();
+}
+
+void ps2_video_menu_end_frame(void)
+{
+    ps2_video_upload_and_draw(256, 224, 1);
+}
+
 void ps2_video_draw_menu(int page, int main_sel, int video_sel, int aspect_sel)
 {
     char buf_x[40];

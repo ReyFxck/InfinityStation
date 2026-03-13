@@ -25,7 +25,12 @@ void ps2_video_set_debug(const char *line1, const char *line2, const char *line3
 void ps2_video_set_offsets(int x, int y);
 void ps2_video_get_offsets(int *x, int *y);
 void ps2_video_set_aspect(int mode);
-int  ps2_video_get_aspect(void);
+int ps2_video_get_aspect(void);
+
+void ps2_video_menu_begin_frame(void);
+void ps2_video_menu_put_pixel(unsigned x, unsigned y, uint16_t color);
+void ps2_video_menu_end_frame(void);
+
 void ps2_video_draw_menu(int page, int main_sel, int video_sel, int aspect_sel);
 void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height, size_t pitch);
 
