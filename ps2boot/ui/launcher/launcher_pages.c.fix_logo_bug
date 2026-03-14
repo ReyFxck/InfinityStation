@@ -1,0 +1,81 @@
+#include "launcher_pages.h"
+
+#include "../select_menu/font/select_menu_font.h"
+#include "launcher_logo.h"
+#include "launcher_theme.h"
+
+static const char *launcher_game_name(int game)
+{
+    (void)game;
+    return "SUPER MARIO";
+}
+
+static void draw_main_page(const launcher_state_t *state)
+{
+    launcher_logo_draw(54, 8);
+
+    select_menu_font_draw_string_color(
+        LAUNCHER_MAIN_ITEM0_X, LAUNCHER_MAIN_ITEM0_Y,
+        state->main_sel == 0 ? "> START GAME" : "  START GAME",
+        state->main_sel == 0 ? LAUNCHER_COLOR_HIGHLIGHT : LAUNCHER_COLOR_TEXT
+    );
+
+    select_menu_font_draw_string_color(
+        LAUNCHER_MAIN_ITEM1_X, LAUNCHER_MAIN_ITEM1_Y,
+        state->main_sel == 1 ? "> SELECT GAME" : "  SELECT GAME",
+        state->main_sel == 1 ? LAUNCHER_COLOR_HIGHLIGHT : LAUNCHER_COLOR_TEXT
+    );
+
+    select_menu_font_draw_string_color(
+        LAUNCHER_MAIN_ITEM2_X, LAUNCHER_MAIN_ITEM2_Y,
+        state->main_sel == 2 ? "> OPTIONS" : "  OPTIONS",
+        state->main_sel == 2 ? LAUNCHER_COLOR_HIGHLIGHT : LAUNCHER_COLOR_TEXT
+    );
+
+    select_menu_font_draw_string_color(LAUNCHER_MAIN_INFO_X, LAUNCHER_MAIN_INFO_Y, "CURRENT GAME", LAUNCHER_COLOR_TEXT);
+    select_menu_font_draw_string_color(LAUNCHER_MAIN_VALUE_X, LAUNCHER_MAIN_VALUE_Y, launcher_game_name(state->selected_game), LAUNCHER_COLOR_HIGHLIGHT);
+
+    select_menu_font_draw_string_color(8, LAUNCHER_HINT_UPPER_Y, "CROSS START = OPEN", LAUNCHER_COLOR_TEXT);
+    select_menu_font_draw_string_color(8, LAUNCHER_HINT_BOTTOM_Y, "UP DOWN = MOVE", LAUNCHER_COLOR_TEXT);
+}
+
+static void draw_select_game_page(const launcher_state_t *state)
+{
+    select_menu_font_draw_string_color(LAUNCHER_GAMES_TITLE_X, LAUNCHER_TITLE_Y, "SELECT GAME", LAUNCHER_COLOR_TEXT);
+
+    select_menu_font_draw_string_color(
+        LAUNCHER_GAMES_ITEM0_X, LAUNCHER_GAMES_ITEM0_Y,
+        state->game_sel == 0 ? "> SUPER MARIO" : "  SUPER MARIO",
+        state->game_sel == 0 ? LAUNCHER_COLOR_HIGHLIGHT : LAUNCHER_COLOR_TEXT
+    );
+
+    select_menu_font_draw_string_color(
+        LAUNCHER_GAMES_ITEM1_X, LAUNCHER_GAMES_ITEM1_Y,
+        state->game_sel == 1 ? "> BACK" : "  BACK",
+        state->game_sel == 1 ? LAUNCHER_COLOR_HIGHLIGHT : LAUNCHER_COLOR_TEXT
+    );
+
+    select_menu_font_draw_string_color(8, LAUNCHER_HINT_UPPER_Y, "CROSS START = SELECT", LAUNCHER_COLOR_TEXT);
+    select_menu_font_draw_string_color(8, LAUNCHER_HINT_BOTTOM_Y, "CIRCLE = BACK", LAUNCHER_COLOR_TEXT);
+}
+
+static void draw_options_page(void)
+{
+    select_menu_font_draw_string_color(LAUNCHER_OPT_TITLE_X, LAUNCHER_TITLE_Y, "OPTIONS", LAUNCHER_COLOR_TEXT);
+    select_menu_font_draw_string_color(LAUNCHER_OPT_INFO_X, LAUNCHER_OPT_INFO_Y, "COMING SOON", LAUNCHER_COLOR_HIGHLIGHT);
+    select_menu_font_draw_string_color(LAUNCHER_OPT_BACK_X, LAUNCHER_OPT_BACK_Y, "> BACK", LAUNCHER_COLOR_TEXT);
+    select_menu_font_draw_string_color(8, LAUNCHER_HINT_BOTTOM_Y, "CROSS START CIRCLE = BACK", LAUNCHER_COLOR_TEXT);
+}
+
+void launcher_pages_draw(const launcher_state_t *state)
+{
+    if (!state)
+        return;
+
+    if (state->page == LAUNCHER_PAGE_MAIN)
+        draw_main_page(state);
+    else if (state->page == LAUNCHER_PAGE_SELECT_GAME)
+        draw_select_game_page(state);
+    else
+        draw_options_page();
+}

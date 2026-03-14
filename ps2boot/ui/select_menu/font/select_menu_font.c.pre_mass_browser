@@ -8,9 +8,6 @@ static void select_menu_font_draw_char(unsigned x, unsigned y, char c, uint16_t 
     int row;
     int col;
 
-    if (c >= 'a' && c <= 'z')
-        c = (char)(c - ('a' - 'A'));
-
     for (row = 0; row < 7; row++) {
         uint8_t bits = select_menu_font_glyph_row(c, row);
 

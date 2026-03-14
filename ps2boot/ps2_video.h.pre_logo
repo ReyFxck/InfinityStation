@@ -29,7 +29,6 @@ int ps2_video_get_aspect(void);
 
 void ps2_video_menu_begin_frame(void);
 void ps2_video_menu_put_pixel(unsigned x, unsigned y, uint16_t color);
-uint16_t ps2_video_menu_get_pixel(unsigned x, unsigned y);
 void ps2_video_menu_end_frame(void);
 
 void ps2_video_draw_menu(int page, int main_sel, int video_sel, int aspect_sel);

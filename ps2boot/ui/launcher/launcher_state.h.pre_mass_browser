@@ -1,0 +1,25 @@
+#ifndef LAUNCHER_STATE_H
+#define LAUNCHER_STATE_H
+
+enum
+{
+    LAUNCHER_PAGE_MAIN = 0,
+    LAUNCHER_PAGE_SELECT_GAME = 1,
+    LAUNCHER_PAGE_OPTIONS = 2
+};
+
+enum
+{
+    LAUNCHER_GAME_SUPER_MARIO = 0
+};
+
+typedef struct
+{
+    int page;
+    int main_sel;
+    int game_sel;
+    int selected_game;
+    int should_start_game;
+} launcher_state_t;
+
+#endif

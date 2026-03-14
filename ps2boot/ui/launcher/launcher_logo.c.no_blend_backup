@@ -1,0 +1,55 @@
+#include "launcher_logo.h"
+
+#include <stdint.h>
+#include "../../ps2_video.h"
+
+extern unsigned char launcher_logo_rgba[];
+
+static uint16_t pack_rgb565(unsigned r, unsigned g, unsigned b)
+{
+    return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+}
+
+static void unpack_rgb565(uint16_t c, unsigned *r, unsigned *g, unsigned *b)
+{
+    *r = ((c >> 11) & 31) * 255 / 31;
+    *g = ((c >> 5) & 63) * 255 / 63;
+    *b = (c & 31) * 255 / 31;
+}
+
+void launcher_logo_draw(int dst_x, int dst_y)
+{
+    int y;
+    int x;
+
+    for (y = 0; y < LAUNCHER_LOGO_HEIGHT; y++) {
+        for (x = 0; x < LAUNCHER_LOGO_WIDTH; x++) {
+            unsigned idx = (unsigned)((y * LAUNCHER_LOGO_WIDTH + x) * 4);
+            unsigned sr = launcher_logo_rgba[idx + 0];
+            unsigned sg = launcher_logo_rgba[idx + 1];
+            unsigned sb = launcher_logo_rgba[idx + 2];
+            unsigned sa = launcher_logo_rgba[idx + 3];
+
+            if (sa == 0)
+                continue;
+
+            if (sa >= 250) {
+                ps2_video_menu_put_pixel((unsigned)(dst_x + x), (unsigned)(dst_y + y),
+                                         pack_rgb565(sr, sg, sb));
+            } else {
+                unsigned dr, dg, db;
+                unsigned rr, rg, rb;
+                uint16_t dst = ps2_video_menu_get_pixel((unsigned)(dst_x + x), (unsigned)(dst_y + y));
+
+                unpack_rgb565(dst, &dr, &dg, &db);
+
+                rr = (sr * sa + dr * (255 - sa)) / 255;
+                rg = (sg * sa + dg * (255 - sa)) / 255;
+                rb = (sb * sa + db * (255 - sa)) / 255;
+
+                ps2_video_menu_put_pixel((unsigned)(dst_x + x), (unsigned)(dst_y + y),
+                                         pack_rgb565(rr, rg, rb));
+            }
+        }
+    }
+}
