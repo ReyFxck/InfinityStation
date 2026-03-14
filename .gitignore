@@ -5,3 +5,10 @@
 ps2boot/smw.sfc
 *~
 .DS_Store
+
+# temp experiment files
+*.pre_*
+*.fix_*
+*.big_logo
+*.no_blend_backup
+ps2boot/ui/assets/launcher_logo_rgba
