@@ -64,10 +64,11 @@ void launcher_actions_handle(uint32_t pressed)
 
         if (pressed & (PAD_START | PAD_CROSS)) {
             if (g_launcher.main_sel == 0) {
-                g_launcher.should_start_game = 1;
-            } else if (g_launcher.main_sel == 1) {
-                launcher_browser_open("mass:/");
                 g_launcher.page = LAUNCHER_PAGE_BROWSER;
+            } else if (g_launcher.main_sel == 1) {
+                g_launcher.selected_path[0] = '\0';
+                snprintf(g_launcher.selected_label, sizeof(g_launcher.selected_label), "EMBEDDED MARIO");
+                g_launcher.should_start_game = 1;
             } else {
                 g_launcher.page = LAUNCHER_PAGE_OPTIONS;
             }
@@ -80,6 +81,10 @@ void launcher_actions_handle(uint32_t pressed)
             launcher_browser_move(-1, LAUNCHER_BROWSER_ROWS);
         if (pressed & PAD_DOWN)
             launcher_browser_move(1, LAUNCHER_BROWSER_ROWS);
+        if (pressed & PAD_L1)
+            launcher_browser_move(-LAUNCHER_BROWSER_ROWS, LAUNCHER_BROWSER_ROWS);
+        if (pressed & PAD_R1)
+            launcher_browser_move(LAUNCHER_BROWSER_ROWS, LAUNCHER_BROWSER_ROWS);
 
         if (pressed & PAD_SELECT)
             launcher_browser_refresh();
@@ -88,7 +93,7 @@ void launcher_actions_handle(uint32_t pressed)
             if (launcher_browser_activate(
                     g_launcher.selected_path, sizeof(g_launcher.selected_path),
                     g_launcher.selected_label, sizeof(g_launcher.selected_label))) {
-                g_launcher.page = LAUNCHER_PAGE_MAIN;
+                g_launcher.should_start_game = 1;
             }
         }
 

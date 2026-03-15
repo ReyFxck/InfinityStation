@@ -59,7 +59,7 @@ int ps2_launcher_video_init_once(void)
     clut.storage_mode = CLUT_STORAGE_MODE1;
     clut.load_method = CLUT_NO_LOAD;
 
-    packet = packet_init(16, PACKET_NORMAL);
+    packet = packet_init(32, PACKET_NORMAL);
     if (!packet)
         return 0;
 
@@ -72,8 +72,8 @@ int ps2_launcher_video_init_once(void)
     dma_wait_fast();
     packet_free(packet);
 
-    g_launcher_tex_packet = packet_init(256, PACKET_NORMAL);
-    g_launcher_draw_packet = packet_init(256, PACKET_NORMAL);
+    g_launcher_tex_packet = packet_init(4096, PACKET_NORMAL);
+    g_launcher_draw_packet = packet_init(512, PACKET_NORMAL);
 
     if (!g_launcher_tex_packet || !g_launcher_draw_packet)
         return 0;
@@ -107,6 +107,8 @@ void ps2_launcher_video_end_frame(void)
 {
     qword_t *q;
     texrect_t rect;
+    lod_t lod;
+    clutbuffer_t clut;
 
     dma_wait_fast();
 
@@ -128,19 +130,18 @@ void ps2_launcher_video_end_frame(void)
     dma_wait_fast();
 
     memset(&rect, 0, sizeof(rect));
-
-    rect.v0.x = 0.0f;
-    rect.v0.y = 0.0f;
+    rect.v0.x = 4.0f;
+    rect.v0.y = 4.0f;
     rect.v0.z = 0;
 
-    rect.v1.x = 640.0f;
-    rect.v1.y = 448.0f;
+    rect.v1.x = 636.0f;
+    rect.v1.y = 444.0f;
     rect.v1.z = 0;
 
-    rect.t0.u = 0.0f;
-    rect.t0.v = 0.0f;
-    rect.t1.u = (float)PS2_LAUNCHER_WIDTH - 1.0f;
-    rect.t1.v = (float)PS2_LAUNCHER_HEIGHT - 1.0f;
+    rect.t0.u = 0.5f;
+    rect.t0.v = 0.5f;
+    rect.t1.u = (float)PS2_LAUNCHER_WIDTH - 1.5f;
+    rect.t1.v = (float)PS2_LAUNCHER_HEIGHT - 1.5f;
 
     rect.color.r = 0x80;
     rect.color.g = 0x80;
@@ -148,8 +149,22 @@ void ps2_launcher_video_end_frame(void)
     rect.color.a = 0x80;
     rect.color.q = 1.0f;
 
+    memset(&lod, 0, sizeof(lod));
+    lod.calculation = LOD_USE_K;
+    lod.max_level = 0;
+    lod.mag_filter = LOD_MAG_NEAREST;
+    lod.min_filter = LOD_MIN_NEAREST;
+    lod.l = 0;
+    lod.k = 0.0f;
+
+    memset(&clut, 0, sizeof(clut));
+    clut.storage_mode = CLUT_STORAGE_MODE1;
+    clut.load_method = CLUT_NO_LOAD;
+
     q = g_launcher_draw_packet->data;
     q = draw_setup_environment(q, 0, &g_launcher_frame, &g_launcher_z);
+    q = draw_texture_sampling(q, 0, &lod);
+    q = draw_texturebuffer(q, 0, &g_launcher_tex, &clut);
     q = draw_clear(q, 0, 0.0f, 0.0f, (float)g_launcher_frame.width, (float)g_launcher_frame.height, 0, 0, 0);
     q = draw_rect_textured(q, 0, &rect);
     q = draw_finish(q);

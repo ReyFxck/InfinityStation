@@ -21,4 +21,10 @@ void ps2_menu_draw(void);
 int ps2_menu_show_fps_enabled(void);
 int ps2_menu_frame_limit_mode(void);
 
+int ps2_menu_restart_game_requested(void);
+void ps2_menu_clear_restart_game_request(void);
+
+int ps2_menu_exit_game_requested(void);
+void ps2_menu_clear_exit_game_request(void);
+
 #endif

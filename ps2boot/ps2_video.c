@@ -477,8 +477,8 @@ int ps2_video_init_once(void)
     dma_wait_fast();
     packet_free(packet);
 
-    g_tex_packet = packet_init(128, PACKET_NORMAL);
-    g_draw_packet = packet_init(128, PACKET_NORMAL);
+    g_tex_packet = packet_init(512, PACKET_NORMAL);
+    g_draw_packet = packet_init(256, PACKET_NORMAL);
 
     if (!g_tex_packet || !g_draw_packet)
         return 0;
@@ -499,6 +499,8 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         width = 256;
     if (height > 224)
         height = 224;
+
+    memset(g_upload, 0, sizeof(g_upload));
 
     for (y = 0; y < height; y++) {
         const uint16_t *line = (const uint16_t *)(src + (y * pitch));

@@ -13,4 +13,10 @@ void select_menu_draw(void);
 int select_menu_show_fps_enabled(void);
 int select_menu_frame_limit_mode(void);
 
+int select_menu_restart_game_requested(void);
+void select_menu_clear_restart_game_request(void);
+
+int select_menu_exit_game_requested(void);
+void select_menu_clear_exit_game_request(void);
+
 #endif

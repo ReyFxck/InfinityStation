@@ -44,3 +44,23 @@ int select_menu_frame_limit_mode(void)
 {
     return select_menu_actions_frame_limit_mode();
 }
+
+int select_menu_restart_game_requested(void)
+{
+    return select_menu_actions_restart_game_requested();
+}
+
+void select_menu_clear_restart_game_request(void)
+{
+    select_menu_actions_clear_restart_game_request();
+}
+
+int select_menu_exit_game_requested(void)
+{
+    return select_menu_actions_exit_game_requested();
+}
+
+void select_menu_clear_exit_game_request(void)
+{
+    select_menu_actions_clear_exit_game_request();
+}

@@ -29,6 +29,8 @@ void select_menu_actions_init(void)
     g_select_menu.game_sel = 0;
     g_select_menu.show_fps = 0;
     g_select_menu.frame_limit = SELECT_MENU_FRAME_LIMIT_AUTO;
+    g_select_menu.request_restart_game = 0;
+    g_select_menu.request_exit_game = 0;
 }
 
 int select_menu_actions_is_open(void)
@@ -40,6 +42,8 @@ void select_menu_actions_open(void)
 {
     g_select_menu.open = 1;
     g_select_menu.page = SELECT_MENU_PAGE_MAIN;
+    g_select_menu.request_restart_game = 0;
+    g_select_menu.request_exit_game = 0;
 }
 
 void select_menu_actions_close(void)
@@ -62,6 +66,26 @@ int select_menu_actions_frame_limit_mode(void)
     return g_select_menu.frame_limit;
 }
 
+int select_menu_actions_restart_game_requested(void)
+{
+    return g_select_menu.request_restart_game;
+}
+
+void select_menu_actions_clear_restart_game_request(void)
+{
+    g_select_menu.request_restart_game = 0;
+}
+
+int select_menu_actions_exit_game_requested(void)
+{
+    return g_select_menu.request_exit_game;
+}
+
+void select_menu_actions_clear_exit_game_request(void)
+{
+    g_select_menu.request_exit_game = 0;
+}
+
 void select_menu_actions_handle(uint32_t pressed)
 {
     int x;
@@ -78,19 +102,27 @@ void select_menu_actions_handle(uint32_t pressed)
 
     if (g_select_menu.page == SELECT_MENU_PAGE_MAIN) {
         if (pressed & PAD_UP)
-            g_select_menu.main_sel = wrap_index(g_select_menu.main_sel - 1, 3);
+            g_select_menu.main_sel = wrap_index(g_select_menu.main_sel - 1, 5);
         if (pressed & PAD_DOWN)
-            g_select_menu.main_sel = wrap_index(g_select_menu.main_sel + 1, 3);
+            g_select_menu.main_sel = wrap_index(g_select_menu.main_sel + 1, 5);
 
         if (pressed & (PAD_START | PAD_CROSS)) {
             if (g_select_menu.main_sel == 0) {
                 g_select_menu.open = 0;
             } else if (g_select_menu.main_sel == 1) {
+                g_select_menu.request_restart_game = 1;
+                g_select_menu.open = 0;
+                g_select_menu.page = SELECT_MENU_PAGE_MAIN;
+            } else if (g_select_menu.main_sel == 2) {
                 g_select_menu.page = SELECT_MENU_PAGE_VIDEO;
                 g_select_menu.video_sel = 0;
-            } else {
+            } else if (g_select_menu.main_sel == 3) {
                 g_select_menu.page = SELECT_MENU_PAGE_GAME_OPTIONS;
                 g_select_menu.game_sel = 0;
+            } else {
+                g_select_menu.request_exit_game = 1;
+                g_select_menu.open = 0;
+                g_select_menu.page = SELECT_MENU_PAGE_MAIN;
             }
         }
         return;

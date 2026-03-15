@@ -2,19 +2,20 @@
 
 #include <dirent.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
-#define LAUNCHER_BROWSER_MAX_ENTRIES 128
+#define LAUNCHER_BROWSER_PAGE_ENTRIES 16
 #define LAUNCHER_BROWSER_ROOT "mass:/"
 
-static launcher_browser_entry_t g_entries[LAUNCHER_BROWSER_MAX_ENTRIES];
+static launcher_browser_entry_t g_entries[LAUNCHER_BROWSER_PAGE_ENTRIES];
 static char g_current_path[256];
 static int g_entry_count = 0;
 static int g_selected = 0;
 static int g_scroll = 0;
 static int g_last_error = 0;
+static int g_page_start = 0;
+static int g_has_more = 0;
 
 static int has_rom_ext(const char *name)
 {
@@ -41,44 +42,17 @@ static void path_join(char *out, size_t out_size, const char *base, const char *
         snprintf(out, out_size, "%s/%s", base, name);
 }
 
-static int entry_cmp(const void *a, const void *b)
-{
-    const launcher_browser_entry_t *ea = (const launcher_browser_entry_t *)a;
-    const launcher_browser_entry_t *eb = (const launcher_browser_entry_t *)b;
-
-    if (ea->is_dir != eb->is_dir)
-        return eb->is_dir - ea->is_dir;
-
-    return strcmp(ea->name, eb->name);
-}
-
-void launcher_browser_init(void)
-{
-    snprintf(g_current_path, sizeof(g_current_path), "%s", LAUNCHER_BROWSER_ROOT);
-    g_entry_count = 0;
-    g_selected = 0;
-    g_scroll = 0;
-    g_last_error = 0;
-}
-
-int launcher_browser_open(const char *path)
-{
-    if (!path || !path[0])
-        return 0;
-
-    snprintf(g_current_path, sizeof(g_current_path), "%s", path);
-    return launcher_browser_refresh();
-}
-
-int launcher_browser_refresh(void)
+static int load_page(int start_index, int select_last)
 {
     DIR *d;
     struct dirent *de;
+    int match_index = 0;
 
     g_entry_count = 0;
     g_selected = 0;
     g_scroll = 0;
     g_last_error = 0;
+    g_has_more = 0;
 
     d = opendir(g_current_path);
     if (!d) {
@@ -89,33 +63,87 @@ int launcher_browser_refresh(void)
     while ((de = readdir(d)) != NULL) {
         char full[512];
         struct stat st;
+        int keep = 0;
         int is_dir = 0;
 
         if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
             continue;
 
-        path_join(full, sizeof(full), g_current_path, de->d_name);
+        if (has_rom_ext(de->d_name)) {
+            keep = 1;
+            is_dir = 0;
+        } else {
+            path_join(full, sizeof(full), g_current_path, de->d_name);
+            if (stat(full, &st) == 0 && S_ISDIR(st.st_mode)) {
+                keep = 1;
+                is_dir = 1;
+            }
+        }
 
-        if (stat(full, &st) == 0 && S_ISDIR(st.st_mode))
-            is_dir = 1;
-
-        if (!is_dir && !has_rom_ext(de->d_name))
+        if (!keep)
             continue;
+
+        if (match_index < start_index) {
+            match_index++;
+            continue;
+        }
+
+        if (g_entry_count >= LAUNCHER_BROWSER_PAGE_ENTRIES) {
+            g_has_more = 1;
+            break;
+        }
 
         snprintf(g_entries[g_entry_count].name, sizeof(g_entries[g_entry_count].name), "%s", de->d_name);
         g_entries[g_entry_count].is_dir = is_dir;
         g_entry_count++;
-
-        if (g_entry_count >= LAUNCHER_BROWSER_MAX_ENTRIES)
-            break;
+        match_index++;
     }
 
     closedir(d);
 
-    if (g_entry_count > 1)
-        qsort(g_entries, g_entry_count, sizeof(g_entries[0]), entry_cmp);
+    g_page_start = start_index;
+
+    if (g_entry_count <= 0) {
+        g_selected = 0;
+        g_scroll = 0;
+        return 1;
+    }
+
+    if (select_last)
+        g_selected = g_entry_count - 1;
+    else
+        g_selected = 0;
+
+    if (g_selected < g_scroll)
+        g_scroll = g_selected;
 
     return 1;
+}
+
+void launcher_browser_init(void)
+{
+    snprintf(g_current_path, sizeof(g_current_path), "%s", LAUNCHER_BROWSER_ROOT);
+    g_entry_count = 0;
+    g_selected = 0;
+    g_scroll = 0;
+    g_last_error = 0;
+    g_page_start = 0;
+    g_has_more = 0;
+}
+
+int launcher_browser_open(const char *path)
+{
+    if (!path || !path[0])
+        return 0;
+
+    snprintf(g_current_path, sizeof(g_current_path), "%s", path);
+    g_page_start = 0;
+    return load_page(0, 0);
+}
+
+int launcher_browser_refresh(void)
+{
+    return load_page(g_page_start, 0);
 }
 
 int launcher_browser_go_parent(void)
@@ -175,20 +203,50 @@ int launcher_browser_last_error(void)
 
 void launcher_browser_move(int delta, int visible_rows)
 {
+    int max_scroll;
+
     if (g_entry_count <= 0)
         return;
 
-    g_selected += delta;
+    while (delta > 0) {
+        if (g_selected + 1 < g_entry_count) {
+            g_selected++;
+        } else if (g_has_more) {
+            if (!load_page(g_page_start + g_entry_count, 0))
+                break;
+        } else {
+            break;
+        }
+        delta--;
+    }
 
-    if (g_selected < 0)
-        g_selected = 0;
-    if (g_selected >= g_entry_count)
-        g_selected = g_entry_count - 1;
+    while (delta < 0) {
+        if (g_selected > 0) {
+            g_selected--;
+        } else if (g_page_start > 0) {
+            int prev_start = g_page_start - LAUNCHER_BROWSER_PAGE_ENTRIES;
+            if (prev_start < 0)
+                prev_start = 0;
+            if (!load_page(prev_start, 1))
+                break;
+        } else {
+            break;
+        }
+        delta++;
+    }
 
     if (g_selected < g_scroll)
         g_scroll = g_selected;
+
     if (g_selected >= g_scroll + visible_rows)
         g_scroll = g_selected - visible_rows + 1;
+
+    max_scroll = g_entry_count - visible_rows;
+    if (max_scroll < 0)
+        max_scroll = 0;
+
+    if (g_scroll > max_scroll)
+        g_scroll = max_scroll;
     if (g_scroll < 0)
         g_scroll = 0;
 }

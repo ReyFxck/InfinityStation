@@ -43,14 +43,14 @@ static void draw_main_page(const launcher_state_t *state)
 
     launcher_font_draw_string_color_scaled(
         LAUNCHER_MAIN_ITEM0_X, LAUNCHER_MAIN_ITEM0_Y,
-        state->main_sel == 0 ? "> START GAME" : "  START GAME",
+        state->main_sel == 0 ? "> BROWSE USB" : "  BROWSE USB",
         state->main_sel == 0 ? LAUNCHER_COLOR_HIGHLIGHT : LAUNCHER_COLOR_TEXT,
         3
     );
 
     launcher_font_draw_string_color_scaled(
         LAUNCHER_MAIN_ITEM1_X, LAUNCHER_MAIN_ITEM1_Y,
-        state->main_sel == 1 ? "> BROWSE USB" : "  BROWSE USB",
+        state->main_sel == 1 ? "> EMBEDDED MARIO" : "  EMBEDDED MARIO",
         state->main_sel == 1 ? LAUNCHER_COLOR_HIGHLIGHT : LAUNCHER_COLOR_TEXT,
         3
     );
@@ -78,7 +78,7 @@ static void draw_main_page(const launcher_state_t *state)
 
     launcher_font_draw_string_color_scaled(
         LAUNCHER_HINT1_X, LAUNCHER_HINT1_Y,
-        "CROSS START = OPEN",
+        "X = OPEN OR START",
         LAUNCHER_COLOR_TEXT,
         2
     );
@@ -150,8 +150,8 @@ static void draw_browser_page(void)
         }
     }
 
-    launcher_font_draw_string_color_scaled(24, 390, "CROSS OPEN SELECT", LAUNCHER_COLOR_TEXT, 2);
-    launcher_font_draw_string_color_scaled(24, 414, "CIRCLE BACK  SELECT REFRESH", LAUNCHER_COLOR_TEXT, 2);
+    launcher_font_draw_string_color_scaled(24, 390, "UP DOWN MOVE  L1 R1 PAGE", LAUNCHER_COLOR_TEXT, 2);
+    launcher_font_draw_string_color_scaled(24, 414, "X OPEN OR START  O BACK  SELECT RELOAD", LAUNCHER_COLOR_TEXT, 2);
 }
 
 static void draw_options_page(void)
@@ -179,7 +179,7 @@ static void draw_options_page(void)
 
     launcher_font_draw_string_color_scaled(
         54, 404,
-        "CROSS START CIRCLE = BACK",
+        "X OR O = BACK",
         LAUNCHER_COLOR_TEXT,
         2
     );

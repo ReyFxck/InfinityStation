@@ -28,6 +28,8 @@ typedef struct
     int game_sel;
     int show_fps;
     int frame_limit;
+    int request_restart_game;
+    int request_exit_game;
 } select_menu_state_t;
 
 #endif

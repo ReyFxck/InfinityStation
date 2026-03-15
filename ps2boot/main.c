@@ -400,6 +400,65 @@ int main(int argc, char *argv[])
 
         if (ps2_menu_is_open()) {
             ps2_menu_handle(pressed);
+
+            if (ps2_menu_restart_game_requested()) {
+                ps2_menu_clear_restart_game_request();
+                ps2_menu_close();
+                retro_unload_game();
+                if (g_loaded_rom_data) {
+                    free(g_loaded_rom_data);
+                    g_loaded_rom_data = NULL;
+                    g_loaded_rom_size = 0;
+                }
+                ps2_video_set_debug("", "", "", "");
+                g_prev_buttons = 0;
+                g_frame_deadline = 0;
+                g_fps_display = 0;
+                g_fps_accum = 0;
+                g_fps_last_clock = 0;
+                g_core_nominal_fps = 60.0;
+                scr_clear();
+                if (!load_selected_game())
+                    die("retro_load_game() falhou");
+                memset(&av, 0, sizeof(av));
+                retro_get_system_av_info(&av);
+                if (av.timing.fps > 1.0)
+                    g_core_nominal_fps = av.timing.fps;
+                scr_clear();
+                continue;
+            }
+
+            if (ps2_menu_exit_game_requested()) {
+                ps2_menu_clear_exit_game_request();
+                ps2_menu_close();
+                retro_unload_game();
+                if (g_loaded_rom_data) {
+                    free(g_loaded_rom_data);
+                    g_loaded_rom_data = NULL;
+                    g_loaded_rom_size = 0;
+                }
+                ps2_video_set_debug("", "", "", "");
+                g_prev_buttons = 0;
+                g_frame_deadline = 0;
+                g_fps_display = 0;
+                g_fps_accum = 0;
+                g_fps_last_clock = 0;
+                g_core_nominal_fps = 60.0;
+                ps2_video_get_offsets(&saved_launcher_x, &saved_launcher_y);
+                ps2_video_set_offsets(0, 0);
+                scr_clear();
+                run_launcher();
+                ps2_video_set_offsets(saved_launcher_x, saved_launcher_y);
+                if (!load_selected_game())
+                    die("retro_load_game() falhou");
+                memset(&av, 0, sizeof(av));
+                retro_get_system_av_info(&av);
+                if (av.timing.fps > 1.0)
+                    g_core_nominal_fps = av.timing.fps;
+                scr_clear();
+                continue;
+            }
+
             if (ps2_menu_is_open())
                 ps2_menu_draw();
             g_prev_buttons = buttons;
