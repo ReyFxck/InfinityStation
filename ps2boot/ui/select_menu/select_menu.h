@@ -11,6 +11,7 @@ void select_menu_handle(uint32_t pressed);
 void select_menu_draw(void);
 
 int select_menu_show_fps_enabled(void);
+int select_menu_fps_rainbow_enabled(void);
 int select_menu_frame_limit_mode(void);
 
 int select_menu_restart_game_requested(void);

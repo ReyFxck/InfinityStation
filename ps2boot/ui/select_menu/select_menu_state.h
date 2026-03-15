@@ -27,6 +27,7 @@ typedef struct
     int aspect_sel;
     int game_sel;
     int show_fps;
+    int fps_rainbow;
     int frame_limit;
     int request_restart_game;
     int request_exit_game;

@@ -118,7 +118,13 @@ static void update_fps_overlay(void)
         else
             snprintf(l2, sizeof(l2), "LIMIT: OFF");
 
-        ps2_video_set_debug(l1, l2, "", "");
+        if (ps2_menu_fps_rainbow_enabled()) {
+            char l2fx[64];
+            snprintf(l2fx, sizeof(l2fx), "%.56s MORE FPS", l2);
+            ps2_video_set_debug(l1, l2fx, "", "");
+        } else {
+            ps2_video_set_debug(l1, l2, "", "");
+        }
     } else {
         ps2_video_set_debug("", "", "", "");
     }

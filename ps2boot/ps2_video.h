@@ -40,6 +40,7 @@ uint16_t ps2_video_ui_get_pixel(unsigned x, unsigned y);
 
 void ps2_video_menu_begin_frame(void);
 void ps2_video_menu_put_pixel(unsigned x, unsigned y, uint16_t color);
+void ps2_video_menu_put_pixel_raw(unsigned x, unsigned y, uint16_t color);
 void ps2_video_menu_end_frame(void);
 
 void ps2_video_launcher_begin_frame(uint16_t clear_color);

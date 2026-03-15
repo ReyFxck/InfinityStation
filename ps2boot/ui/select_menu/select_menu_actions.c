@@ -19,6 +19,12 @@ static void cycle_frame_limit(int dir)
     g_select_menu.frame_limit = wrap_index(g_select_menu.frame_limit + dir, 4);
 }
 
+static int game_options_count(void)
+{
+    return g_select_menu.show_fps ? 3 : 2;
+}
+
+
 void select_menu_actions_init(void)
 {
     g_select_menu.open = 0;
@@ -28,6 +34,7 @@ void select_menu_actions_init(void)
     g_select_menu.aspect_sel = 0;
     g_select_menu.game_sel = 0;
     g_select_menu.show_fps = 0;
+    g_select_menu.fps_rainbow = 0;
     g_select_menu.frame_limit = SELECT_MENU_FRAME_LIMIT_AUTO;
     g_select_menu.request_restart_game = 0;
     g_select_menu.request_exit_game = 0;
@@ -61,6 +68,11 @@ int select_menu_actions_show_fps_enabled(void)
     return g_select_menu.show_fps;
 }
 
+int select_menu_actions_fps_rainbow_enabled(void)
+{
+    return g_select_menu.fps_rainbow;
+}
+
 int select_menu_actions_frame_limit_mode(void)
 {
     return g_select_menu.frame_limit;
@@ -90,6 +102,7 @@ void select_menu_actions_handle(uint32_t pressed)
 {
     int x;
     int y;
+    int count;
 
     if (!g_select_menu.open)
         return;
@@ -195,15 +208,27 @@ void select_menu_actions_handle(uint32_t pressed)
     }
 
     if (g_select_menu.page == SELECT_MENU_PAGE_GAME_OPTIONS) {
+        count = game_options_count();
+
         if (pressed & PAD_UP)
-            g_select_menu.game_sel = wrap_index(g_select_menu.game_sel - 1, 3);
+            g_select_menu.game_sel = wrap_index(g_select_menu.game_sel - 1, count);
         if (pressed & PAD_DOWN)
-            g_select_menu.game_sel = wrap_index(g_select_menu.game_sel + 1, 3);
+            g_select_menu.game_sel = wrap_index(g_select_menu.game_sel + 1, count);
 
         if (g_select_menu.game_sel == 0) {
-            if ((pressed & PAD_LEFT) || (pressed & PAD_RIGHT) || (pressed & PAD_START) || (pressed & PAD_CROSS))
+            if ((pressed & PAD_LEFT) || (pressed & PAD_RIGHT) || (pressed & PAD_START) || (pressed & PAD_CROSS)) {
                 g_select_menu.show_fps = !g_select_menu.show_fps;
-        } else if (g_select_menu.game_sel == 1) {
+                if (!g_select_menu.show_fps) {
+                    g_select_menu.fps_rainbow = 0;
+                    if (g_select_menu.game_sel >= game_options_count())
+                        g_select_menu.game_sel = game_options_count() - 1;
+                }
+            }
+        } else if (g_select_menu.show_fps && g_select_menu.game_sel == 1) {
+            if ((pressed & PAD_LEFT) || (pressed & PAD_RIGHT) || (pressed & PAD_START) || (pressed & PAD_CROSS))
+                g_select_menu.fps_rainbow = !g_select_menu.fps_rainbow;
+        } else if ((!g_select_menu.show_fps && g_select_menu.game_sel == 1) ||
+                   ( g_select_menu.show_fps && g_select_menu.game_sel == 2)) {
             if (pressed & PAD_LEFT)
                 cycle_frame_limit(-1);
             if (pressed & PAD_RIGHT)

@@ -1,4 +1,5 @@
 #include "ps2_video.h"
+#include "ps2_menu.h"
 
 #include <string.h>
 #include <stdint.h>
@@ -184,16 +185,52 @@ static void dbg_draw_string(unsigned x, unsigned y, const char *s)
     dbg_draw_string_color(x, y, s, 0xFFFF);
 }
 
+static uint16_t dbg_rainbow_color(unsigned phase)
+{
+    unsigned region = (phase >> 8) % 6;
+    unsigned t = phase & 0xFF;
+    unsigned r = 0;
+    unsigned g = 0;
+    unsigned b = 0;
+
+    switch (region) {
+        case 0: r = 255;     g = t;       b = 0;         break;
+        case 1: r = 255 - t; g = 255;     b = 0;         break;
+        case 2: r = 0;       g = 255;     b = t;         break;
+        case 3: r = 0;       g = 255 - t; b = 255;       break;
+        case 4: r = t;       g = 0;       b = 255;       break;
+        default:
+                r = 255;     g = 0;       b = 255 - t;   break;
+    }
+
+    return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+}
+
 static void dbg_overlay(void)
 {
+    static unsigned rainbow_phase = 0;
+    uint16_t c = 0xFFFF;
+
     if (!g_dbg1[0] && !g_dbg2[0] && !g_dbg3[0] && !g_dbg4[0])
         return;
+
+    if (ps2_menu_fps_rainbow_enabled()) {
+        rainbow_phase = (rainbow_phase + 24) % 1536;
+        c = dbg_rainbow_color(rainbow_phase);
+
+        dbg_draw_string_color(2,  2, g_dbg1, c);
+        dbg_draw_string_color(2, 10, g_dbg2, c);
+        dbg_draw_string_color(2, 18, g_dbg3, c);
+        dbg_draw_string_color(2, 26, g_dbg4, c);
+        return;
+    }
 
     dbg_draw_string(2,  2, g_dbg1);
     dbg_draw_string(2, 10, g_dbg2);
     dbg_draw_string(2, 18, g_dbg3);
     dbg_draw_string(2, 26, g_dbg4);
 }
+
 
 static void menu_tint_blue(void)
 {
@@ -214,7 +251,7 @@ static void menu_tint_blue(void)
 }
 
 static void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync);
-static void ps2_video_upload_and_draw(unsigned width, unsigned height, int wait_vsync)
+static __attribute__((unused)) void ps2_video_upload_and_draw(unsigned width, unsigned height, int wait_vsync)
 {
     qword_t *q;
     texrect_t rect;
@@ -294,13 +331,27 @@ static void ps2_video_upload_and_draw(unsigned width, unsigned height, int wait_
 }
 
 
-void ps2_video_menu_put_pixel(unsigned x, unsigned y, uint16_t color)
+static void ps2_video_menu_put_pixel_store(unsigned x, unsigned y, uint16_t color)
+{
+    if (x >= 256 || y >= 224)
+        return;
+
+    g_upload[y * 256 + x] = ps2_video_convert_rgb565(color);
+}
+
+void ps2_video_menu_put_pixel_raw(unsigned x, unsigned y, uint16_t color)
 {
     if (x >= 256 || y >= 224)
         return;
 
     g_upload[y * 256 + x] = color;
 }
+
+void ps2_video_menu_put_pixel(unsigned x, unsigned y, uint16_t color)
+{
+    ps2_video_menu_put_pixel_store(x, y, color);
+}
+
 
 void ps2_video_menu_begin_frame(void)
 {
@@ -537,32 +588,18 @@ void ps2_video_ui_set_menu_target(void)
 
 void ps2_video_ui_put_pixel(unsigned x, unsigned y, uint16_t color)
 {
-    if (g_ui_target_launcher) {
-        if (x >= PS2_LAUNCHER_WIDTH || y >= PS2_LAUNCHER_HEIGHT)
-            return;
-        g_launcher_upload[y][x] = color;
-        return;
-    }
-
-    if (x >= 256 || y >= 224)
-        return;
-
-    g_upload[y * 256 + x] = color;
+    ps2_video_menu_put_pixel_store(x, y, color);
 }
+
 
 uint16_t ps2_video_ui_get_pixel(unsigned x, unsigned y)
 {
-    if (g_ui_target_launcher) {
-        if (x >= PS2_LAUNCHER_WIDTH || y >= PS2_LAUNCHER_HEIGHT)
-            return 0;
-        return g_launcher_upload[y][x];
-    }
-
     if (x >= 256 || y >= 224)
         return 0;
 
     return g_upload[y * 256 + x];
 }
+
 
 void ps2_video_launcher_begin_frame(uint16_t clear_color)
 {

@@ -44,3 +44,9 @@ ps2boot/ui/assets/launcher_logo_rgba
 *.restore_footer_positions
 *.select_color_fix
 *.visual_center_fix
+
+# temp patch backups
+*_fix
+*.no_shadow_test
+*.close_black_test
+*.select_button_patch

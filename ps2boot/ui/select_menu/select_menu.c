@@ -40,6 +40,11 @@ int select_menu_show_fps_enabled(void)
     return select_menu_actions_show_fps_enabled();
 }
 
+int select_menu_fps_rainbow_enabled(void)
+{
+    return select_menu_actions_fps_rainbow_enabled();
+}
+
 int select_menu_frame_limit_mode(void)
 {
     return select_menu_actions_frame_limit_mode();
