@@ -1,3 +1,4 @@
+#include "font/browser_font.h"
 #include "launcher_pages_internal.h"
 
 #include <stdio.h>
@@ -12,14 +13,14 @@ void launcher_pages_draw_browser_page(void)
 
     launcher_pages_fit_text(path_line, sizeof(path_line), launcher_browser_current_path(), 48);
 
-    launcher_font_draw_string_color_scaled(
+    browser_font_draw_string_color_scaled(
         LAUNCHER_BROWSER_TITLE_X, LAUNCHER_BROWSER_TITLE_Y,
         "USB BROWSER",
         LAUNCHER_COLOR_TEXT,
         4
     );
 
-    launcher_font_draw_string_color_scaled(
+    browser_font_draw_string_color_scaled(
         LAUNCHER_BROWSER_PATH_X, LAUNCHER_BROWSER_PATH_Y,
         path_line,
         LAUNCHER_COLOR_HIGHLIGHT,
@@ -27,9 +28,9 @@ void launcher_pages_draw_browser_page(void)
     );
 
     if (launcher_browser_last_error()) {
-        launcher_font_draw_string_color_scaled(178, 184, "OPEN FAILED", LAUNCHER_COLOR_HIGHLIGHT, 3);
+        browser_font_draw_string_color_scaled(178, 184, "OPEN FAILED", LAUNCHER_COLOR_HIGHLIGHT, 3);
     } else if (count <= 0) {
-        launcher_font_draw_string_color_scaled(96, 184, "NO FOLDERS OR ROMS", LAUNCHER_COLOR_HIGHLIGHT, 3);
+        browser_font_draw_string_color_scaled(96, 184, "NO FOLDERS OR ROMS", LAUNCHER_COLOR_HIGHLIGHT, 3);
     } else {
         for (row = 0; row < LAUNCHER_BROWSER_ROWS; row++) {
             int index = scroll + row;
@@ -51,7 +52,7 @@ void launcher_pages_draw_browser_page(void)
             else
                 snprintf(line, sizeof(line), "%s %s", index == selected ? ">" : " ", name_buf);
 
-            launcher_font_draw_string_color_scaled(
+            browser_font_draw_string_color_scaled(
                 LAUNCHER_BROWSER_LIST_X,
                 LAUNCHER_BROWSER_LIST_Y + row * LAUNCHER_BROWSER_STEP_Y,
                 line,
@@ -61,6 +62,6 @@ void launcher_pages_draw_browser_page(void)
         }
     }
 
-    launcher_font_draw_string_color_scaled(24, 390, "UP DOWN MOVE  L1 R1 PAGE", LAUNCHER_COLOR_TEXT, 2);
-    launcher_font_draw_string_color_scaled(24, 414, "X OPEN OR START  O BACK  SELECT RELOAD", LAUNCHER_COLOR_TEXT, 2);
+    browser_font_draw_string_color_scaled(24, 390, "UP DOWN MOVE  L1 R1 PAGE", LAUNCHER_COLOR_TEXT, 2);
+    browser_font_draw_string_color_scaled(24, 414, "X OPEN OR START  O BACK  SELECT RELOAD", LAUNCHER_COLOR_TEXT, 2);
 }
