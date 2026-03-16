@@ -69,3 +69,14 @@ EE_CFLAGS += -I. -Irom_loader -Irom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 $(EE_BIN): $(ROM_LOADER_OBJS)
 
 EE_CFLAGS += -Iapp -Iplatform/ps2 -Iassets
+
+# APP_SPLIT_BEGIN
+APP_OBJS = \
+        app/app_game.o \
+        app/app_loop.o \
+        app/app_overlay.o
+
+EE_OBJS += $(APP_OBJS)
+
+$(EE_BIN): $(APP_OBJS)
+# APP_SPLIT_END
