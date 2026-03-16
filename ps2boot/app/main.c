@@ -1,5 +1,6 @@
 #include "app_game.h"
-#include "app_loop.h"
+#include "app_launcher.h"
+#include "app_runtime.h"
 #include "app_overlay.h"
 
 #include <kernel.h>
@@ -164,7 +165,7 @@ int main(int argc, char *argv[])
     ps2_video_get_offsets(&saved_launcher_x, &saved_launcher_y);
     ps2_video_set_offsets(0, 0);
     scr_clear();
-    app_loop_run_launcher(&g_prev_buttons);
+    app_launcher_run(&g_prev_buttons);
     ps2_video_set_offsets(saved_launcher_x, saved_launcher_y);
 
     if (!app_game_load_selected())
@@ -192,7 +193,7 @@ int main(int argc, char *argv[])
         buttons = ps2_input_buttons();
         pressed = buttons & ~g_prev_buttons;
 
-        if (app_loop_handle_menu(buttons,
+        if (app_runtime_handle_menu(buttons,
                                  pressed,
                                  &g_prev_buttons,
                                  &av,
