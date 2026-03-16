@@ -73,10 +73,23 @@ EE_CFLAGS += -Iapp -Iplatform/ps2 -Iassets
 # APP_SPLIT_BEGIN
 APP_OBJS = \
         app/app_game.o \
-        app/app_loop.o \
+        app/app_launcher.o \
+        app/app_runtime.o \
         app/app_overlay.o
 
 EE_OBJS += $(APP_OBJS)
 
 $(EE_BIN): $(APP_OBJS)
 # APP_SPLIT_END
+
+EE_OBJS += \
+
+EE_OBJS += \
+        ui/select_menu/select_menu_actions_main.o \
+        ui/select_menu/select_menu_actions_video.o \
+        ui/select_menu/select_menu_actions_game.o
+
+$(EE_BIN): \
+        ui/select_menu/select_menu_actions_main.o \
+        ui/select_menu/select_menu_actions_video.o \
+        ui/select_menu/select_menu_actions_game.o
