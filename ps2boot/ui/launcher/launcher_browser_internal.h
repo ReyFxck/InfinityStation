@@ -2,6 +2,7 @@
 #define LAUNCHER_BROWSER_INTERNAL_H
 
 #include "launcher_browser.h"
+#include "launcher_browser_sort.h"
 #include <dirent.h>
 #include <stddef.h>
 

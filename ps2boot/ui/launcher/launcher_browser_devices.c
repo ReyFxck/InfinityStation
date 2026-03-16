@@ -51,8 +51,11 @@ int launcher_browser_scan_root_devices(void)
         found = 1;
     }
 
-    if (!found)
+    if (!found) {
         g_last_error = 1;
+        return 0;
+    }
 
-    return found;
+    launcher_browser_sort_entries();
+    return 1;
 }

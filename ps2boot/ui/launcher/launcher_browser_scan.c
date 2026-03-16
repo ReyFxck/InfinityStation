@@ -94,5 +94,8 @@ int launcher_browser_load_more_entries(int want)
         added++;
     }
 
+    if (g_scan_done)
+        launcher_browser_sort_entries();
+
     return 1;
 }
