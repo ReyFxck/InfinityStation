@@ -1,7 +1,7 @@
 #include "launcher_logo.h"
 
 #include <stdint.h>
-#include "../../ps2_launcher_video.h"
+#include "ps2_launcher_video.h"
 
 extern unsigned char launcher_logo_rgba[];
 

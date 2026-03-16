@@ -1,6 +1,6 @@
 #include "launcher_font.h"
 
-#include "../../ps2_launcher_video.h"
+#include "ps2_launcher_video.h"
 #include "../select_menu/font/select_menu_font_data.h"
 
 static void launcher_font_draw_char_scaled(unsigned x, unsigned y, char c, uint16_t color, unsigned scale)

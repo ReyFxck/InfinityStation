@@ -1,7 +1,7 @@
 #include "select_menu_actions.h"
 
 #include <libpad.h>
-#include "../../ps2_video.h"
+#include "ps2_video.h"
 
 static select_menu_state_t g_select_menu;
 

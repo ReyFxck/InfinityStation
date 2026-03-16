@@ -1,6 +1,6 @@
 #include "launcher_render.h"
 
-#include "../../ps2_launcher_video.h"
+#include "ps2_launcher_video.h"
 #include "launcher_pages.h"
 #include "launcher_theme.h"
 

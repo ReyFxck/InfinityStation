@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "../../ps2_video.h"
+#include "ps2_video.h"
 #include "select_menu_theme.h"
 #include "font/select_menu_font.h"
 

@@ -1,5 +1,5 @@
 #include "select_menu_font.h"
-#include "../../../ps2_video.h"
+#include "ps2_video.h"
 #include "select_menu_font_data.h"
 
 static void select_menu_font_draw_char(unsigned x, unsigned y, char c, uint16_t color)
