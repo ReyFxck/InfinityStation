@@ -1,86 +1,79 @@
 # PS2 SNES Concept
 
-[English](README.md)
+[Português-BR](README.pt-BR.md)
 
-Um frontend/boot para PlayStation 2 voltado para executar um core de SNES, com launcher personalizado, menu in-game, suporte a ROM ZIP e código específico para PS2.
+A PlayStation 2 frontend/boot project for running a SNES core with a custom launcher, in-game menu, ZIP ROM loading, and PS2-specific platform code.
 
-## Status
+> [!NOTE]
+> This project is currently **W.I.P**.
+>
+> It is focused on cleanup, modularization, PS2 usability improvements, and making future work easier.
 
-**W.I.P**
+## Inspired By
 
-Este projeto ainda está em construção e em melhoria contínua.
-
-O trabalho recente foi focado em:
-- dividir arquivos grandes em módulos menores
-- melhorar a manutenção do projeto
-- melhorar a usabilidade no lado do PS2
-- preparar a base de código para futuras correções e adições
-
-## Inspirado Em
-
-Este projeto é fortemente inspirado em:
+This project is heavily inspired by:
 - **PGEN**
 - **SNESticle**
 - **SNESStation**
 
-Não como cópia direta de apenas um deles, mas como parte da ideia geral, do estilo e da direção para criar uma experiência mais usável de emulação e launcher no PlayStation 2.
+Not as a direct copy of any one of them, but as part of the general idea, style, and direction for building a more usable SNES frontend/experience on PlayStation 2.
 
-## Recursos Atuais
+## Current Features
 
-- Opção de iniciar ROM embutida
-- Navegador/launcher por USB
-- Menu in-game
-- Ajuste de posição da imagem
-- Opções de proporção de tela
-- Overlay de FPS
-- Opções de limite de frames
-- Suporte para carregar ROMs ZIP
-- Código modularizado para app, launcher, menu e vídeo do PS2
+- Embedded ROM boot option
+- USB browser/launcher
+- In-game menu
+- Display position adjustment
+- Aspect ratio options
+- FPS overlay
+- Frame limit options
+- ZIP ROM loading support
+- Modularized app, launcher, menu, and PS2 video code
 
-## Progresso
+## Progress
 
-Os trabalhos recentes incluem:
-- divisão de arquivos grandes do launcher em módulos menores
-- divisão das ações e da renderização das páginas do menu
-- divisão do código de vídeo do PS2 em partes separadas
-- divisão das responsabilidades de inicialização, runtime e callbacks do app
-- adição de carregamento modular de ROM
-- adição de suporte a ZIP com `miniz`
-- limpeza e consolidação do `Makefile`
+Recent work includes:
+- splitting large launcher files into smaller modules
+- splitting select menu actions and page rendering
+- splitting PS2 video code into separate parts
+- splitting app startup, runtime, and callback responsibilities
+- adding modular ROM loading
+- adding ZIP support through `miniz`
+- cleaning and consolidating the `Makefile`
 
-## Melhorias Planejadas
+## Planned Improvements
 
-- mais opções no launcher
-- melhor feedback visual e mensagens de erro
-- mais testes de compatibilidade de ROMs
-- mais polimento visual
-- mais documentação
-- mais testes em hardware real
+- more launcher options
+- better UI feedback and error messages
+- more ROM compatibility testing
+- more visual polish
+- more documentation
+- more real hardware testing
 
-## Créditos
+## Credits
 
 - **Iaddis** (**@iaddis**)  
-  Algumas ideias sobre como implementar a abertura de arquivos ZIP.
+  Some ideas about how ZIP file loading could be implemented.
 
 - **Rich Geldreich** (**@richgel999**)  
-  `miniz`, usado na parte de descompactação e suporte a ZIP.
+  `miniz`, used for ZIP decompression and support.
 
-- **Snes9x e comunidade**, junto com **@libretro**  
-  Pelo core `snes9x2005` e por trabalhos relacionados usados neste projeto.
+- **Snes9x and community**, together with **@libretro**  
+  For the `snes9x2005` core and related work used in this project.
 
-- **Contribuidores do ps2sdk / ps2dev** (**@ps2dev**)  
-  Obrigado pelo esforço para tornar mais fácil compilar aplicações para o PlayStation 2.
+- **ps2sdk / ps2dev contributors** (**@ps2dev**)  
+  Thank you for the effort that makes it easier to build applications for the PlayStation 2.
 
-## Observações
+## Notes
 
-Isto não representa uma versão final e totalmente polida.
+This does not represent a final polished release.
 
-Atualmente o projeto está focado em:
-- limpeza de código
-- modularização
-- melhorias de usabilidade no PS2
-- facilitar o trabalho futuro
+The project is currently focused on:
+- code cleanup
+- modularization
+- PS2 usability improvements
+- making future work easier
 
-## Licença
+## License
 
-Veja o arquivo `LICENSE` do repositório.
+See the `LICENSE` file in this repository.
