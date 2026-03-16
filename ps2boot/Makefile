@@ -149,3 +149,13 @@ EE_OBJS += \
 $(EE_BIN): \
         app/app_boot.o \
         app/app_callbacks.o
+
+EE_OBJS += \
+        ui/select_menu/select_menu_pages_common.o \
+        ui/select_menu/select_menu_pages_icons.o \
+        ui/select_menu/select_menu_pages_layout.o
+
+$(EE_BIN): \
+        ui/select_menu/select_menu_pages_common.o \
+        ui/select_menu/select_menu_pages_icons.o \
+        ui/select_menu/select_menu_pages_layout.o

@@ -2,9 +2,10 @@
 #define SELECT_MENU_PAGES_INTERNAL_H
 
 #include "select_menu_pages.h"
+
+#include "ps2_video.h"
 #include "select_menu_theme.h"
 #include "font/select_menu_font.h"
-#include "ps2_video.h"
 
 unsigned select_menu_pages_center_x_for_text(const char *text);
 unsigned select_menu_pages_text_width_px(const char *text);
