@@ -93,3 +93,13 @@ $(EE_BIN): \
         ui/select_menu/select_menu_actions_main.o \
         ui/select_menu/select_menu_actions_video.o \
         ui/select_menu/select_menu_actions_game.o
+
+EE_OBJS += \
+        ui/select_menu/select_menu_pages_main.o \
+        ui/select_menu/select_menu_pages_video.o \
+        ui/select_menu/select_menu_pages_game.o
+
+$(EE_BIN): \
+        ui/select_menu/select_menu_pages_main.o \
+        ui/select_menu/select_menu_pages_video.o \
+        ui/select_menu/select_menu_pages_game.o
