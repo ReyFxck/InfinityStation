@@ -133,3 +133,11 @@ $(EE_BIN): \
         ui/launcher/launcher_browser_state.o \
         ui/launcher/launcher_browser_open.o \
         ui/launcher/launcher_browser_nav.o
+
+EE_OBJS += \
+        platform/ps2/ps2_video_ui.o \
+        platform/ps2/ps2_video_launcher_target.o
+
+$(EE_BIN): \
+        platform/ps2/ps2_video_ui.o \
+        platform/ps2/ps2_video_launcher_target.o
