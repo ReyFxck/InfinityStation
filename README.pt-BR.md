@@ -1,8 +1,13 @@
+<div align="center">
+
 # PS2 SNES Concept
 
-[English](README.md)
+[![English](https://img.shields.io/badge/English-red)](README.md)
+[![Português-BR](https://img.shields.io/badge/Português--BR-blue)](README.pt-BR.md)
 
 Um frontend/boot para PlayStation 2 voltado para executar um core de SNES, com launcher personalizado, menu in-game, suporte a ROM ZIP e código específico para PS2.
+
+</div>
 
 > [!NOTE]
 > Este projeto está em **W.I.P**.
