@@ -123,3 +123,13 @@ $(EE_BIN): \
         ui/launcher/launcher_actions_main.o \
         ui/launcher/launcher_actions_browser.o \
         ui/launcher/launcher_actions_options.o
+
+EE_OBJS += \
+        ui/launcher/launcher_browser_state.o \
+        ui/launcher/launcher_browser_open.o \
+        ui/launcher/launcher_browser_nav.o
+
+$(EE_BIN): \
+        ui/launcher/launcher_browser_state.o \
+        ui/launcher/launcher_browser_open.o \
+        ui/launcher/launcher_browser_nav.o
