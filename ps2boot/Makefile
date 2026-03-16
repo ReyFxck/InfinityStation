@@ -141,3 +141,11 @@ EE_OBJS += \
 $(EE_BIN): \
         platform/ps2/ps2_video_ui.o \
         platform/ps2/ps2_video_launcher_target.o
+
+EE_OBJS += \
+        app/app_boot.o \
+        app/app_callbacks.o
+
+$(EE_BIN): \
+        app/app_boot.o \
+        app/app_callbacks.o

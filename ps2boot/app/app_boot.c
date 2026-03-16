@@ -1,0 +1,63 @@
+#include "app_boot.h"
+
+#include "app_launcher.h"
+
+#include <kernel.h>
+#include <sifrpc.h>
+#include <debug.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "ps2_video.h"
+#include "ps2_input.h"
+#include "ps2_menu.h"
+
+void app_boot_init(void (*die_fn)(const char *msg))
+{
+    SifInitRpc(0);
+    init_scr();
+
+    scr_printf("ps2snes2005 launcher boot\n");
+
+    if (!ps2_video_init_once())
+        die_fn("ps2_video_init_once() falhou");
+
+    if (ps2_input_init_once())
+        scr_printf("input init ok\n");
+    else
+        scr_printf("input init falhou\n");
+
+    ps2_menu_init();
+}
+
+void app_boot_log_core_info(void)
+{
+    struct retro_system_info info;
+
+    memset(&info, 0, sizeof(info));
+    retro_get_system_info(&info);
+
+    scr_printf("core: %s %s\n",
+               info.library_name ? info.library_name : "(null)",
+               info.library_version ? info.library_version : "(null)");
+
+    scr_printf("need_fullpath=%d block_extract=%d valid_ext=%s\n",
+               info.need_fullpath,
+               info.block_extract,
+               info.valid_extensions ? info.valid_extensions : "(null)");
+}
+
+void app_boot_run_launcher(uint32_t *prev_buttons, int *saved_launcher_x, int *saved_launcher_y)
+{
+    ps2_video_get_offsets(saved_launcher_x, saved_launcher_y);
+    ps2_video_set_offsets(0, 0);
+    scr_clear();
+    app_launcher_run(prev_buttons);
+    ps2_video_set_offsets(*saved_launcher_x, *saved_launcher_y);
+}
+
+void app_boot_refresh_av_info(struct retro_system_av_info *av)
+{
+    memset(av, 0, sizeof(*av));
+    retro_get_system_av_info(av);
+}
