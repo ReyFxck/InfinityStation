@@ -20,6 +20,7 @@ static int g_analog_requested = 0;
 static char g_pad_buf[256] __attribute__((aligned(64)));
 static struct padButtonStatus g_pad_status;
 static uint32_t g_buttons = 0;
+static uint32_t g_buttons_raw = 0;
 
 /* no libpad do PS2, 7 costuma ser o modo analogico (DualShock) */
 #define PS2_ANALOG_MODE_ID 7
@@ -145,7 +146,8 @@ void ps2_input_poll(void)
         return;
 
     bb = (const unsigned char *)&g_pad_status.btns;
-    now = 0xffff ^ (((uint32_t)bb[1] << 8) | (uint32_t)bb[0]);
+    g_buttons_raw = 0xffff ^ (((uint32_t)bb[1] << 8) | (uint32_t)bb[0]);
+    now = g_buttons_raw;
 
     if (ps2_input_is_analog_active())
         ps2_input_apply_left_stick_as_dpad(&now);
@@ -156,6 +158,21 @@ void ps2_input_poll(void)
 uint32_t ps2_input_buttons(void)
 {
     return g_buttons;
+}
+
+uint32_t ps2_input_raw_buttons(void)
+{
+    return g_buttons_raw;
+}
+
+unsigned char ps2_input_left_x(void)
+{
+    return g_pad_status.ljoy_h;
+}
+
+unsigned char ps2_input_left_y(void)
+{
+    return g_pad_status.ljoy_v;
 }
 
 int16_t ps2_input_libretro_state(unsigned id)

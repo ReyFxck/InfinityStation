@@ -1,27 +1,39 @@
 #include "launcher_browser_internal.h"
 
-#include <dirent.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/stat.h>
+static char launcher_browser_to_lower_ascii(char c)
+{
+    if (c >= 'A' && c <= 'Z')
+        return (char)(c - 'A' + 'a');
+    return c;
+}
 
-int launcher_browser_has_rom_ext(const char *name)
+static int launcher_browser_ext_eq(const char *dot, const char *ext)
+{
+    size_t i = 0;
+
+    if (!dot || !ext)
+        return 0;
+
+    while (dot[i] && ext[i]) {
+        if (launcher_browser_to_lower_ascii(dot[i]) != launcher_browser_to_lower_ascii(ext[i]))
+            return 0;
+        i++;
+    }
+
+    return dot[i] == '\0' && ext[i] == '\0';
+}
+
+static int launcher_browser_has_rom_ext(const char *name)
 {
     const char *dot = strrchr(name, '.');
-
     if (!dot)
         return 0;
 
-    if (!strcmp(dot, ".smc") || !strcmp(dot, ".SMC"))
-        return 1;
-    if (!strcmp(dot, ".sfc") || !strcmp(dot, ".SFC"))
-        return 1;
-    if (!strcmp(dot, ".swc") || !strcmp(dot, ".SWC"))
-        return 1;
-    if (!strcmp(dot, ".fig") || !strcmp(dot, ".FIG"))
-        return 1;
-    if (!strcmp(dot, ".zip") || !strcmp(dot, ".ZIP"))
-        return 1;
+    if (launcher_browser_ext_eq(dot, ".smc")) return 1;
+    if (launcher_browser_ext_eq(dot, ".sfc")) return 1;
+    if (launcher_browser_ext_eq(dot, ".swc")) return 1;
+    if (launcher_browser_ext_eq(dot, ".fig")) return 1;
+    if (launcher_browser_ext_eq(dot, ".zip")) return 1;
 
     return 0;
 }
@@ -51,9 +63,43 @@ void launcher_browser_path_join(char *out, size_t out_size, const char *base, co
         snprintf(out, out_size, "%s/%s", base, name);
 }
 
+static int launcher_browser_dirent_is_dir(const struct dirent *de, const char *full)
+{
+#if defined(DT_DIR)
+    if (de->d_type == DT_DIR)
+        return 1;
+#endif
+
+#if defined(DT_REG)
+    if (de->d_type == DT_REG)
+        return 0;
+#endif
+
+#if defined(DT_LNK)
+    if (de->d_type == DT_LNK)
+        return 0;
+#endif
+
+#if defined(DT_UNKNOWN)
+    if (de->d_type != DT_UNKNOWN)
+        return 0;
+#endif
+
+    {
+        struct stat st;
+        if (stat(full, &st) == 0 && S_ISDIR(st.st_mode))
+            return 1;
+    }
+
+    return 0;
+}
+
 int launcher_browser_load_more_entries(int want)
 {
     int added = 0;
+
+    if (want <= 0)
+        want = 1;
 
     if (g_scan_done)
         return 1;
@@ -61,9 +107,7 @@ int launcher_browser_load_more_entries(int want)
     while (added < want) {
         struct dirent *de;
         char full[512];
-        struct stat st;
-        int is_dir = 0;
-        int keep = 0;
+        int is_dir;
 
         de = readdir(g_scan_dir);
         if (!de) {
@@ -77,15 +121,9 @@ int launcher_browser_load_more_entries(int want)
 
         launcher_browser_path_join(full, sizeof(full), g_current_path, de->d_name);
 
-        if (stat(full, &st) == 0 && S_ISDIR(st.st_mode)) {
-            keep = 1;
-            is_dir = 1;
-        } else if (launcher_browser_has_rom_ext(de->d_name)) {
-            keep = 1;
-            is_dir = 0;
-        }
+        is_dir = launcher_browser_dirent_is_dir(de, full);
 
-        if (!keep)
+        if (!is_dir && !launcher_browser_has_rom_ext(de->d_name))
             continue;
 
         if (!launcher_browser_append_entry(de->d_name, is_dir))

@@ -19,6 +19,7 @@ void app_launcher_run(uint32_t *prev_buttons)
         uint32_t pressed;
 
         ps2_input_poll();
+
         buttons = ps2_input_buttons();
         pressed = buttons & ~prev;
 
@@ -31,5 +32,5 @@ void app_launcher_run(uint32_t *prev_buttons)
     launcher_clear_start_request();
 
     if (prev_buttons)
-        *prev_buttons = 0;
+        *prev_buttons = prev;
 }

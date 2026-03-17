@@ -14,7 +14,7 @@
 #include <draw.h>
 #include <gs_psm.h>
 
-#define VIDEO_WAIT_VSYNC 0
+#define VIDEO_WAIT_VSYNC 1
 
 static inline int clamp_int(int v, int lo, int hi)
 {

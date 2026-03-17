@@ -1,4 +1,5 @@
 #include "ps2_video_internal.h"
+#include <kernel.h>
 
 void ps2_video_apply_display_offset(void)
 {
@@ -83,8 +84,8 @@ int ps2_video_init_once(void)
     dma_wait_fast();
     packet_free(packet);
 
-    g_tex_packet = packet_init(512, PACKET_NORMAL);
-    g_draw_packet = packet_init(256, PACKET_NORMAL);
+    g_tex_packet = packet_init((((256u * 224u * 2u) + 15u) / 16u) + 256u, PACKET_NORMAL);
+    g_draw_packet = packet_init(512, PACKET_NORMAL);
 
     if (!g_tex_packet || !g_draw_packet)
         return 0;
@@ -133,6 +134,7 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
     clutbuffer_t clut;
 
     dma_wait_fast();
+    SyncDCache(g_upload, (void *)((unsigned char *)g_upload + sizeof(g_upload)));
 
     q = g_tex_packet->data;
     q = draw_texture_transfer(q, g_upload, 256, 224, GS_PSM_16, g_tex.address, g_tex.width);
@@ -212,9 +214,9 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
     q = draw_rect_textured(q, 0, &rect);
     q = draw_finish(q);
 
-    dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
-    draw_wait_finish();
-
     if (wait_vsync)
         graph_wait_vsync();
+
+    dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
+    draw_wait_finish();
 }

@@ -2,6 +2,7 @@
 #include "ps2_video.h"
 
 #include <string.h>
+#include <kernel.h>
 #include <dma.h>
 #include <draw.h>
 #include <graph.h>
@@ -72,8 +73,8 @@ int ps2_launcher_video_init_once(void)
     dma_wait_fast();
     packet_free(packet);
 
-    g_launcher_tex_packet = packet_init(4096, PACKET_NORMAL);
-    g_launcher_draw_packet = packet_init(512, PACKET_NORMAL);
+    g_launcher_tex_packet = packet_init((((PS2_LAUNCHER_WIDTH * PS2_LAUNCHER_HEIGHT * 2u) + 15u) / 16u) + 512u, PACKET_NORMAL);
+    g_launcher_draw_packet = packet_init(1024, PACKET_NORMAL);
 
     if (!g_launcher_tex_packet || !g_launcher_draw_packet)
         return 0;
@@ -111,6 +112,8 @@ void ps2_launcher_video_end_frame(void)
     clutbuffer_t clut;
 
     dma_wait_fast();
+    SyncDCache(g_launcher_upload,
+               (void *)((unsigned char *)g_launcher_upload + sizeof(g_launcher_upload)));
 
     q = g_launcher_tex_packet->data;
     q = draw_texture_transfer(q,
@@ -169,11 +172,12 @@ void ps2_launcher_video_end_frame(void)
     q = draw_rect_textured(q, 0, &rect);
     q = draw_finish(q);
 
+    graph_wait_vsync();
+
     dma_channel_send_normal(DMA_CHANNEL_GIF,
                             g_launcher_draw_packet->data,
                             q - g_launcher_draw_packet->data,
                             0,
                             0);
     draw_wait_finish();
-    graph_wait_vsync();
 }
