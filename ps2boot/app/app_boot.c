@@ -15,18 +15,12 @@
 void app_boot_init(void (*die_fn)(const char *msg))
 {
     SifInitRpc(0);
-    init_scr();
 
-    scr_printf("ps2snes2005 launcher boot\n");
 
     if (!ps2_video_init_once())
         die_fn("ps2_video_init_once() falhou");
 
-    if (ps2_input_init_once())
-        scr_printf("input init ok\n");
-    else
-        scr_printf("input init falhou\n");
-
+    (void)ps2_input_init_once();
     ps2_menu_init();
 }
 

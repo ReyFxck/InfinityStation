@@ -20,8 +20,7 @@ static bool environ_cb(unsigned cmd, void *data)
     switch (cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
         g_pixel_format = *(const enum retro_pixel_format *)data;
-        scr_printf("[ENV] pixel format = %d\n", g_pixel_format);
-        return true;
+            return true;
 
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char **)data;

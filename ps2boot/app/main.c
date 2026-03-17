@@ -16,6 +16,7 @@ static uint32_t g_prev_buttons = 0;
 
 static void die(const char *msg)
 {
+    init_scr();
     scr_printf("\n[ERRO] %s\n", msg);
     SleepThread();
     while (1) {}
@@ -47,10 +48,6 @@ int main(int argc, char *argv[])
     if (av.timing.fps > 1.0)
         app_overlay_set_core_nominal_fps(av.timing.fps);
 
-    scr_printf("retro_load_game() OK\n");
-    scr_printf("selected: %s\n", launcher_selected_label());
-    scr_printf("core nominal fps: %.3f\n", app_overlay_get_core_nominal_fps());
-    scr_printf("entrando no loop...\n");
 
     scr_clear();
 
