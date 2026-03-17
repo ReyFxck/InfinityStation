@@ -107,8 +107,10 @@ LAUNCHER_OBJS = \
         ui/launcher/launcher_browser_state.o \
         ui/launcher/launcher_browser_open.o \
         ui/launcher/launcher_browser_nav.o \
-        ui/launcher/font/browser_font.o
-
+        ui/launcher/font/browser_font.o \
+        ui/launcher/launcher_background.o \
+        ui/launcher/launcher_bg_ntsc_data.o \
+        ui/launcher/launcher_bg_pal_data.o
 
 VIDEO_EXTRA_OBJS = \
         platform/ps2/ps2_video_ui.o \
