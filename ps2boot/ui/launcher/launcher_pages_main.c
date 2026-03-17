@@ -3,6 +3,9 @@
 #include "font/browser_font.h"
 #include "launcher_pages_internal.h"
 
+extern const unsigned int launcher_logo_width;
+extern const unsigned int launcher_logo_height;
+
 static unsigned main_text_width_sized(const char *text, unsigned char_w)
 {
     size_t len = text ? strlen(text) : 0;
@@ -19,11 +22,19 @@ static unsigned panel_center_x(unsigned panel_x, unsigned panel_w, const char *t
     return panel_x + (panel_w - text_w) / 2;
 }
 
+static unsigned screen_center_x(unsigned screen_w, unsigned obj_w)
+{
+    if (obj_w >= screen_w)
+        return 0;
+
+    return (screen_w - obj_w) / 2;
+}
+
 void launcher_pages_draw_main_page(const launcher_state_t *state)
 {
-    const uint16_t title  = 0xC638; /* cinza claro */
-    const uint16_t normal = 0x39E7; /* cinza escuro */
-    const uint16_t select = LAUNCHER_COLOR_HIGHLIGHT;
+    const uint16_t title  = 0x2411; /* turquesa custom */
+    const uint16_t normal = 0x39E7;
+    const uint16_t select = 0x7053; /* roxo custom */
 
     const unsigned panel_x = 180;
     const unsigned panel_w = 280;
@@ -43,7 +54,10 @@ void launcher_pages_draw_main_page(const launcher_state_t *state)
     uint16_t c1 = state->main_sel == 1 ? select : normal;
     uint16_t c2 = state->main_sel == 2 ? select : normal;
 
-    launcher_logo_draw(LAUNCHER_LOGO_X, LAUNCHER_LOGO_Y);
+    launcher_logo_draw(
+        screen_center_x(640, launcher_logo_width),
+        18
+    );
 
     browser_font_draw_string_color_sized(
         panel_center_x(panel_x, panel_w, title_text, title_w), 133,

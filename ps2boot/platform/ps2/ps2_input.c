@@ -13,9 +13,81 @@ static int g_input_inited = 0;
 static int g_input_ready  = 0;
 static int g_pad_opened   = 0;
 
+static int g_analog_checked   = 0;
+static int g_analog_supported = 0;
+static int g_analog_requested = 0;
+
 static char g_pad_buf[256] __attribute__((aligned(64)));
 static struct padButtonStatus g_pad_status;
 static uint32_t g_buttons = 0;
+
+/* no libpad do PS2, 7 costuma ser o modo analogico (DualShock) */
+#define PS2_ANALOG_MODE_ID 7
+#define PS2_STICK_CENTER   0x80
+#define PS2_STICK_DEADZONE 0x28
+
+static void ps2_input_try_enable_analog(void)
+{
+    int modes;
+    int i;
+
+    if (!g_pad_opened)
+        return;
+
+    if (!g_analog_checked) {
+        modes = padInfoMode(0, 0, PAD_MODETABLE, -1);
+        g_analog_checked = 1;
+        g_analog_supported = 0;
+
+        for (i = 0; i < modes; i++) {
+            if (padInfoMode(0, 0, PAD_MODETABLE, i) == PS2_ANALOG_MODE_ID) {
+                g_analog_supported = 1;
+                break;
+            }
+        }
+    }
+
+    if (!g_analog_supported)
+        return;
+
+    if (!g_analog_requested) {
+        padSetMainMode(0, 0, PAD_MMODE_DUALSHOCK, PAD_MMODE_LOCK);
+        g_analog_requested = 1;
+    }
+}
+
+static int ps2_input_is_analog_active(void)
+{
+    int cur_mode;
+
+    if (!g_analog_supported)
+        return 0;
+
+    cur_mode = padInfoMode(0, 0, PAD_MODECURID, 0);
+    return (cur_mode == PS2_ANALOG_MODE_ID);
+}
+
+static void ps2_input_apply_left_stick_as_dpad(uint32_t *buttons_now)
+{
+    unsigned char lx;
+    unsigned char ly;
+
+    if (!buttons_now)
+        return;
+
+    lx = g_pad_status.ljoy_h;
+    ly = g_pad_status.ljoy_v;
+
+    if (lx + PS2_STICK_DEADZONE < PS2_STICK_CENTER)
+        *buttons_now |= PAD_LEFT;
+    else if (lx > PS2_STICK_CENTER + PS2_STICK_DEADZONE)
+        *buttons_now |= PAD_RIGHT;
+
+    if (ly + PS2_STICK_DEADZONE < PS2_STICK_CENTER)
+        *buttons_now |= PAD_UP;
+    else if (ly > PS2_STICK_CENTER + PS2_STICK_DEADZONE)
+        *buttons_now |= PAD_DOWN;
+}
 
 int ps2_input_init_once(void)
 {
@@ -67,11 +139,17 @@ void ps2_input_poll(void)
     if (state != PAD_STATE_STABLE && state != PAD_STATE_FINDCTP1)
         return;
 
+    ps2_input_try_enable_analog();
+
     if (!padRead(0, 0, &g_pad_status))
         return;
 
     bb = (const unsigned char *)&g_pad_status.btns;
     now = 0xffff ^ (((uint32_t)bb[1] << 8) | (uint32_t)bb[0]);
+
+    if (ps2_input_is_analog_active())
+        ps2_input_apply_left_stick_as_dpad(&now);
+
     g_buttons = now;
 }
 

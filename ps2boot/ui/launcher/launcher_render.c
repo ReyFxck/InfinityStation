@@ -65,7 +65,7 @@ static void draw_glass_panel(int x, int y, int w, int h)
                 py < y + 4 || py >= y + h - 4
             );
 
-            top_band = (py >= y + 8 && py < y + 30);
+            top_band = (py >= y + 3 && py < y + 30);
 
             if (outer) {
                 ps2_launcher_video_put_pixel((unsigned)px, (unsigned)py, 0xFFFF);
@@ -103,6 +103,8 @@ void launcher_render(const launcher_state_t *state)
 
     if (state->page == LAUNCHER_PAGE_MAIN) {
         draw_glass_panel(180, 125, 280, 220);
+    } else if (state->page == LAUNCHER_PAGE_BROWSER) {
+        draw_glass_panel(95, 95, 450, 285);
     }
 
     launcher_pages_draw(state);
