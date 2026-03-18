@@ -47,6 +47,8 @@ extern char g_dbg4[48];
 extern uint16_t g_launcher_upload[PS2_LAUNCHER_HEIGHT][PS2_LAUNCHER_WIDTH];
 extern int g_ui_target_launcher;
 
+int select_menu_actions_game_vsync_enabled(void);
+
 void ps2_video_build_lut(void);
 void ps2_video_apply_display_offset(void);
 void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync);

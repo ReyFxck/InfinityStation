@@ -28,6 +28,7 @@ typedef struct
     int game_sel;
     int show_fps;
     int fps_rainbow;
+    int game_vsync;
     int frame_limit;
     int request_restart_game;
     int request_exit_game;

@@ -20,7 +20,7 @@ void select_menu_cycle_frame_limit(int dir)
 
 int select_menu_game_options_count(void)
 {
-    return g_select_menu.show_fps ? 3 : 2;
+    return g_select_menu.show_fps ? 4 : 3;
 }
 
 void select_menu_actions_init(void)
@@ -33,6 +33,7 @@ void select_menu_actions_init(void)
     g_select_menu.game_sel = 0;
     g_select_menu.show_fps = 0;
     g_select_menu.fps_rainbow = 0;
+    g_select_menu.game_vsync = 1;
     g_select_menu.frame_limit = SELECT_MENU_FRAME_LIMIT_AUTO;
     g_select_menu.request_restart_game = 0;
     g_select_menu.request_exit_game = 0;
@@ -69,6 +70,11 @@ int select_menu_actions_show_fps_enabled(void)
 int select_menu_actions_fps_rainbow_enabled(void)
 {
     return g_select_menu.fps_rainbow;
+}
+
+int select_menu_actions_game_vsync_enabled(void)
+{
+    return g_select_menu.game_vsync;
 }
 
 int select_menu_actions_frame_limit_mode(void)
