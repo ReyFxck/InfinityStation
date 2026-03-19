@@ -1,5 +1,7 @@
 #include "launcher_browser_internal.h"
 
+#include <string.h>
+
 static int launcher_browser_finish_scan(void)
 {
     while (!g_scan_done) {
@@ -17,18 +19,40 @@ static int launcher_browser_finish_scan(void)
 
 int launcher_browser_reset_to_path(const char *path)
 {
-    snprintf(g_current_path, sizeof(g_current_path), "%s", path ? path : "");
-    launcher_browser_clear_entries();
+    char target[256];
+    int failed = 0;
 
-    if (launcher_browser_is_root_path(g_current_path))
+    snprintf(target, sizeof(target), "%s", path ? path : "");
+
+    launcher_browser_close_scan_dir();
+
+    if (launcher_browser_is_root_path(target))
         return launcher_browser_scan_root_devices();
 
-    if (!launcher_browser_open_scan_dir(g_current_path))
-        return 0;
+    launcher_browser_clear_entries();
+    g_selected = 0;
+    g_scroll = 0;
+    g_last_error = 0;
+    g_scan_done = 1;
 
-    if (!launcher_browser_finish_scan())
+    if (!launcher_browser_open_scan_dir(target)) {
+        failed = 1;
+        launcher_browser_scan_root_devices();
+        g_last_error = 1;
         return 0;
+    }
 
+    snprintf(g_current_path, sizeof(g_current_path), "%s", target);
+
+    if (!launcher_browser_finish_scan()) {
+        launcher_browser_close_scan_dir();
+        failed = 1;
+        launcher_browser_scan_root_devices();
+        g_last_error = 1;
+        return 0;
+    }
+
+    (void)failed;
     return 1;
 }
 

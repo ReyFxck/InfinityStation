@@ -149,10 +149,13 @@ void launcher_actions_handle_browser(uint32_t pressed)
     if (pressed & (PAD_START | PAD_CROSS)) {
         browser_nav_reset();
 
+        g_launcher.selected_path[0] = '\0';
+
         if (launcher_browser_activate(
                 g_launcher.selected_path, sizeof(g_launcher.selected_path),
                 g_launcher.selected_label, sizeof(g_launcher.selected_label))) {
-            g_launcher.should_start_game = 1;
+            if (g_launcher.selected_path[0] != '\0')
+                g_launcher.should_start_game = 1;
         }
     }
 

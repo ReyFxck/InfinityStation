@@ -2,8 +2,12 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <libpad.h>
+
+#include "ps2_input.h"
 
 launcher_state_t g_launcher;
+static int g_launcher_input_armed = 0;
 
 int launcher_actions_wrap_index(int v, int count)
 {
@@ -22,8 +26,10 @@ void launcher_actions_init(void)
     g_launcher.selected_path[0] = '\0';
     snprintf(g_launcher.selected_label, sizeof(g_launcher.selected_label), "EMBEDDED MARIO");
 
+    g_launcher_input_armed = 0;
+
     launcher_browser_init();
-    launcher_browser_open("mass:/");
+    launcher_browser_open("");
 }
 
 const launcher_state_t *launcher_actions_state(void)
@@ -51,8 +57,25 @@ const char *launcher_actions_selected_label(void)
     return g_launcher.selected_label;
 }
 
+void launcher_actions_open_browser_page(void)
+{
+    g_launcher.page = LAUNCHER_PAGE_BROWSER;
+}
+
 void launcher_actions_handle(uint32_t pressed)
 {
+    uint32_t held = ps2_input_buttons();
+    uint32_t block_mask = PAD_UP | PAD_DOWN | PAD_LEFT | PAD_RIGHT |
+                          PAD_START | PAD_CROSS | PAD_CIRCLE |
+                          PAD_L1 | PAD_R1 | PAD_SELECT;
+
+    if (!g_launcher_input_armed) {
+        if ((held & block_mask) == 0)
+            g_launcher_input_armed = 1;
+        else
+            return;
+    }
+
     if (g_launcher.page == LAUNCHER_PAGE_MAIN) {
         launcher_actions_handle_main(pressed);
         return;
