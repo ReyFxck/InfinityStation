@@ -1,4 +1,40 @@
 #include "launcher_render.h"
+#include "launcher_font.h"
+#include "font/browser_font.h"
+#include "ps2_video.h"
+
+
+static void launcher_draw_credit_underline(int x, int y, int w, uint16_t color)
+{
+    int i;
+    for (i = 0; i < w; i++) {
+        ps2_video_ui_put_pixel((unsigned)(x + i), (unsigned)y, color);
+        ps2_video_ui_put_pixel((unsigned)(x + i), (unsigned)(y + 1), color);
+    }
+}
+
+static void launcher_draw_credit_overlay(void)
+{
+    const uint16_t credit_color = 0xC018;
+    const uint16_t sub_color = 0xE800;
+    const uint16_t sub_shadow = 0x0000;
+
+    /* subtitulo 1.5x */
+    browser_font_draw_string_color_sized(162, 76, "SUPER NINTENDO EMULATOR FOR THE PS2", sub_shadow, 7, 14);
+    browser_font_draw_string_color_sized(161, 75, "SUPER NINTENDO EMULATOR FOR THE PS2", sub_color,   7, 14);
+
+    /* sublinhado real */
+    launcher_draw_credit_underline(161, 91, 270, sub_shadow);
+    launcher_draw_credit_underline(160, 90, 270, sub_color);
+
+    /* esquerda */
+    browser_font_draw_string_color_sized(8,   58, "ALPHA 1.0",  credit_color, 10, 14);
+    browser_font_draw_string_color_sized(8,   74, "19.3.2026",  credit_color, 10, 14);
+
+    /* direita */
+    browser_font_draw_string_color_sized(498, 59, "BY: ReyFxck", credit_color, 10, 14);
+    browser_font_draw_string_color_sized(498, 75, "Thomas Reis", credit_color, 10, 14);
+}
 
 #include "ps2_launcher_video.h"
 #include "launcher_pages.h"
@@ -108,5 +144,6 @@ void launcher_render(const launcher_state_t *state)
     }
 
     launcher_pages_draw(state);
+    launcher_draw_credit_overlay();
     ps2_launcher_video_end_frame();
 }
