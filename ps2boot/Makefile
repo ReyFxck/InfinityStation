@@ -137,6 +137,9 @@ EXTRA_TARGETS = $(EE_BIN)
 
 PS2SDK = $(PS2DEV)/ps2sdk
 include $(PS2SDK)/samples/Makefile.pref
+EE_DBGINFOFLAGS :=
 include $(PS2SDK)/samples/Makefile.eeglobal
+EE_CFLAGS := $(filter-out -g -gdwarf-2 -gz,$(EE_CFLAGS))
+
 
 $(EE_BIN): $(EXTRA_OBJS)
