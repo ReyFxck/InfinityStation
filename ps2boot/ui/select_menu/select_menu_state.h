@@ -18,6 +18,13 @@ enum
     SELECT_MENU_FRAME_LIMIT_OFF  = 3
 };
 
+enum
+{
+    SELECT_MENU_ACTION_NONE = 0,
+    SELECT_MENU_ACTION_RESTART = 1,
+    SELECT_MENU_ACTION_OPEN_LAUNCHER = 2
+};
+
 typedef struct
 {
     int open;
@@ -28,10 +35,9 @@ typedef struct
     int game_sel;
     int show_fps;
     int fps_rainbow;
-    int game_vsync;
     int frame_limit;
-    int request_restart_game;
-    int request_exit_game;
+    int game_vsync;
+    int pending_action;
 } select_menu_state_t;
 
 #endif

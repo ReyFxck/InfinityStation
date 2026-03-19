@@ -20,7 +20,7 @@ void select_menu_cycle_frame_limit(int dir)
 
 int select_menu_game_options_count(void)
 {
-    return g_select_menu.show_fps ? 4 : 3;
+    return g_select_menu.show_fps ? 3 : 2;
 }
 
 void select_menu_actions_init(void)
@@ -33,10 +33,9 @@ void select_menu_actions_init(void)
     g_select_menu.game_sel = 0;
     g_select_menu.show_fps = 0;
     g_select_menu.fps_rainbow = 0;
-    g_select_menu.game_vsync = 1;
     g_select_menu.frame_limit = SELECT_MENU_FRAME_LIMIT_AUTO;
-    g_select_menu.request_restart_game = 0;
-    g_select_menu.request_exit_game = 0;
+    g_select_menu.game_vsync = 1;
+    g_select_menu.pending_action = SELECT_MENU_ACTION_NONE;
 }
 
 int select_menu_actions_is_open(void)
@@ -48,8 +47,7 @@ void select_menu_actions_open(void)
 {
     g_select_menu.open = 1;
     g_select_menu.page = SELECT_MENU_PAGE_MAIN;
-    g_select_menu.request_restart_game = 0;
-    g_select_menu.request_exit_game = 0;
+    g_select_menu.pending_action = SELECT_MENU_ACTION_NONE;
 }
 
 void select_menu_actions_close(void)
@@ -72,34 +70,24 @@ int select_menu_actions_fps_rainbow_enabled(void)
     return g_select_menu.fps_rainbow;
 }
 
-int select_menu_actions_game_vsync_enabled(void)
-{
-    return g_select_menu.game_vsync;
-}
-
 int select_menu_actions_frame_limit_mode(void)
 {
     return g_select_menu.frame_limit;
 }
 
-int select_menu_actions_restart_game_requested(void)
+int select_menu_actions_game_vsync_enabled(void)
 {
-    return g_select_menu.request_restart_game;
+    return g_select_menu.game_vsync;
 }
 
-void select_menu_actions_clear_restart_game_request(void)
+int select_menu_actions_pending_action(void)
 {
-    g_select_menu.request_restart_game = 0;
+    return g_select_menu.pending_action;
 }
 
-int select_menu_actions_exit_game_requested(void)
+void select_menu_actions_clear_pending_action(void)
 {
-    return g_select_menu.request_exit_game;
-}
-
-void select_menu_actions_clear_exit_game_request(void)
-{
-    g_select_menu.request_exit_game = 0;
+    g_select_menu.pending_action = SELECT_MENU_ACTION_NONE;
 }
 
 void select_menu_actions_handle(uint32_t pressed)
