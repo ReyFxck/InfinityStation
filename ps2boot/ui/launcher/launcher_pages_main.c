@@ -46,7 +46,7 @@ void launcher_pages_draw_main_page(const launcher_state_t *state)
     const unsigned char_h = 22;
 
     const char *title_text = "MAIN MENU";
-    const char *item0 = "BROWSE USB";
+    const char *item0 = "ROM EXPLORER";
     const char *item1 = "EMBEDDED MARIO";
     const char *item2 = "OPTIONS";
 
