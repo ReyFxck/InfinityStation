@@ -83,3 +83,14 @@ void launcher_browser_init(void)
     g_last_error = 0;
     g_scan_done = 1;
 }
+
+
+int launcher_browser_last_error(void)
+{
+    return g_last_error;
+}
+
+void launcher_browser_clear_error(void)
+{
+    g_last_error = 0;
+}

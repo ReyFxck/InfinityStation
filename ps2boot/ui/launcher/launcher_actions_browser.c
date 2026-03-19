@@ -74,7 +74,6 @@ static int browser_nav_current_dir(int *speed_out)
     if (speed_out)
         *speed_out = BROWSER_NAV_NONE;
 
-    /* Direcional físico = médio sempre */
     if (raw & PAD_UP) {
         if (speed_out)
             *speed_out = BROWSER_NAV_MEDIUM;
@@ -87,7 +86,6 @@ static int browser_nav_current_dir(int *speed_out)
         return 1;
     }
 
-    /* Analógico = 3 velocidades */
     dir = browser_nav_analog_dir_y(speed_out);
     if (dir != 0)
         return dir;
@@ -147,20 +145,26 @@ void launcher_actions_handle_browser(uint32_t pressed)
         launcher_browser_refresh();
 
     if (pressed & (PAD_START | PAD_CROSS)) {
-        browser_nav_reset();
+        int activate_result;
 
+        browser_nav_reset();
         g_launcher.selected_path[0] = '\0';
 
-        if (launcher_browser_activate(
+        activate_result = launcher_browser_activate(
                 g_launcher.selected_path, sizeof(g_launcher.selected_path),
-                g_launcher.selected_label, sizeof(g_launcher.selected_label))) {
-            if (g_launcher.selected_path[0] != '\0')
-                g_launcher.should_start_game = 1;
-        }
+                g_launcher.selected_label, sizeof(g_launcher.selected_label));
+
+        if (activate_result > 0 && g_launcher.selected_path[0] != '\0')
+            g_launcher.should_start_game = 1;
     }
 
     if (pressed & PAD_CIRCLE) {
         browser_nav_reset();
+
+        if (launcher_browser_last_error()) {
+            launcher_browser_clear_error();
+            return;
+        }
 
         if (!launcher_browser_go_parent())
             g_launcher.page = LAUNCHER_PAGE_MAIN;

@@ -31,7 +31,3 @@ const launcher_browser_entry_t *launcher_browser_entry(int index)
     return &g_entries[index];
 }
 
-int launcher_browser_last_error(void)
-{
-    return g_last_error;
-}

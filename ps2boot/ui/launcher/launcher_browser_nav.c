@@ -1,5 +1,7 @@
 #include "launcher_browser_internal.h"
 
+#include <string.h>
+
 void launcher_browser_move(int delta, int visible_rows)
 {
     int steps;
@@ -38,10 +40,8 @@ void launcher_browser_move(int delta, int visible_rows)
 
     if (g_selected < g_scroll)
         g_scroll = g_selected;
-
     if (g_selected >= g_scroll + visible_rows)
         g_scroll = g_selected - visible_rows + 1;
-
     if (g_scroll < 0)
         g_scroll = 0;
 }
@@ -50,10 +50,13 @@ int launcher_browser_activate(char *selected_path, size_t path_size, char *selec
 {
     const launcher_browser_entry_t *entry;
     char full[256];
+    char previous_path[256];
 
     entry = launcher_browser_entry(g_selected);
     if (!entry)
         return 0;
+
+    snprintf(previous_path, sizeof(previous_path), "%s", g_current_path);
 
     if (selected_label && label_size > 0)
         snprintf(selected_label, label_size, "%s", entry->name);
@@ -63,8 +66,18 @@ int launcher_browser_activate(char *selected_path, size_t path_size, char *selec
     else
         launcher_browser_path_join(full, sizeof(full), g_current_path, entry->name);
 
-    if (entry->is_dir)
-        return launcher_browser_open(full) ? 0 : -1;
+    if (entry->is_dir) {
+        if (launcher_browser_open(full))
+            return 0;
+
+        if (previous_path[0])
+            launcher_browser_open(previous_path);
+        else
+            launcher_browser_open(LAUNCHER_BROWSER_ROOT);
+
+        g_last_error = 1;
+        return 0;
+    }
 
     if (selected_path && path_size > 0)
         snprintf(selected_path, path_size, "%s", full);
