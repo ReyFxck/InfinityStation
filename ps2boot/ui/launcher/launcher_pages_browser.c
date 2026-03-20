@@ -73,7 +73,7 @@ static void browser_copy_marquee(char *out, size_t out_size, const char *src, in
 {
     size_t len;
     size_t i;
-    unsigned gap = 6;
+    const unsigned gap = 6;
     unsigned period;
     unsigned offset;
 
@@ -93,7 +93,7 @@ static void browser_copy_marquee(char *out, size_t out_size, const char *src, in
     }
 
     period = (unsigned)len + gap;
-    offset = (tick / 8u) % period;
+    offset = tick % period;
 
     for (i = 0; i < (size_t)visible_chars && i + 1 < out_size; i++) {
         unsigned pos = offset + (unsigned)i;
@@ -136,6 +136,7 @@ void launcher_pages_draw_browser_page(void)
     const char *current_path = launcher_browser_current_path();
 
     static int s_prev_selected = -9999;
+    static char s_prev_path[256] = "";
     static unsigned s_marquee_delay_frames = 0;
     static unsigned s_marquee_tick = 0;
 
@@ -152,8 +153,11 @@ void launcher_pages_draw_browser_page(void)
     const uint16_t normal     = 0x39E7; /* cinza escuro */
     const uint16_t select     = 0x7053; /* roxo */
 
-    const int visible_name_chars = 30;
-    const unsigned marquee_delay_frames = 90; /* ~1.5s em 60fps */
+    const int visible_name_chars = 24;
+    const unsigned marquee_delay_frames = 4; /* ajuste fino */
+
+    if (!current_path)
+        current_path = "";
 
     launcher_pages_fit_text(path_line, sizeof(path_line), launcher_browser_current_path(), 34);
 
@@ -171,14 +175,19 @@ void launcher_pages_draw_browser_page(void)
         path_h
     );
 
-    if (selected != s_prev_selected) {
+    if (selected != s_prev_selected || strcmp(current_path, s_prev_path) != 0) {
         s_prev_selected = selected;
+        snprintf(s_prev_path, sizeof(s_prev_path), "%s", current_path);
         s_marquee_delay_frames = 0;
         s_marquee_tick = 0;
     } else {
         const launcher_browser_entry_t *sel_entry = launcher_browser_entry(selected);
 
-        if (sel_entry && (int)strlen(sel_entry->name) > visible_name_chars) {
+        if (!launcher_browser_last_error() &&
+            count > 0 &&
+            sel_entry &&
+            sel_entry->name &&
+            (int)strlen(sel_entry->name) > visible_name_chars) {
             if (s_marquee_delay_frames < marquee_delay_frames)
                 s_marquee_delay_frames++;
             else
@@ -211,10 +220,17 @@ void launcher_pages_draw_browser_page(void)
             18
         );
     } else if (count <= 0) {
+        const char *empty_msg = "NO FOLDERS OR ROMS";
+
+        if (!strncmp(current_path, "mc0", 3) || !strncmp(current_path, "mc1", 3))
+            empty_msg = "EMPTY MEMORY CARD";
+        else if (!strncmp(current_path, "mass0", 5) || !strncmp(current_path, "mass1", 5))
+            empty_msg = "EMPTY DEVICE";
+
         browser_font_draw_string_color_sized(
             content_x,
             content_y + 66,
-            "NO FOLDERS OR ROMS",
+            empty_msg,
             normal,
             11,
             17
@@ -234,7 +250,9 @@ void launcher_pages_draw_browser_page(void)
             if (!entry)
                 break;
 
-            if (index == selected && (int)strlen(entry->name) > visible_name_chars) {
+            if (index == selected &&
+                entry->name &&
+                (int)strlen(entry->name) > visible_name_chars) {
                 if (s_marquee_delay_frames < marquee_delay_frames)
                     browser_copy_ellipsis(name_buf, sizeof(name_buf), entry->name, visible_name_chars);
                 else
