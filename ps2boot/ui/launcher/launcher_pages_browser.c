@@ -1,3 +1,4 @@
+#include "ps2_launcher_video.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -106,6 +107,25 @@ static void browser_copy_marquee(char *out, size_t out_size, const char *src, in
     out[i] = '\0';
 }
 
+
+
+static void launcher_pages_draw_status_circle(int x, int y, uint16_t color)
+{
+    int dx, dy;
+
+    for (dy = -3; dy <= 3; dy++) {
+        for (dx = -3; dx <= 3; dx++) {
+            int d2 = dx * dx + dy * dy;
+
+            if (d2 <= 9)
+                ps2_launcher_video_put_pixel((unsigned)(x + dx), (unsigned)(y + dy), 0x0000);
+
+            if (d2 <= 4)
+                ps2_launcher_video_put_pixel((unsigned)(x + dx), (unsigned)(y + dy), color);
+        }
+    }
+}
+
 void launcher_pages_draw_browser_page(void)
 {
     char path_line[96];
@@ -113,6 +133,7 @@ void launcher_pages_draw_browser_page(void)
     int scroll = launcher_browser_scroll();
     int selected = launcher_browser_selected();
     int row;
+    const char *current_path = launcher_browser_current_path();
 
     static int s_prev_selected = -9999;
     static unsigned s_marquee_delay_frames = 0;
@@ -166,6 +187,18 @@ void launcher_pages_draw_browser_page(void)
             s_marquee_delay_frames = 0;
             s_marquee_tick = 0;
         }
+    }
+
+    if (current_path &&
+        !strcmp(current_path, "DEVICES") &&
+        !launcher_browser_last_error() &&
+        count > 0) {
+        launcher_browser_refresh_root_device_statuses();
+
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 48, launcher_browser_device_ready("mc0:/")   ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 65, launcher_browser_device_ready("mc1:/")   ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 82, launcher_browser_device_ready("mass0:/") ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 99, launcher_browser_device_ready("mass1:/") ? 0x07E0 : 0xF800);
     }
 
     if (launcher_browser_last_error()) {

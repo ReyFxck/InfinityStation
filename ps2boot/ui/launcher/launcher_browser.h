@@ -20,6 +20,8 @@ int launcher_browser_scroll(void);
 const char *launcher_browser_current_path(void);
 const launcher_browser_entry_t *launcher_browser_entry(int index);
 int launcher_browser_last_error(void);
+int launcher_browser_device_ready(const char *name);
+void launcher_browser_refresh_root_device_statuses(void);
 void launcher_browser_clear_error(void);
 
 void launcher_browser_move(int delta, int visible_rows);
