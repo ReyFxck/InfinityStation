@@ -143,3 +143,7 @@ EE_CFLAGS := $(filter-out -g -gdwarf-2 -gz,$(EE_CFLAGS))
 
 
 $(EE_BIN): $(EXTRA_OBJS)
+
+clean:
+	find . -name '*.o' -delete
+	rm -f $(EE_BIN)

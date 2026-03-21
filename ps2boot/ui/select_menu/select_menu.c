@@ -52,20 +52,22 @@ int select_menu_frame_limit_mode(void)
 
 int select_menu_restart_game_requested(void)
 {
-    return select_menu_actions_restart_game_requested();
+    return select_menu_actions_pending_action() == SELECT_MENU_ACTION_RESTART;
 }
 
 void select_menu_clear_restart_game_request(void)
 {
-    select_menu_actions_clear_restart_game_request();
+    if (select_menu_actions_pending_action() == SELECT_MENU_ACTION_RESTART)
+        select_menu_actions_clear_pending_action();
 }
 
 int select_menu_exit_game_requested(void)
 {
-    return select_menu_actions_exit_game_requested();
+    return select_menu_actions_pending_action() == SELECT_MENU_ACTION_OPEN_LAUNCHER;
 }
 
 void select_menu_clear_exit_game_request(void)
 {
-    select_menu_actions_clear_exit_game_request();
+    if (select_menu_actions_pending_action() == SELECT_MENU_ACTION_OPEN_LAUNCHER)
+        select_menu_actions_clear_pending_action();
 }
