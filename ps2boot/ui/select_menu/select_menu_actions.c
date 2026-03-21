@@ -33,8 +33,8 @@ void select_menu_actions_init(void)
     g_select_menu.game_sel = 0;
     g_select_menu.show_fps = 0;
     g_select_menu.fps_rainbow = 0;
-    g_select_menu.frame_limit = SELECT_MENU_FRAME_LIMIT_AUTO;
-    g_select_menu.game_vsync = 1;
+    g_select_menu.frame_limit = SELECT_MENU_FRAME_LIMIT_OFF;
+    g_select_menu.game_vsync = 0;
     g_select_menu.pending_action = SELECT_MENU_ACTION_NONE;
 }
 
