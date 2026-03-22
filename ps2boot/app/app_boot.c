@@ -1,27 +1,36 @@
 #include "app_boot.h"
-
 #include "app_launcher.h"
 
-#include <kernel.h>
-#include <sifrpc.h>
 #include <debug.h>
-#include <stdio.h>
+#include <sifrpc.h>
 #include <string.h>
 
+#include "libretro.h"
 #include "ps2_video.h"
 #include "ps2_input.h"
 #include "ps2_menu.h"
 
 void app_boot_init(void (*die_fn)(const char *msg))
 {
+    scr_printf("[BOOT] app_boot_init: enter\n");
+
     SifInitRpc(0);
+    scr_printf("[BOOT] app_boot_init: after SifInitRpc\n");
 
-
+    scr_printf("[BOOT] app_boot_init: before ps2_video_init_once\n");
     if (!ps2_video_init_once())
         die_fn("ps2_video_init_once() falhou");
+    scr_printf("[BOOT] app_boot_init: after ps2_video_init_once\n");
 
+    scr_printf("[BOOT] app_boot_init: before ps2_input_init_once\n");
     (void)ps2_input_init_once();
+    scr_printf("[BOOT] app_boot_init: after ps2_input_init_once\n");
+
+    scr_printf("[BOOT] app_boot_init: before ps2_menu_init\n");
     ps2_menu_init();
+    scr_printf("[BOOT] app_boot_init: after ps2_menu_init\n");
+
+    scr_printf("[AUDIO] boot init SKIPPED\n");
 }
 
 void app_boot_log_core_info(void)
@@ -32,13 +41,13 @@ void app_boot_log_core_info(void)
     retro_get_system_info(&info);
 
     scr_printf("core: %s %s\n",
-               info.library_name ? info.library_name : "(null)",
-               info.library_version ? info.library_version : "(null)");
+        info.library_name ? info.library_name : "(null)",
+        info.library_version ? info.library_version : "(null)");
 
     scr_printf("need_fullpath=%d block_extract=%d valid_ext=%s\n",
-               info.need_fullpath,
-               info.block_extract,
-               info.valid_extensions ? info.valid_extensions : "(null)");
+        info.need_fullpath,
+        info.block_extract,
+        info.valid_extensions ? info.valid_extensions : "(null)");
 }
 
 void app_boot_run_launcher(uint32_t *prev_buttons, int *saved_launcher_x, int *saved_launcher_y)

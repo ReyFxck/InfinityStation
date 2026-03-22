@@ -5,7 +5,9 @@
 #include <sifrpc.h>
 #include <loadfile.h>
 #include <libpad.h>
+#include <ps2_joystick_driver.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "libretro.h"
 
@@ -94,35 +96,50 @@ int ps2_input_init_once(void)
 {
     int ret_sio2 = -1;
     int ret_pad  = -1;
+    int ret_pi   = -1;
+    int ret_po   = -1;
 
-    if (g_input_inited)
+    if (g_input_inited) {
+        printf("[INPUT] init skipped ready=%d\n", g_input_ready);
         return g_input_ready;
+    }
 
     g_input_inited = 1;
+    printf("[INPUT] init force X enter\n");
 
     SifLoadFileInit();
 
-    ret_sio2 = SifLoadModule("rom0:SIO2MAN", 0, NULL);
-    if (ret_sio2 < 0)
-        ret_sio2 = SifLoadModule("rom0:XSIO2MAN", 0, NULL);
+    printf("[INPUT] before XSIO2MAN\n");
+    ret_sio2 = SifLoadModule("rom0:XSIO2MAN", 0, NULL);
+    printf("[INPUT] XSIO2MAN -> %d\n", ret_sio2);
 
-    ret_pad = SifLoadModule("rom0:PADMAN", 0, NULL);
-    if (ret_pad < 0)
-        ret_pad = SifLoadModule("rom0:XPADMAN", 0, NULL);
+    printf("[INPUT] before XPADMAN\n");
+    ret_pad = SifLoadModule("rom0:XPADMAN", 0, NULL);
+    printf("[INPUT] XPADMAN -> %d\n", ret_pad);
 
     SifLoadFileExit();
+    printf("[INPUT] after module loads\n");
 
-    if (ret_sio2 < 0 || ret_pad < 0)
+    if (ret_sio2 < 0 || ret_pad < 0) {
+        printf("[INPUT] X module load fail\n");
+        return 0;
+    }
+
+    printf("[INPUT] before padInit\n");
+    ret_pi = padInit(0);
+    printf("[INPUT] padInit -> %d\n", ret_pi);
+    if (ret_pi != 1)
         return 0;
 
-    if (padInit(0) != 1)
-        return 0;
-
-    if (!padPortOpen(0, 0, g_pad_buf))
+    printf("[INPUT] before padPortOpen\n");
+    ret_po = padPortOpen(0, 0, g_pad_buf);
+    printf("[INPUT] padPortOpen -> %d\n", ret_po);
+    if (!ret_po)
         return 0;
 
     g_pad_opened  = 1;
     g_input_ready = 1;
+    printf("[INPUT] init success\n");
     return 1;
 }
 
