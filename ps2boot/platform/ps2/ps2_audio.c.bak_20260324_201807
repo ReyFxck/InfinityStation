@@ -10,7 +10,7 @@
 #include <loadfile.h>
 #include <iopcontrol_special.h>
 
-#include "libsdpcm_irx_blob.h"
+#include "libsdpcm_ioprp_blob.h"
 #include "ps2_input.h"
 
 #define LIBSDPCM_RPC_ID 0x014C504D
@@ -124,22 +124,22 @@ int ps2_audio_init_once(void)
         return g_audio_state > 0;
     }
 
-    printf("[LPCM-EE] init enter (IRX exec path)\n");
+    printf("[LPCM-EE] init enter (IOPRP reboot test)\n");
+    printf("[LPCM-EE] before input shutdown\n");
+    ps2_input_shutdown();
+    printf("[LPCM-EE] after input shutdown\n");
+    printf("[LPCM-EE] embedded ioprp size=%u bytes\n", (unsigned)libsdpcm_ioprp_len);
+
+    r = SifIopRebootBuffer(libsdpcm_ioprp, (int)libsdpcm_ioprp_len);
+    printf("[LPCM-EE] SifIopRebootBuffer -> %d\n", r);
+    if (!r) {
+        g_audio_state = -1;
+        printf("[LPCM-EE] init FAIL at IOP reboot buffer\n");
+        return 0;
+    }
 
     SifInitRpc(0);
     SifLoadFileInit();
-
-    printf("[LPCM-EE] embedded irx size=%u bytes\n", (unsigned)libsdpcm_irx_len);
-    {
-        int mod_res = 0;
-        r = SifExecModuleBuffer(libsdpcm_irx, (unsigned int)libsdpcm_irx_len, 0, NULL, &mod_res);
-        printf("[LPCM-EE] SifExecModuleBuffer(libsdpcm) -> mod_id=%d mod_res=%d\n", r, mod_res);
-        if (r < 0) {
-            g_audio_state = -1;
-            printf("[LPCM-EE] init FAIL at SifExecModuleBuffer\n");
-            return 0;
-        }
-    }
 
     printf("[LPCM-EE] SifSearchModuleByName(libsdpcm) immediate -> %d\n",
            SifSearchModuleByName("libsdpcm"));
@@ -150,25 +150,14 @@ int ps2_audio_init_once(void)
         return 0;
     }
 
-    {
-        int ping_ret, init_ret;
+    ps2_audio_rpc_raw(LIBSDPCM_CMD_PING, 0, 0, 0, 0, NULL, 0);
+    ps2_audio_rpc_raw(LIBSDPCM_CMD_INIT, 32040, 2, 16, 0, NULL, 0);
 
-        ping_ret = ps2_audio_rpc_raw(LIBSDPCM_CMD_PING, 0, 0, 0, 0, NULL, 0);
-        if (ping_ret < 0) {
-            g_audio_state = -1;
-            printf("[LPCM-EE] init FAIL at ping\n");
-            return 0;
-        }
-
-        init_ret = ps2_audio_rpc_raw(LIBSDPCM_CMD_INIT, 32040, 2, 16, 0, NULL, 0);
-        if (init_ret < 0) {
-            g_audio_state = -1;
-            printf("[LPCM-EE] init FAIL at init cmd\n");
-            return 0;
-        }
-    }
-
-    printf("[LPCM-EE] input left untouched (no IOP reboot)\n");
+    printf("[LPCM-EE] before input reinit\n");
+    if (!ps2_input_init_once())
+        printf("[LPCM-EE] input reinit FAIL\n");
+    else
+        printf("[LPCM-EE] input reinit OK\n");
 
     g_audio_state = 1;
     printf("[LPCM-EE] init success\n");
@@ -188,18 +177,7 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
     const uint8_t *src = (const uint8_t *)data;
     unsigned bytes = (unsigned)(frames * 4);
 
-    static int warned_not_ready = 0;
-
-    if (g_audio_state != 1 || !g_cd.server) {
-        if (!warned_not_ready) {
-            printf("[LPCM-EE] drop push: audio not ready state=%d server=%p\n", g_audio_state, g_cd.server);
-            warned_not_ready = 1;
-        }
-        return frames;
-    }
-
-    warned_not_ready = 0;
-if (g_push_calls == 0)
+    if (g_push_calls == 0)
         printf("[LPCM-EE] first push frames=%u\n", (unsigned)frames);
 
     g_push_calls++;

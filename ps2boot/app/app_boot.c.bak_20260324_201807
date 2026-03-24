@@ -9,7 +9,6 @@
 #include "ps2_video.h"
 #include "ps2_input.h"
 #include "ps2_menu.h"
-#include "ps2_audio.h"
 
 void app_boot_init(void (*die_fn)(const char *msg))
 {
@@ -31,11 +30,7 @@ void app_boot_init(void (*die_fn)(const char *msg))
     ps2_menu_init();
     scr_printf("[BOOT] app_boot_init: after ps2_menu_init\n");
 
-    scr_printf("[AUDIO] boot init begin\n");
-    if (!ps2_audio_init_once())
-        scr_printf("[AUDIO] boot init FAILED, continuing without audio\n");
-    else
-        scr_printf("[AUDIO] boot init OK\n");
+    scr_printf("[AUDIO] boot init SKIPPED\n");
 }
 
 void app_boot_log_core_info(void)
