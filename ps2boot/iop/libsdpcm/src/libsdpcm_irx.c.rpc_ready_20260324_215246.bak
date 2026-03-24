@@ -82,7 +82,6 @@ static u32 g_underflow_bytes = 0;
 static int g_audio_initialized = 0;
 static int g_player_tid = -1;
 static int g_seen_first_push = 0;
-static volatile int g_rpc_ready = 0;
 
 static u8 g_play_buf[LIBSDPCM_PLAY_CHUNK] __attribute__((aligned(64)));
 
@@ -504,21 +503,14 @@ static void *libsdpcm_rpc_handler(int fno, void *data, int size)
 
 static void libsdpcm_rpc_thread(void *arg)
 {
-    int tid;
     (void)arg;
-
-    g_rpc_ready = 10;
-
+    printf("[LPCM-IOP] rpc thread enter\n");
     SifInitRpc(0);
-    g_rpc_ready = 20;
-
-    tid = GetThreadId();
-    SifSetRpcQueue(&g_qd, tid);
-    g_rpc_ready = 30;
-
+    printf("[LPCM-IOP] after SifInitRpc\n");
+    SifSetRpcQueue(&g_qd, GetThreadId());
+    printf("[LPCM-IOP] after SifSetRpcQueue tid=%d\n", GetThreadId());
     SifRegisterRpc(&g_sd0, LIBSDPCM_RPC_ID, libsdpcm_rpc_handler, &g_rpc_buf, NULL, NULL, &g_qd);
-    g_rpc_ready = 40;
-
+    printf("[LPCM-IOP] rpc thread ready\n");
     SifRpcLoop(&g_qd);
 }
 
@@ -527,13 +519,12 @@ int _start(int argc, char *argv[])
     iop_thread_t t;
     int tid;
     int ret;
-    int i;
 
     (void)argc;
     (void)argv;
 
     CpuEnableIntr();
-    g_rpc_ready = 1;
+    printf("[LPCM-IOP] _start enter\n");
 
     memset(&t, 0, sizeof(t));
     t.attr      = TH_C;
@@ -543,25 +534,16 @@ int _start(int argc, char *argv[])
     t.option    = 0;
 
     tid = CreateThread(&t);
+    printf("[LPCM-IOP] CreateThread RPC -> %d\n", tid);
     if (tid < 0)
-        return -101;
-
-    g_rpc_ready = 2;
+        return MODULE_NO_RESIDENT_END;
 
     ret = StartThread(tid, NULL);
+    printf("[LPCM-IOP] StartThread RPC -> %d\n", ret);
     if (ret < 0)
-        return -102;
+        return MODULE_NO_RESIDENT_END;
 
-    g_rpc_ready = 3;
-
-    for (i = 0; i < 200; i++) {
-        if (g_rpc_ready >= 40)
-            break;
-        DelayThread(1000);
-    }
-
-    if (g_rpc_ready < 40)
-        return -(200 + g_rpc_ready);
+    DelayThread(20000);
 
     memset(&t, 0, sizeof(t));
     t.attr      = TH_C;
@@ -571,8 +553,11 @@ int _start(int argc, char *argv[])
     t.option    = 0;
 
     g_player_tid = CreateThread(&t);
-    if (g_player_tid >= 0)
-        StartThread(g_player_tid, NULL);
+    printf("[LPCM-IOP] CreateThread PLAYER -> %d\n", g_player_tid);
+    if (g_player_tid >= 0) {
+        ret = StartThread(g_player_tid, NULL);
+        printf("[LPCM-IOP] StartThread PLAYER -> %d\n", ret);
+    }
 
     return MODULE_RESIDENT_END;
 }

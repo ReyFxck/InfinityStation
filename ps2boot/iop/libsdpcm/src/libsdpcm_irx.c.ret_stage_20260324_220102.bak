@@ -507,17 +507,17 @@ static void libsdpcm_rpc_thread(void *arg)
     int tid;
     (void)arg;
 
-    g_rpc_ready = 10;
+    SifSetSreg(16, 0xA200);
 
     SifInitRpc(0);
-    g_rpc_ready = 20;
+    SifSetSreg(16, 0xA210);
 
     tid = GetThreadId();
     SifSetRpcQueue(&g_qd, tid);
-    g_rpc_ready = 30;
+    SifSetSreg(16, 0xA220);
 
     SifRegisterRpc(&g_sd0, LIBSDPCM_RPC_ID, libsdpcm_rpc_handler, &g_rpc_buf, NULL, NULL, &g_qd);
-    g_rpc_ready = 40;
+    SifSetSreg(16, 0xA230);
 
     SifRpcLoop(&g_qd);
 }
@@ -527,13 +527,13 @@ int _start(int argc, char *argv[])
     iop_thread_t t;
     int tid;
     int ret;
-    int i;
 
     (void)argc;
     (void)argv;
 
+    FlushDcache();
     CpuEnableIntr();
-    g_rpc_ready = 1;
+    SifSetSreg(16, 0xA100);
 
     memset(&t, 0, sizeof(t));
     t.attr      = TH_C;
@@ -543,25 +543,18 @@ int _start(int argc, char *argv[])
     t.option    = 0;
 
     tid = CreateThread(&t);
-    if (tid < 0)
-        return -101;
-
-    g_rpc_ready = 2;
-
-    ret = StartThread(tid, NULL);
-    if (ret < 0)
-        return -102;
-
-    g_rpc_ready = 3;
-
-    for (i = 0; i < 200; i++) {
-        if (g_rpc_ready >= 40)
-            break;
-        DelayThread(1000);
+    if (tid < 0) {
+        SifSetSreg(16, 0xA101);
+        return MODULE_NO_RESIDENT_END;
     }
 
-    if (g_rpc_ready < 40)
-        return -(200 + g_rpc_ready);
+    ret = StartThread(tid, NULL);
+    if (ret < 0) {
+        SifSetSreg(16, 0xA102);
+        return MODULE_NO_RESIDENT_END;
+    }
+
+    SifSetSreg(16, 0xA110);
 
     memset(&t, 0, sizeof(t));
     t.attr      = TH_C;
