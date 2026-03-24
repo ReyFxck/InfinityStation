@@ -1,0 +1,148 @@
+#include "app_boot.h"
+#include "app_callbacks.h"
+#include "app_game.h"
+#include "app_runtime.h"
+#include "app_overlay.h"
+
+#include <kernel.h>
+#include <debug.h>
+#include <stdint.h>
+#include <string.h>
+#include <libpad.h>
+
+#include "libretro.h"
+#include "ps2_input.h"
+#include "platform/ps2/ps2_audio.h"
+#include "ui/launcher/launcher.h"
+
+static uint32_t g_prev_buttons = 0;
+static int g_audio_probe_done = 0;
+static int g_audio_probe_started = 0;
+static int g_audio_probe_result = 999;
+static unsigned char g_audio_probe_stack[0x4000] __attribute__((aligned(16)));
+extern void *_gp;
+
+static void die(const char *msg)
+{
+    init_scr();
+    scr_printf("\n[ERRO] %s\n", msg);
+    SleepThread();
+    while (1) {}
+}
+
+static void audio_probe_thread(void *arg)
+{
+    (void)arg;
+
+    scr_printf("[AUDIO] thread probe start\n");
+
+    if (!ps2_audio_init_once()) {
+        g_audio_probe_result = 0;
+        scr_printf("[AUDIO] thread probe FAIL\n");
+    } else {
+        g_audio_probe_result = 1;
+        scr_printf("[AUDIO] thread probe OK\n");
+    }
+
+    g_audio_probe_done = 1;
+    ExitThread();
+}
+
+int main(int argc, char *argv[])
+{
+    struct retro_system_av_info av;
+    int saved_launcher_x;
+    int saved_launcher_y;
+
+    (void)argc;
+    (void)argv;
+
+    scr_printf("[BOOT] main: before app_boot_init\n");
+    app_boot_init(die);
+    scr_printf("[BOOT] main: after app_boot_init\n");
+
+    scr_printf("[BOOT] main: before app_callbacks_register\n");
+    app_callbacks_register();
+    scr_printf("[BOOT] main: after app_callbacks_register\n");
+
+    scr_printf("[BOOT] main: before retro_init\n");
+    retro_init();
+    scr_printf("[BOOT] main: after retro_init\n");
+
+    scr_printf("[BOOT] main: before app_boot_log_core_info\n");
+    app_boot_log_core_info();
+    scr_printf("[BOOT] main: after app_boot_log_core_info\n");
+
+    scr_printf("[BOOT] main: before launcher\n");
+    app_boot_run_launcher(&g_prev_buttons, &saved_launcher_x, &saved_launcher_y);
+    scr_printf("[BOOT] main: after launcher\n");
+
+    scr_printf("[BOOT] main: before app_game_load_selected\n");
+    if (!app_game_load_selected())
+        die("retro_load_game() falhou");
+    scr_printf("[BOOT] main: after app_game_load_selected\n");
+
+    app_overlay_reset_timing();
+
+    app_boot_refresh_av_info(&av);
+    if (av.timing.fps > 1.0)
+        app_overlay_set_core_nominal_fps(av.timing.fps);
+
+    scr_clear();
+    scr_printf("[BOOT] main: entering loop\n");
+
+    while (1) {
+        uint32_t buttons;
+        uint32_t pressed;
+
+        ps2_input_poll();
+        buttons = ps2_input_buttons();
+        pressed = buttons & ~g_prev_buttons;
+
+        if (!g_audio_probe_started &&
+            (pressed & PAD_START)) {
+            ee_thread_t t;
+            int tid;
+
+            memset(&t, 0, sizeof(t));
+            t.func = audio_probe_thread;
+            t.stack = g_audio_probe_stack;
+            t.stack_size = sizeof(g_audio_probe_stack);
+            t.gp_reg = &_gp;
+            t.initial_priority = 64;
+
+            tid = CreateThread(&t);
+            scr_printf("[AUDIO] CreateThread=%d\n", tid);
+
+            if (tid >= 0) {
+                StartThread(tid, NULL);
+                g_audio_probe_started = 1;
+            } else {
+                scr_printf("[AUDIO] thread create FAIL\n");
+            }
+        }
+
+        if (g_audio_probe_done) {
+            if (g_audio_probe_result == 1)
+                scr_printf("[AUDIO] thread result OK\n");
+            else if (g_audio_probe_result == 0)
+                scr_printf("[AUDIO] thread result FAIL\n");
+            g_audio_probe_done = 0;
+        }
+
+        if (app_runtime_handle_menu(buttons,
+                                    pressed,
+                                    &g_prev_buttons,
+                                    &av,
+                                    &saved_launcher_x,
+                                    &saved_launcher_y,
+                                    die))
+            continue;
+
+        retro_run();
+        app_overlay_throttle_if_needed();
+        g_prev_buttons = buttons;
+    }
+
+    return 0;
+}

@@ -5,7 +5,6 @@
 #include <sifrpc.h>
 #include <loadfile.h>
 #include <libpad.h>
-#include <ps2_joystick_driver.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -92,31 +91,6 @@ static void ps2_input_apply_left_stick_as_dpad(uint32_t *buttons_now)
         *buttons_now |= PAD_DOWN;
 }
 
-
-void ps2_input_shutdown(void)
-{
-    printf("[INPUT] shutdown enter\n");
-
-    if (g_pad_opened) {
-        int ret_pc = padPortClose(0, 0);
-        printf("[INPUT] padPortClose -> %d\n", ret_pc);
-        g_pad_opened = 0;
-    }
-
-    padEnd();
-    printf("[INPUT] padEnd done\n");
-
-    g_input_inited = 0;
-    g_input_ready = 0;
-    g_analog_checked = 0;
-    g_analog_supported = 0;
-    g_analog_requested = 0;
-    g_buttons = 0;
-    g_buttons_raw = 0;
-
-    printf("[INPUT] shutdown done\n");
-}
-
 int ps2_input_init_once(void)
 {
     int ret_sio2 = -1;
@@ -130,23 +104,34 @@ int ps2_input_init_once(void)
     }
 
     g_input_inited = 1;
-    printf("[INPUT] init force X enter\n");
+    printf("[INPUT] init enter\n");
 
+    printf("[INPUT] before SifLoadFileInit\n");
     SifLoadFileInit();
+    printf("[INPUT] after SifLoadFileInit\n");
 
-    printf("[INPUT] before XSIO2MAN\n");
-    ret_sio2 = SifLoadModule("rom0:XSIO2MAN", 0, NULL);
-    printf("[INPUT] XSIO2MAN -> %d\n", ret_sio2);
+    printf("[INPUT] before SIO2MAN\n");
+    ret_sio2 = SifLoadModule("rom0:SIO2MAN", 0, NULL);
+    printf("[INPUT] SIO2MAN -> %d\n", ret_sio2);
+    if (ret_sio2 < 0) {
+        ret_sio2 = SifLoadModule("rom0:XSIO2MAN", 0, NULL);
+        printf("[INPUT] XSIO2MAN -> %d\n", ret_sio2);
+    }
 
-    printf("[INPUT] before XPADMAN\n");
-    ret_pad = SifLoadModule("rom0:XPADMAN", 0, NULL);
-    printf("[INPUT] XPADMAN -> %d\n", ret_pad);
+    printf("[INPUT] before PADMAN\n");
+    ret_pad = SifLoadModule("rom0:PADMAN", 0, NULL);
+    printf("[INPUT] PADMAN -> %d\n", ret_pad);
+    if (ret_pad < 0) {
+        ret_pad = SifLoadModule("rom0:XPADMAN", 0, NULL);
+        printf("[INPUT] XPADMAN -> %d\n", ret_pad);
+    }
 
+    printf("[INPUT] before SifLoadFileExit\n");
     SifLoadFileExit();
-    printf("[INPUT] after module loads\n");
+    printf("[INPUT] after SifLoadFileExit\n");
 
     if (ret_sio2 < 0 || ret_pad < 0) {
-        printf("[INPUT] X module load fail\n");
+        printf("[INPUT] module load fail\n");
         return 0;
     }
 

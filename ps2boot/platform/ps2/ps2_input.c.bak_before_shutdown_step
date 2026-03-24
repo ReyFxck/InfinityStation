@@ -92,31 +92,6 @@ static void ps2_input_apply_left_stick_as_dpad(uint32_t *buttons_now)
         *buttons_now |= PAD_DOWN;
 }
 
-
-void ps2_input_shutdown(void)
-{
-    printf("[INPUT] shutdown enter\n");
-
-    if (g_pad_opened) {
-        int ret_pc = padPortClose(0, 0);
-        printf("[INPUT] padPortClose -> %d\n", ret_pc);
-        g_pad_opened = 0;
-    }
-
-    padEnd();
-    printf("[INPUT] padEnd done\n");
-
-    g_input_inited = 0;
-    g_input_ready = 0;
-    g_analog_checked = 0;
-    g_analog_supported = 0;
-    g_analog_requested = 0;
-    g_buttons = 0;
-    g_buttons_raw = 0;
-
-    printf("[INPUT] shutdown done\n");
-}
-
 int ps2_input_init_once(void)
 {
     int ret_sio2 = -1;

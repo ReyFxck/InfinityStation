@@ -9,6 +9,7 @@
 #include "ps2_video.h"
 #include "ps2_input.h"
 #include "app_overlay.h"
+#include "platform/ps2/ps2_audio.h"
 
 #define DEBUG_OVERLAY 0
 
@@ -20,7 +21,7 @@ static bool environ_cb(unsigned cmd, void *data)
     switch (cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
         g_pixel_format = *(const enum retro_pixel_format *)data;
-            return true;
+        return true;
 
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char **)data;
@@ -43,8 +44,6 @@ static bool environ_cb(unsigned cmd, void *data)
         return true;
 
     case RETRO_ENVIRONMENT_GET_VARIABLE:
-        return false;
-
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
         return false;
 
@@ -79,14 +78,13 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
 
 static void audio_cb(int16_t left, int16_t right)
 {
-    (void)left;
-    (void)right;
+    int16_t tmp[2] = { left, right };
+    ps2_audio_push_samples(tmp, 1);
 }
 
 static size_t audio_batch_cb(const int16_t *data, size_t frames)
 {
-    (void)data;
-    return frames;
+    return ps2_audio_push_samples(data, frames);
 }
 
 static void input_poll_cb(void)

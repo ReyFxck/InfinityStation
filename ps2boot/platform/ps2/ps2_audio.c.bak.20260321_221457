@@ -1,0 +1,163 @@
+#include "ps2_audio.h"
+
+#include <kernel.h>
+#include <sifrpc.h>
+#include <loadfile.h>
+#include <audsrv.h>
+#include <string.h>
+#include <stdio.h>
+
+extern unsigned char _audsrv_irx_start[];
+extern unsigned char _audsrv_irx_end[];
+
+#define PS2_AUDIO_FREQ_NATIVE   32040
+#define PS2_AUDIO_FREQ_FALLBACK 32000
+#define PS2_AUDIO_CHUNK_BYTES   4096
+
+static int g_audio_state = 0; /* 0=nao iniciado, 1=ok, -1=falhou */
+static unsigned g_audio_batch_count = 0;
+static unsigned g_audio_frames_total = 0;
+
+static int ps2_audio_set_stream_format(void)
+{
+    struct audsrv_fmt_t fmt;
+    int r;
+
+    memset(&fmt, 0, sizeof(fmt));
+    fmt.bits = 16;
+    fmt.freq = PS2_AUDIO_FREQ_NATIVE;
+    fmt.channels = 2;
+
+    r = audsrv_set_format(&fmt);
+    printf("[AUDIO] audsrv_set_format %d Hz -> %d\n", fmt.freq, r);
+    if (r == 0)
+        return 1;
+
+    fmt.freq = PS2_AUDIO_FREQ_FALLBACK;
+    r = audsrv_set_format(&fmt);
+    printf("[AUDIO] audsrv_set_format fallback %d Hz -> %d\n", fmt.freq, r);
+    return (r == 0);
+}
+
+int ps2_audio_init_once(void)
+{
+    int mod_res = 0;
+    int mod_id;
+    int r;
+
+    if (g_audio_state != 0) {
+        printf("[AUDIO] init skipped, state=%d\n", g_audio_state);
+        return g_audio_state > 0;
+    }
+
+    printf("[AUDIO] init start\n");
+
+    /* O RPC base ja deve estar ativo no boot, aqui so garantimos loadfile. */
+    SifLoadFileInit();
+
+    r = SifLoadModule("rom0:LIBSD", 0, NULL);
+    printf("[AUDIO] SifLoadModule LIBSD -> %d\n", r);
+    if (r < 0)
+        goto fail;
+
+    mod_id = SifExecModuleBuffer(
+        _audsrv_irx_start,
+        (unsigned int)(_audsrv_irx_end - _audsrv_irx_start),
+        0,
+        NULL,
+        &mod_res
+    );
+    printf("[AUDIO] SifExecModuleBuffer audsrv -> mod_id=%d mod_res=%d\n", mod_id, mod_res);
+    if (mod_id < 0 || mod_res < 0)
+        goto fail;
+
+    printf("[AUDIO] before audsrv_init\n");
+    r = audsrv_init();
+    printf("[AUDIO] audsrv_init -> %d\n", r);
+    if (r != 0)
+        goto fail;
+
+    if (!ps2_audio_set_stream_format())
+        goto fail_quit;
+
+    r = audsrv_set_volume(MAX_VOLUME);
+    printf("[AUDIO] audsrv_set_volume -> %d\n", r);
+
+    g_audio_state = 1;
+    printf("[AUDIO] init success\n");
+    return 1;
+
+fail_quit:
+    audsrv_quit();
+fail:
+    g_audio_state = -1;
+    return 0;
+}
+
+void ps2_audio_shutdown(void)
+{
+    if (g_audio_state == 1)
+        audsrv_quit();
+
+    g_audio_state = 0;
+}
+
+size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
+{
+    const unsigned char *ptr = (const unsigned char *)data;
+    unsigned remaining;
+    unsigned written_total = 0;
+
+    if (!data || !frames)
+        return 0;
+
+    /* Nao travar o jogo se o audio ainda nao subiu. */
+    if (g_audio_state != 1)
+        return frames;
+
+    g_audio_batch_count++;
+    g_audio_frames_total += (unsigned)frames;
+
+    if (g_audio_batch_count <= 8 || (g_audio_batch_count % 180) == 0) {
+        printf("[AUDDBG] audio_batch count=%u frames=%u total=%u\n",
+            g_audio_batch_count,
+            (unsigned)frames,
+            g_audio_frames_total);
+    }
+
+    remaining = (unsigned)(frames * sizeof(int16_t) * 2);
+
+    while (remaining >= 4) {
+        int avail = audsrv_available();
+        unsigned chunk;
+        int wrote;
+
+        if (avail < 4)
+            break;
+
+        chunk = (unsigned)avail;
+        if (chunk > remaining)
+            chunk = remaining;
+        if (chunk > PS2_AUDIO_CHUNK_BYTES)
+            chunk = PS2_AUDIO_CHUNK_BYTES;
+
+        chunk &= ~3U;
+        if (chunk < 4)
+            break;
+
+        wrote = audsrv_play_audio((const char *)ptr, (int)chunk);
+        if (wrote < 0) {
+            printf("[AUDIO] audsrv_play_audio -> %d\n", wrote);
+            break;
+        }
+
+        if (wrote == 0)
+            break;
+
+        ptr += (unsigned)wrote;
+        remaining -= (unsigned)wrote;
+        written_total += (unsigned)wrote;
+    }
+
+    return written_total / (sizeof(int16_t) * 2);
+}

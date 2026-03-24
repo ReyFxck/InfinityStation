@@ -11,7 +11,6 @@
 #include <iopcontrol_special.h>
 
 #include "libsdpcm_ioprp_blob.h"
-#include "ps2_input.h"
 
 #define LIBSDPCM_RPC_ID 0x014C504D
 #define LIBSDPCM_MAX_PAYLOAD 2048
@@ -125,9 +124,6 @@ int ps2_audio_init_once(void)
     }
 
     printf("[LPCM-EE] init enter (IOPRP reboot test)\n");
-    printf("[LPCM-EE] before input shutdown\n");
-    ps2_input_shutdown();
-    printf("[LPCM-EE] after input shutdown\n");
     printf("[LPCM-EE] embedded ioprp size=%u bytes\n", (unsigned)libsdpcm_ioprp_len);
 
     r = SifIopRebootBuffer(libsdpcm_ioprp, (int)libsdpcm_ioprp_len);
@@ -152,12 +148,6 @@ int ps2_audio_init_once(void)
 
     ps2_audio_rpc_raw(LIBSDPCM_CMD_PING, 0, 0, 0, 0, NULL, 0);
     ps2_audio_rpc_raw(LIBSDPCM_CMD_INIT, 32040, 2, 16, 0, NULL, 0);
-
-    printf("[LPCM-EE] before input reinit\n");
-    if (!ps2_input_init_once())
-        printf("[LPCM-EE] input reinit FAIL\n");
-    else
-        printf("[LPCM-EE] input reinit OK\n");
 
     g_audio_state = 1;
     printf("[LPCM-EE] init success\n");
