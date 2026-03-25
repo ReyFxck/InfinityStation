@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sifrpc.h>
-#include <sifcmd.h>
 #include <irx.h>
 #include <intrman.h>
 #include <libsd.h>
@@ -65,7 +64,6 @@ typedef struct libsdpcm_rpc_pkt {
 static SifRpcDataQueue_t g_qd;
 static SifRpcServerData_t g_sd0;
 static libsdpcm_rpc_pkt_t g_rpc_buf __attribute__((aligned(64)));
-static volatile int g_rpc_stage = 0;
 
 static u8  g_ring[LIBSDPCM_RING_SIZE] __attribute__((aligned(64)));
 static u32 g_ring_rpos = 0;

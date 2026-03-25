@@ -7,9 +7,6 @@
 
 #include <kernel.h>
 #include <sifrpc.h>
-#ifndef SIF_RPC_M_NOWAIT
-#define SIF_RPC_M_NOWAIT 1
-#endif
 #include <loadfile.h>
 #include <iopcontrol_special.h>
 
@@ -56,19 +53,32 @@ static void ps2_audio_spin_delay(void)
 
 static int ps2_audio_bind_rpc(void)
 {
-    int ret;
-    int found;
+    int i;
 
     memset(&g_cd, 0, sizeof(g_cd));
 
-    ret = SifBindRpc(&g_cd, LIBSDPCM_RPC_ID, 0);
-    found = SifSearchModuleByName("libsdpcm");
+    for (i = 0; i < 300; i++) {
+        SifBindRpc(&g_cd, LIBSDPCM_RPC_ID, 0);
 
-    printf("[LPCM-EE] bind final ret=%d server=%p mod=%d sreg16=0x%08x\n",
-           ret, g_cd.server, found, (unsigned)SifGetSreg(16));
+        if (g_cd.server) {
+            printf("[LPCM-EE] bind ok try=%d server=%p\n", i, g_cd.server);
+            return 1;
+        }
 
-    return g_cd.server != NULL;
+        if ((i % 20) == 0) {
+            int found = SifSearchModuleByName("libsdpcm");
+            unsigned stage = (unsigned)SifGetSreg(16);
+            printf("[LPCM-EE] bind wait try=%d server=%p mod=%d sreg16=0x%08x\n",
+                   i, g_cd.server, found, stage);
+        }
+
+        ps2_audio_spin_delay();
+    }
+
+    printf("[LPCM-EE] bind timeout server=%p\n", g_cd.server);
+    return 0;
 }
+
 static int ps2_audio_rpc_raw(uint32_t cmd, uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3,
                              const void *payload, unsigned payload_size)
 {
@@ -119,9 +129,7 @@ int ps2_audio_init_once(void)
     SifInitRpc(0);
     SifLoadFileInit();
 
-        SifLoadFileInit();
-    printf("[LPCM-EE] after SifLoadFileInit\n");
-printf("[LPCM-EE] embedded irx size=%u bytes\n", (unsigned)libsdpcm_irx_len);
+    printf("[LPCM-EE] embedded irx size=%u bytes\n", (unsigned)libsdpcm_irx_len);
     {
         int mod_res = 0;
         r = SifExecModuleBuffer(libsdpcm_irx, (unsigned int)libsdpcm_irx_len, 0, NULL, &mod_res);

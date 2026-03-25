@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sifrpc.h>
-#include <sifcmd.h>
 #include <irx.h>
 #include <intrman.h>
 #include <libsd.h>
@@ -432,17 +431,22 @@ static void libsdpcm_rpc_thread(void *arg)
     int tid;
     (void)arg;
 
-    sceSifSetSreg(16, 0xA200);
+    printf("[LPCM-IOP] rpc thread enter\n");
+    g_rpc_stage = 10;
 
     SifInitRpc(0);
-    sceSifSetSreg(16, 0xA210);
+    printf("[LPCM-IOP] after SifInitRpc\n");
+    g_rpc_stage = 20;
 
     tid = GetThreadId();
+    printf("[LPCM-IOP] tid=%d\n", tid);
     SifSetRpcQueue(&g_qd, tid);
-    sceSifSetSreg(16, 0xA220);
+    printf("[LPCM-IOP] after SifSetRpcQueue\n");
+    g_rpc_stage = 30;
 
     SifRegisterRpc(&g_sd0, LIBSDPCM_RPC_ID, libsdpcm_rpc_handler, &g_rpc_buf, NULL, NULL, &g_qd);
-    sceSifSetSreg(16, 0xA230);
+    printf("[LPCM-IOP] after SifRegisterRpc\n");
+    g_rpc_stage = 40;
 
     SifRpcLoop(&g_qd);
 }
@@ -452,12 +456,14 @@ int _start(int argc, char *argv[])
     iop_thread_t t;
     int tid;
     int ret;
+    int i;
 
     (void)argc;
     (void)argv;
 
+    printf("[LPCM-IOP] _start enter\n");
     CpuEnableIntr();
-    sceSifSetSreg(16, 0xA100);
+    g_rpc_stage = 1;
 
     memset(&t, 0, sizeof(t));
     t.attr      = TH_C;
@@ -467,17 +473,27 @@ int _start(int argc, char *argv[])
     t.option    = 0;
 
     tid = CreateThread(&t);
-    if (tid < 0) {
-        sceSifSetSreg(16, 0xA101);
+    printf("[LPCM-IOP] CreateThread -> %d\n", tid);
+    if (tid < 0)
         return -101;
-    }
+
+    g_rpc_stage = 2;
 
     ret = StartThread(tid, NULL);
-    if (ret < 0) {
-        sceSifSetSreg(16, 0xA102);
+    printf("[LPCM-IOP] StartThread -> %d\n", ret);
+    if (ret < 0)
         return -102;
+
+    g_rpc_stage = 3;
+
+    for (i = 0; i < 200; i++) {
+        if (g_rpc_stage >= 40) {
+            printf("[LPCM-IOP] ready stage=%d\n", g_rpc_stage);
+            return MODULE_RESIDENT_END;
+        }
+        DelayThread(1000);
     }
 
-    sceSifSetSreg(16, 0xA110);
-    return MODULE_RESIDENT_END;
+    printf("[LPCM-IOP] timeout stage=%d\n", g_rpc_stage);
+    return -(200 + g_rpc_stage);
 }

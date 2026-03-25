@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sifrpc.h>
-#include <sifcmd.h>
 #include <irx.h>
 #include <intrman.h>
 #include <libsd.h>
@@ -65,7 +64,6 @@ typedef struct libsdpcm_rpc_pkt {
 static SifRpcDataQueue_t g_qd;
 static SifRpcServerData_t g_sd0;
 static libsdpcm_rpc_pkt_t g_rpc_buf __attribute__((aligned(64)));
-static volatile int g_rpc_stage = 0;
 
 static u8  g_ring[LIBSDPCM_RING_SIZE] __attribute__((aligned(64)));
 static u32 g_ring_rpos = 0;
@@ -82,7 +80,7 @@ static u32 g_total_out = 0;
 static u32 g_underflow_bytes = 0;
 
 static int g_audio_initialized = 0;
-static int __attribute__((unused)) g_player_tid = -1;
+static int g_player_tid = -1;
 static int g_seen_first_push = 0;
 static volatile int g_rpc_ready = 0;
 
@@ -319,7 +317,7 @@ static void backend_consume_pcm(const u8 *buf, u32 bytes)
     }
 }
 
-static void __attribute__((unused)) player_thread(void *arg)
+static void player_thread(void *arg)
 {
     u32 got;
     int state;
@@ -330,8 +328,6 @@ static void __attribute__((unused)) player_thread(void *arg)
     u32 idle_loops = 0;
 
     (void)arg;
-
-    SifInitRpc(0);
 
     printf("[LPCM-IOP] player thread enter\n");
 
@@ -406,21 +402,100 @@ static void __attribute__((unused)) player_thread(void *arg)
 static void *libsdpcm_rpc_handler(int fno, void *data, int size)
 {
     libsdpcm_rpc_pkt_t *pkt = (libsdpcm_rpc_pkt_t *)data;
+    u32 wrote;
+    int state;
+    u32 used_now;
+    u32 free_now;
+
     (void)fno;
     (void)size;
 
+    if (!pkt)
+        return data;
+
     pkt->magic = LIBSDPCM_RPC_ID;
-    pkt->counter++;
+    pkt->counter = ++g_rpc_counter;
+    pkt->result = -1;
 
     switch (pkt->cmd) {
         case LIBSDPCM_CMD_PING:
-        case LIBSDPCM_CMD_INIT:
-        case LIBSDPCM_CMD_QUIT:
-        case LIBSDPCM_CMD_PUSH:
-            pkt->result = 0;
+            ring_lock(&state);
+            used_now = g_ring_used;
+            free_now = ring_free_nolock();
+            ring_unlock(state);
+
+            pkt->result = 1;
+            printf("[LPCM-IOP] PING ok used=%lu free=%lu drops=%lu under=%lu\n",
+                   (unsigned long)used_now,
+                   (unsigned long)free_now,
+                   (unsigned long)g_drop_bytes,
+                   (unsigned long)g_underflow_bytes);
             break;
+
+        case LIBSDPCM_CMD_INIT:
+            ring_reset();
+            backend_hw_shutdown();
+            g_backend_hw_inited = 0;
+            g_backend_dma_started = 0;
+            g_backend_last_block = -1;
+            g_audio_initialized = 1;
+            printf("[LPCM-IOP] INIT ok buffer=%u bytes chunk=%u prefill=%u fast=%u norm=%u\n",
+                   LIBSDPCM_RING_SIZE, LIBSDPCM_PLAY_CHUNK,
+                   LIBSDPCM_PREFILL_START,
+                   LIBSDPCM_PLAY_DELAY_FAST,
+                   LIBSDPCM_PLAY_DELAY_NORM);
+            pkt->result = 1;
+            break;
+
+        case LIBSDPCM_CMD_QUIT:
+            g_audio_initialized = 0;
+            backend_hw_shutdown();
+            printf("[LPCM-IOP] QUIT ok in=%lu out=%lu drops=%lu under=%lu used=%lu\n",
+                   (unsigned long)g_total_in,
+                   (unsigned long)g_total_out,
+                   (unsigned long)g_drop_bytes,
+                   (unsigned long)g_underflow_bytes,
+                   (unsigned long)g_ring_used);
+            pkt->result = 1;
+            break;
+
+        case LIBSDPCM_CMD_PUSH:
+            g_push_calls++;
+            if (!g_audio_initialized) {
+                pkt->result = -2;
+                break;
+            }
+
+            wrote = ring_write(pkt->payload, pkt->arg0);
+            pkt->result = (s32)wrote;
+
+            if (wrote > 0 && !g_seen_first_push) {
+                g_seen_first_push = 1;
+                printf("[LPCM-IOP] FIRST PUSH wrote=%lu used=%lu\n",
+                       (unsigned long)wrote,
+                       (unsigned long)g_ring_used);
+            }
+
+            if (g_push_calls == 1 || (g_push_calls % 32) == 0) {
+                ring_lock(&state);
+                used_now = g_ring_used;
+                free_now = ring_free_nolock();
+                ring_unlock(state);
+
+                printf("[LPCM-IOP] PUSH calls=%lu in=%lu wrote=%lu used=%lu free=%lu drops=%lu first=%02x %02x %02x %02x\n",
+                       (unsigned long)g_push_calls,
+                       (unsigned long)pkt->arg0,
+                       (unsigned long)wrote,
+                       (unsigned long)used_now,
+                       (unsigned long)free_now,
+                       (unsigned long)g_drop_bytes,
+                       pkt->payload[0], pkt->payload[1], pkt->payload[2], pkt->payload[3]);
+            }
+            break;
+
         default:
-            pkt->result = -1;
+            pkt->result = -99;
+            printf("[LPCM-IOP] unknown cmd=%lu\n", (unsigned long)pkt->cmd);
             break;
     }
 
@@ -432,17 +507,17 @@ static void libsdpcm_rpc_thread(void *arg)
     int tid;
     (void)arg;
 
-    sceSifSetSreg(16, 0xA200);
+    g_rpc_ready = 10;
 
     SifInitRpc(0);
-    sceSifSetSreg(16, 0xA210);
+    g_rpc_ready = 20;
 
     tid = GetThreadId();
     SifSetRpcQueue(&g_qd, tid);
-    sceSifSetSreg(16, 0xA220);
+    g_rpc_ready = 30;
 
     SifRegisterRpc(&g_sd0, LIBSDPCM_RPC_ID, libsdpcm_rpc_handler, &g_rpc_buf, NULL, NULL, &g_qd);
-    sceSifSetSreg(16, 0xA230);
+    g_rpc_ready = 40;
 
     SifRpcLoop(&g_qd);
 }
@@ -452,12 +527,13 @@ int _start(int argc, char *argv[])
     iop_thread_t t;
     int tid;
     int ret;
+    int i;
 
     (void)argc;
     (void)argv;
 
     CpuEnableIntr();
-    sceSifSetSreg(16, 0xA100);
+    g_rpc_ready = 1;
 
     memset(&t, 0, sizeof(t));
     t.attr      = TH_C;
@@ -467,17 +543,36 @@ int _start(int argc, char *argv[])
     t.option    = 0;
 
     tid = CreateThread(&t);
-    if (tid < 0) {
-        sceSifSetSreg(16, 0xA101);
+    if (tid < 0)
         return -101;
-    }
+
+    g_rpc_ready = 2;
 
     ret = StartThread(tid, NULL);
-    if (ret < 0) {
-        sceSifSetSreg(16, 0xA102);
+    if (ret < 0)
         return -102;
+
+    g_rpc_ready = 3;
+
+    for (i = 0; i < 200; i++) {
+        if (g_rpc_ready >= 40)
+            break;
+        DelayThread(1000);
     }
 
-    sceSifSetSreg(16, 0xA110);
+    if (g_rpc_ready < 40)
+        return -(200 + g_rpc_ready);
+
+    memset(&t, 0, sizeof(t));
+    t.attr      = TH_C;
+    t.thread    = player_thread;
+    t.priority  = 41;
+    t.stacksize = 0x2000;
+    t.option    = 0;
+
+    g_player_tid = CreateThread(&t);
+    if (g_player_tid >= 0)
+        StartThread(g_player_tid, NULL);
+
     return MODULE_RESIDENT_END;
 }

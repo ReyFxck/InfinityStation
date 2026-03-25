@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sifrpc.h>
-#include <sifcmd.h>
 #include <irx.h>
 #include <intrman.h>
 #include <libsd.h>
@@ -432,17 +431,17 @@ static void libsdpcm_rpc_thread(void *arg)
     int tid;
     (void)arg;
 
-    sceSifSetSreg(16, 0xA200);
+    g_rpc_stage = 10;
 
     SifInitRpc(0);
-    sceSifSetSreg(16, 0xA210);
+    g_rpc_stage = 20;
 
     tid = GetThreadId();
     SifSetRpcQueue(&g_qd, tid);
-    sceSifSetSreg(16, 0xA220);
+    g_rpc_stage = 30;
 
     SifRegisterRpc(&g_sd0, LIBSDPCM_RPC_ID, libsdpcm_rpc_handler, &g_rpc_buf, NULL, NULL, &g_qd);
-    sceSifSetSreg(16, 0xA230);
+    g_rpc_stage = 40;
 
     SifRpcLoop(&g_qd);
 }
@@ -452,12 +451,13 @@ int _start(int argc, char *argv[])
     iop_thread_t t;
     int tid;
     int ret;
+    int i;
 
     (void)argc;
     (void)argv;
 
     CpuEnableIntr();
-    sceSifSetSreg(16, 0xA100);
+    g_rpc_stage = 1;
 
     memset(&t, 0, sizeof(t));
     t.attr      = TH_C;
@@ -467,17 +467,25 @@ int _start(int argc, char *argv[])
     t.option    = 0;
 
     tid = CreateThread(&t);
-    if (tid < 0) {
-        sceSifSetSreg(16, 0xA101);
+    if (tid < 0)
         return -101;
-    }
+
+    g_rpc_stage = 2;
 
     ret = StartThread(tid, NULL);
-    if (ret < 0) {
-        sceSifSetSreg(16, 0xA102);
+    if (ret < 0)
         return -102;
+
+    g_rpc_stage = 3;
+
+    for (i = 0; i < 200; i++) {
+        if (g_rpc_stage >= 40)
+            break;
+        DelayThread(1000);
     }
 
-    sceSifSetSreg(16, 0xA110);
+    if (g_rpc_stage < 40)
+        return -(200 + g_rpc_stage);
+
     return MODULE_RESIDENT_END;
 }

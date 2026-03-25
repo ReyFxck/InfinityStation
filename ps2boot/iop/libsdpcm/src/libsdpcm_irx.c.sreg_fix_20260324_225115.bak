@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sifrpc.h>
-#include <sifcmd.h>
 #include <irx.h>
 #include <intrman.h>
 #include <libsd.h>
@@ -65,7 +64,6 @@ typedef struct libsdpcm_rpc_pkt {
 static SifRpcDataQueue_t g_qd;
 static SifRpcServerData_t g_sd0;
 static libsdpcm_rpc_pkt_t g_rpc_buf __attribute__((aligned(64)));
-static volatile int g_rpc_stage = 0;
 
 static u8  g_ring[LIBSDPCM_RING_SIZE] __attribute__((aligned(64)));
 static u32 g_ring_rpos = 0;
@@ -331,8 +329,6 @@ static void __attribute__((unused)) player_thread(void *arg)
 
     (void)arg;
 
-    SifInitRpc(0);
-
     printf("[LPCM-IOP] player thread enter\n");
 
     while (1) {
@@ -432,18 +428,9 @@ static void libsdpcm_rpc_thread(void *arg)
     int tid;
     (void)arg;
 
-    sceSifSetSreg(16, 0xA200);
-
-    SifInitRpc(0);
-    sceSifSetSreg(16, 0xA210);
-
     tid = GetThreadId();
     SifSetRpcQueue(&g_qd, tid);
-    sceSifSetSreg(16, 0xA220);
-
     SifRegisterRpc(&g_sd0, LIBSDPCM_RPC_ID, libsdpcm_rpc_handler, &g_rpc_buf, NULL, NULL, &g_qd);
-    sceSifSetSreg(16, 0xA230);
-
     SifRpcLoop(&g_qd);
 }
 
@@ -457,7 +444,7 @@ int _start(int argc, char *argv[])
     (void)argv;
 
     CpuEnableIntr();
-    sceSifSetSreg(16, 0xA100);
+    SifInitRpc(0);
 
     memset(&t, 0, sizeof(t));
     t.attr      = TH_C;
@@ -467,17 +454,12 @@ int _start(int argc, char *argv[])
     t.option    = 0;
 
     tid = CreateThread(&t);
-    if (tid < 0) {
-        sceSifSetSreg(16, 0xA101);
+    if (tid < 0)
         return -101;
-    }
 
     ret = StartThread(tid, NULL);
-    if (ret < 0) {
-        sceSifSetSreg(16, 0xA102);
+    if (ret < 0)
         return -102;
-    }
 
-    sceSifSetSreg(16, 0xA110);
     return MODULE_RESIDENT_END;
 }
