@@ -6,7 +6,6 @@
 #include <sysclib.h>
 #include <stdio.h>
 #include <sifman.h>
-#include <sifcmd.h>
 #include <sifrpc.h>
 
 IRX_ID("libsdpcm", 1, 0);
@@ -51,27 +50,38 @@ static void *rpcServer(int fno, void *data, int size)
 static void rpcThread(void *arg)
 {
     (void)arg;
-
-    sceSifSetSreg(16, 0xA200);
-
     SifInitRpc(0);
-    sceSifSetSreg(16, 0xA210);
-
     SifSetRpcQueue(&qd, GetThreadId());
-    sceSifSetSreg(16, 0xA220);
-
     SifRegisterRpc(&sd0, LIBSDPCM_RPC_ID, rpcServer, rpcBuffer, 0, 0, &qd);
-    sceSifSetSreg(16, 0xA230);
-
     SifRpcLoop(&qd);
+}
+
+static int start_rpc_thread(void)
+{
+    iop_thread_t t;
+    int thid;
+    int r;
+
+    memset(&t, 0, sizeof(t));
+    t.attr      = 0x2000000;
+    t.thread    = rpcThread;
+    t.priority  = 32;
+    t.stacksize = 0x1000;
+    t.option    = 0;
+
+    thid = CreateThread(&t);
+    if (thid <= 0)
+        return -1;
+
+    r = StartThread(thid, 0);
+    if (r)
+        return -1;
+
+    return 0;
 }
 
 int _start(int argc, char **argv)
 {
-    iop_thread_t t;
-    int thid;
-    int ret;
-
     (void)argc;
     (void)argv;
 
@@ -79,28 +89,5 @@ int _start(int argc, char **argv)
     memset(&sd0, 0, sizeof(sd0));
     memset(rpcBuffer, 0, sizeof(rpcBuffer));
 
-    CpuEnableIntr();
-    sceSifSetSreg(16, 0xA100);
-
-    memset(&t, 0, sizeof(t));
-    t.attr      = TH_C;
-    t.thread    = rpcThread;
-    t.priority  = 40;
-    t.stacksize = 0x1000;
-    t.option    = 0;
-
-    thid = CreateThread(&t);
-    if (thid < 0) {
-        sceSifSetSreg(16, 0xA101);
-        return MODULE_NO_RESIDENT_END;
-    }
-
-    ret = StartThread(thid, 0);
-    if (ret < 0) {
-        sceSifSetSreg(16, 0xA102);
-        return MODULE_NO_RESIDENT_END;
-    }
-
-    sceSifSetSreg(16, 0xA110);
-    return MODULE_RESIDENT_END;
+    return start_rpc_thread() < 0;
 }

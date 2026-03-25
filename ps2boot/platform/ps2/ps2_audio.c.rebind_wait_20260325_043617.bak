@@ -7,9 +7,14 @@
 
 #include <kernel.h>
 #include <sifrpc.h>
+#ifndef SIF_RPC_M_NOWAIT
+#define SIF_RPC_M_NOWAIT 1
+#endif
 #include <loadfile.h>
+#include <iopcontrol_special.h>
 
 #include "libsdpcm_irx_blob.h"
+#include "ps2_input.h"
 
 #define LIBSDPCM_RPC_ID 0x014C504D
 #define LIBSDPCM_MAX_PAYLOAD 2048
@@ -51,34 +56,18 @@ static void ps2_audio_spin_delay(void)
 
 static int ps2_audio_bind_rpc(void)
 {
-    int i;
     int ret;
+    int found;
 
     memset(&g_cd, 0, sizeof(g_cd));
 
-    for (i = 0; i < 300; i++) {
-        ret = SifBindRpc(&g_cd, LIBSDPCM_RPC_ID, 0);
+    ret = SifBindRpc(&g_cd, LIBSDPCM_RPC_ID, 0);
+    found = SifSearchModuleByName("libsdpcm");
 
-        if (g_cd.server) {
-            printf("[LPCM-EE] bind ok try=%d ret=%d server=%p mod=%d sreg16=0x%08x\n",
-                   i, ret, g_cd.server, SifSearchModuleByName("libsdpcm"),
-                   (unsigned)SifGetSreg(16));
-            return 1;
-        }
+    printf("[LPCM-EE] bind final ret=%d server=%p mod=%d sreg16=0x%08x\n",
+           ret, g_cd.server, found, (unsigned)SifGetSreg(16));
 
-        if ((i % 10) == 0) {
-            printf("[LPCM-EE] bind wait try=%d ret=%d server=%p mod=%d sreg16=0x%08x\n",
-                   i, ret, g_cd.server, SifSearchModuleByName("libsdpcm"),
-                   (unsigned)SifGetSreg(16));
-        }
-
-        ps2_audio_spin_delay();
-    }
-
-    printf("[LPCM-EE] bind timeout/fail server=%p mod=%d sreg16=0x%08x\n",
-           g_cd.server, SifSearchModuleByName("libsdpcm"),
-           (unsigned)SifGetSreg(16));
-    return 0;
+    return g_cd.server != NULL;
 }
 static int ps2_audio_rpc_raw(uint32_t cmd, uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3,
                              const void *payload, unsigned payload_size)
@@ -121,38 +110,47 @@ int ps2_audio_init_once(void)
     int r;
 
     if (g_audio_state != 0) {
-        printf("[LPCM-EE] init skipped state=%d\n", g_audio_state);
+        printf("[LPCM-EE] init skipped state=%d
+", g_audio_state);
         return g_audio_state > 0;
     }
 
-    printf("[LPCM-EE] init enter (IRX exec path)\n");
+    printf("[LPCM-EE] init enter (IRX exec path)
+");
 
     SifInitRpc(0);
     SifLoadFileInit();
-    printf("[LPCM-EE] after SifLoadFileInit\n");
+    printf("[LPCM-EE] after SifLoadFileInit
+");
 
-    printf("[LPCM-EE] embedded irx size=%u bytes\n", (unsigned)libsdpcm_irx_len);
+    printf("[LPCM-EE] embedded irx size=%u bytes
+", (unsigned)libsdpcm_irx_len);
     {
         int mod_res = 0;
         r = SifExecModuleBuffer(libsdpcm_irx, (unsigned int)libsdpcm_irx_len, 0, NULL, &mod_res);
-        printf("[LPCM-EE] SifExecModuleBuffer(libsdpcm) -> mod_id=%d mod_res=%d\n", r, mod_res);
+        printf("[LPCM-EE] SifExecModuleBuffer(libsdpcm) -> mod_id=%d mod_res=%d
+", r, mod_res);
         if (r < 0) {
             g_audio_state = -1;
-            printf("[LPCM-EE] init FAIL at SifExecModuleBuffer\n");
+            printf("[LPCM-EE] init FAIL at SifExecModuleBuffer
+");
             return 0;
         }
     }
 
-    printf("[LPCM-EE] SifSearchModuleByName(libsdpcm) immediate -> %d\n",
+    printf("[LPCM-EE] SifSearchModuleByName(libsdpcm) immediate -> %d
+",
            SifSearchModuleByName("libsdpcm"));
 
     if (!ps2_audio_bind_rpc()) {
         g_audio_state = -1;
-        printf("[LPCM-EE] init FAIL at bind\n");
+        printf("[LPCM-EE] init FAIL at bind
+");
         return 0;
     }
 
-    printf("[LPCM-EE] bind-only test OK (skipping ping/init)\n");
+    printf("[LPCM-EE] bind-only test OK (skipping ping/init)
+");
     g_audio_state = -2;
     return 0;
 }
@@ -167,24 +165,52 @@ void ps2_audio_shutdown(void)
 
 size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 {
-    (void)data;
+    const uint8_t *src = (const uint8_t *)data;
+    unsigned bytes = (unsigned)(frames * 4);
 
     static int warned_not_ready = 0;
 
     if (g_audio_state != 1 || !g_cd.server) {
         if (!warned_not_ready) {
-            printf("[LPCM-EE] drop push: audio not ready state=%d server=%p\n",
-                   g_audio_state, g_cd.server);
+            printf("[LPCM-EE] drop push: audio not ready state=%d server=%p\n", g_audio_state, g_cd.server);
             warned_not_ready = 1;
         }
         return frames;
     }
 
     warned_not_ready = 0;
+if (g_push_calls == 0)
+        printf("[LPCM-EE] first push frames=%u\n", (unsigned)frames);
+
     g_push_calls++;
     g_push_frames_total += (unsigned)frames;
-    g_rpc_push_calls++;
-    g_rpc_push_bytes += (unsigned)(frames * 4);
+
+    while (bytes > 0) {
+        unsigned chunk = bytes > LIBSDPCM_MAX_PAYLOAD ? LIBSDPCM_MAX_PAYLOAD : bytes;
+        int ret = ps2_audio_rpc_raw(LIBSDPCM_CMD_PUSH, chunk, 0, 0, 0, src, chunk);
+
+        g_rpc_push_calls++;
+        g_rpc_push_bytes += chunk;
+
+        if (g_rpc_push_calls == 1 || (g_rpc_push_calls % 32) == 0) {
+            printf("[LPCM-EE] rpc push calls=%u bytes=%u last_ret=%d first=%02x %02x %02x %02x\n",
+                   g_rpc_push_calls,
+                   g_rpc_push_bytes,
+                   ret,
+                   chunk > 0 ? src[0] : 0,
+                   chunk > 1 ? src[1] : 0,
+                   chunk > 2 ? src[2] : 0,
+                   chunk > 3 ? src[3] : 0);
+        }
+
+        src += chunk;
+        bytes -= chunk;
+    }
+
+    if ((g_push_calls % 120) == 0) {
+        printf("[LPCM-EE] push calls=%u total_frames=%u\n",
+               g_push_calls, g_push_frames_total);
+    }
 
     return frames;
 }

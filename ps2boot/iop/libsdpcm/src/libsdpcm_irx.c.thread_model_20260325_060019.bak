@@ -6,7 +6,6 @@
 #include <sysclib.h>
 #include <stdio.h>
 #include <sifman.h>
-#include <sifcmd.h>
 #include <sifrpc.h>
 
 IRX_ID("libsdpcm", 1, 0);
@@ -25,7 +24,7 @@ static SifRpcDataQueue_t qd;
 static SifRpcServerData_t sd0;
 static u8 rpcBuffer[64] __attribute__((aligned(64)));
 
-static void *rpcServer(int fno, void *data, int size)
+static void *rpcServer(int func, void *data, int size)
 {
     libsdpcm_rpc_pkt_t *pkt = (libsdpcm_rpc_pkt_t *)data;
     (void)size;
@@ -33,11 +32,11 @@ static void *rpcServer(int fno, void *data, int size)
     pkt->magic = LIBSDPCM_RPC_ID;
     pkt->counter++;
 
-    switch (fno) {
-        case 1:
-        case 2:
-        case 3:
-        case 4:
+    switch (func) {
+        case 1: /* PING */
+        case 2: /* INIT */
+        case 3: /* QUIT */
+        case 4: /* PUSH */
             pkt->result = 0;
             break;
         default:
@@ -48,59 +47,42 @@ static void *rpcServer(int fno, void *data, int size)
     return data;
 }
 
-static void rpcThread(void *arg)
+static void rpcThread(void *param)
 {
-    (void)arg;
-
-    sceSifSetSreg(16, 0xA200);
-
+    (void)param;
     SifInitRpc(0);
-    sceSifSetSreg(16, 0xA210);
-
     SifSetRpcQueue(&qd, GetThreadId());
-    sceSifSetSreg(16, 0xA220);
-
-    SifRegisterRpc(&sd0, LIBSDPCM_RPC_ID, rpcServer, rpcBuffer, 0, 0, &qd);
-    sceSifSetSreg(16, 0xA230);
-
+    SifRegisterRpc(&sd0, LIBSDPCM_RPC_ID, rpcServer, (void *)rpcBuffer, 0, 0, &qd);
     SifRpcLoop(&qd);
 }
 
-int _start(int argc, char **argv)
+int _start(int argc, char *argv[])
 {
-    iop_thread_t t;
-    int thid;
-    int ret;
+    iop_thread_t thread;
+    int tid;
 
     (void)argc;
     (void)argv;
 
+    CpuEnableIntr();
+
     memset(&qd, 0, sizeof(qd));
     memset(&sd0, 0, sizeof(sd0));
     memset(rpcBuffer, 0, sizeof(rpcBuffer));
+    memset(&thread, 0, sizeof(thread));
 
-    CpuEnableIntr();
-    sceSifSetSreg(16, 0xA100);
+    thread.attr = TH_C;
+    thread.thread = rpcThread;
+    thread.priority = 40;
+    thread.stacksize = 0x1000;
+    thread.option = 0;
 
-    memset(&t, 0, sizeof(t));
-    t.attr      = TH_C;
-    t.thread    = rpcThread;
-    t.priority  = 40;
-    t.stacksize = 0x1000;
-    t.option    = 0;
-
-    thid = CreateThread(&t);
-    if (thid < 0) {
-        sceSifSetSreg(16, 0xA101);
+    tid = CreateThread(&thread);
+    if (tid < 0)
         return MODULE_NO_RESIDENT_END;
-    }
 
-    ret = StartThread(thid, 0);
-    if (ret < 0) {
-        sceSifSetSreg(16, 0xA102);
+    if (StartThread(tid, 0) < 0)
         return MODULE_NO_RESIDENT_END;
-    }
 
-    sceSifSetSreg(16, 0xA110);
     return MODULE_RESIDENT_END;
 }

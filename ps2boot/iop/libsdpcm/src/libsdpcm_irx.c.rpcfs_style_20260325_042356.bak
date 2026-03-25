@@ -1,0 +1,103 @@
+#include <tamtypes.h>
+#include <irx.h>
+#include <loadcore.h>
+#include <intrman.h>
+#include <thbase.h>
+#include <sysclib.h>
+#include <sifrpc.h>
+
+IRX_ID("libsdpcm", 1, 0);
+
+#define LIBSDPCM_RPC_ID 0x014C504D
+#define LIBSDPCM_MAX_PAYLOAD 2048
+
+enum {
+    LIBSDPCM_CMD_PING = 1,
+    LIBSDPCM_CMD_INIT = 2,
+    LIBSDPCM_CMD_QUIT = 3,
+    LIBSDPCM_CMD_PUSH = 4
+};
+
+typedef struct libsdpcm_rpc_pkt {
+    u32 cmd;
+    u32 arg0;
+    u32 arg1;
+    u32 arg2;
+    u32 arg3;
+    s32 result;
+    u32 magic;
+    u32 counter;
+    u8  payload[LIBSDPCM_MAX_PAYLOAD];
+} libsdpcm_rpc_pkt_t;
+
+static SifRpcDataQueue_t g_qd;
+static SifRpcServerData_t g_sd0;
+static libsdpcm_rpc_pkt_t g_rpc_buf __attribute__((aligned(64)));
+
+static void *libsdpcm_rpc_handler(int fno, void *data, int size)
+{
+    libsdpcm_rpc_pkt_t *pkt = (libsdpcm_rpc_pkt_t *)data;
+    (void)fno;
+    (void)size;
+
+    pkt->magic = LIBSDPCM_RPC_ID;
+    pkt->counter++;
+
+    switch (pkt->cmd) {
+        case LIBSDPCM_CMD_PING:
+        case LIBSDPCM_CMD_INIT:
+        case LIBSDPCM_CMD_QUIT:
+        case LIBSDPCM_CMD_PUSH:
+            pkt->result = 0;
+            break;
+        default:
+            pkt->result = -1;
+            break;
+    }
+
+    return data;
+}
+
+static void libsdpcm_rpc_thread(void *arg)
+{
+    (void)arg;
+
+    SifInitRpc(0);
+    SifSetRpcQueue(&g_qd, GetThreadId());
+    SifRegisterRpc(&g_sd0, LIBSDPCM_RPC_ID, libsdpcm_rpc_handler, &g_rpc_buf, NULL, NULL, &g_qd);
+    SifRpcLoop(&g_qd);
+}
+
+int _start(int argc, char *argv[])
+{
+    iop_thread_t t;
+    int tid;
+    int ret;
+
+    (void)argc;
+    (void)argv;
+
+    CpuEnableIntr();
+
+    memset(&g_qd, 0, sizeof(g_qd));
+    memset(&g_sd0, 0, sizeof(g_sd0));
+    memset(&g_rpc_buf, 0, sizeof(g_rpc_buf));
+    memset(&t, 0, sizeof(t));
+
+    t.attr      = TH_C;
+    t.thread    = libsdpcm_rpc_thread;
+    t.priority  = 40;
+    t.stacksize = 0x2000;
+    t.option    = 0;
+
+    tid = CreateThread(&t);
+    if (tid < 0)
+        return MODULE_NO_RESIDENT_END;
+
+    ret = StartThread(tid, NULL);
+    if (ret < 0)
+        return MODULE_NO_RESIDENT_END;
+
+    DelayThread(20000);
+    return MODULE_RESIDENT_END;
+}
