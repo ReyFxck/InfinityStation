@@ -5,7 +5,7 @@ export PS2SDK
 export PS2SDKSRC
 
 IOP_BIN  = libsdpcm.irx
-IOP_OBJS = libsdpcm_irx.o imports.o
+IOP_OBJS = libsdpcm_irx.o imports.o exports.o
 
 IOP_CFLAGS += -G0 -O2 -Wall -Wno-unused-function -Wno-unused-variable
 
