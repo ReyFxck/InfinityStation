@@ -3,6 +3,10 @@
 
 #include <debug.h>
 #include <sifrpc.h>
+#include <iopcontrol.h>
+#include <iopheap.h>
+#include <loadfile.h>
+#include <sbv_patches.h>
 #include <string.h>
 
 #include "libretro.h"
@@ -11,6 +15,33 @@
 #include "ps2_menu.h"
 #include "ps2_audio.h"
 
+static void app_boot_reset_iop_minimal(void)
+{
+    int r;
+
+    scr_printf("[BOOT] iop reset: begin\n");
+
+    SifExitRpc();
+    SifInitRpc(0);
+
+    while (!SifIopReset(NULL, 0)) { }
+    scr_printf("[BOOT] iop reset: requested\n");
+
+    while (!SifIopSync()) { }
+    scr_printf("[BOOT] iop reset: synced\n");
+
+    SifInitRpc(0);
+    SifInitIopHeap();
+    SifLoadFileInit();
+    scr_printf("[BOOT] iop reset: services ready\n");
+
+    r = sbv_patch_enable_lmb();
+    scr_printf("[BOOT] sbv_patch_enable_lmb -> %d\n", r);
+
+    r = sbv_patch_disable_prefix_check();
+    scr_printf("[BOOT] sbv_patch_disable_prefix_check -> %d\n", r);
+}
+
 void app_boot_init(void (*die_fn)(const char *msg))
 {
     scr_printf("[BOOT] app_boot_init: enter\n");
@@ -18,10 +49,18 @@ void app_boot_init(void (*die_fn)(const char *msg))
     SifInitRpc(0);
     scr_printf("[BOOT] app_boot_init: after SifInitRpc\n");
 
+    app_boot_reset_iop_minimal();
+
     scr_printf("[BOOT] app_boot_init: before ps2_video_init_once\n");
     if (!ps2_video_init_once())
         die_fn("ps2_video_init_once() falhou");
     scr_printf("[BOOT] app_boot_init: after ps2_video_init_once\n");
+
+    scr_printf("[AUDIO] boot init begin\n");
+    if (!ps2_audio_init_once())
+        scr_printf("[AUDIO] boot init FAILED, continuing without audio\n");
+    else
+        scr_printf("[AUDIO] boot init OK\n");
 
     scr_printf("[BOOT] app_boot_init: before ps2_input_init_once\n");
     (void)ps2_input_init_once();
@@ -30,12 +69,6 @@ void app_boot_init(void (*die_fn)(const char *msg))
     scr_printf("[BOOT] app_boot_init: before ps2_menu_init\n");
     ps2_menu_init();
     scr_printf("[BOOT] app_boot_init: after ps2_menu_init\n");
-
-    scr_printf("[AUDIO] boot init begin\n");
-    if (!ps2_audio_init_once())
-        scr_printf("[AUDIO] boot init FAILED, continuing without audio\n");
-    else
-        scr_printf("[AUDIO] boot init OK\n");
 }
 
 void app_boot_log_core_info(void)
