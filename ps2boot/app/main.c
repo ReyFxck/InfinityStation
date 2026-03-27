@@ -11,6 +11,7 @@
 
 #include "libretro.h"
 #include "ps2_input.h"
+#include "platform/ps2/ps2_audio.h"
 #include "ui/launcher/launcher.h"
 
 static uint32_t g_prev_buttons = 0;
@@ -108,6 +109,7 @@ int main(int argc, char *argv[])
             printf("[MAIN] before retro_run %d\n", g_log_run);
 
         retro_run();
+        ps2_audio_pump();
 
         if (g_log_run < 10) {
             printf("[MAIN] after retro_run %d\n", g_log_run);

@@ -427,6 +427,58 @@ int ps2_audio_init_once(void)
     return 1;
 }
 
+
+void ps2_audio_pump(void)
+{
+    int queued_bytes;
+    unsigned int buffered_frames;
+    unsigned int want_frames;
+    unsigned int got_frames;
+    int sent_bytes;
+
+    if (g_audio_state != 1)
+        return;
+
+    queued_bytes = ps2_backend_queued_bytes();
+    buffered_frames = ps2_audio_ring_buffered_frames();
+
+    if (buffered_frames == 0)
+        return;
+
+    /*
+     * Deixa o backend “respirar”.
+     * Quando existir backend real, esse limite pode ser ajustado.
+     */
+    if (queued_bytes > (BACKEND_FEED_BYTES * 3))
+        return;
+
+    want_frames = BACKEND_FEED_FRAMES;
+    if (want_frames > buffered_frames)
+        want_frames = buffered_frames;
+
+    got_frames = ps2_audio_copy_from_ring(g_backend_block, want_frames);
+    if (got_frames == 0)
+        return;
+
+    FlushCache(0);
+
+    sent_bytes = ps2_backend_queue_audio(
+        g_backend_block,
+        (int)(got_frames * PS2_AUDIO_FRAME_BYTES)
+    );
+
+    if (sent_bytes < 0) {
+        printf("[PS2AUDIO] pump backend_queue_audio FAIL\n");
+        return;
+    }
+
+    if ((unsigned int)sent_bytes != got_frames * PS2_AUDIO_FRAME_BYTES) {
+        printf("[PS2AUDIO] pump partial=%d expected=%u\n",
+               sent_bytes,
+               got_frames * PS2_AUDIO_FRAME_BYTES);
+    }
+}
+
 void ps2_audio_shutdown(void)
 {
     if (g_audio_state == 1) {
