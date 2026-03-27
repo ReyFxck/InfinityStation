@@ -1,4 +1,5 @@
 #include "app_boot.h"
+#include <stdio.h>
 #include "app_launcher.h"
 
 #include <debug.h>

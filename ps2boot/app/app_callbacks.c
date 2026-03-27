@@ -76,14 +76,25 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
         ps2_video_present_rgb565(data, width, height, pitch);
 }
 
+static int g_logged_audio_cb = 0;
+static int g_logged_audio_batch_cb = 0;
+
 static void audio_cb(int16_t left, int16_t right)
 {
     int16_t tmp[2] = { left, right };
+    if (!g_logged_audio_cb) {
+        printf("[APPCB] first audio_cb L=%d R=%d\n", left, right);
+        g_logged_audio_cb = 1;
+    }
     ps2_audio_push_samples(tmp, 1);
 }
 
 static size_t audio_batch_cb(const int16_t *data, size_t frames)
 {
+    if (!g_logged_audio_batch_cb) {
+        printf("[APPCB] first audio_batch_cb frames=%u\n", (unsigned)frames);
+        g_logged_audio_batch_cb = 1;
+    }
     return ps2_audio_push_samples(data, frames);
 }
 
@@ -103,8 +114,10 @@ void app_callbacks_register(void)
 {
     retro_set_environment(environ_cb);
     retro_set_video_refresh(video_cb);
+    printf("[APPCB] registering audio callbacks\n");
     retro_set_audio_sample(audio_cb);
     retro_set_audio_sample_batch(audio_batch_cb);
+    printf("[APPCB] audio callbacks registered\n");
     retro_set_input_poll(input_poll_cb);
     retro_set_input_state(input_state_cb);
 }
