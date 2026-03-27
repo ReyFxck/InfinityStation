@@ -52,24 +52,30 @@ void app_boot_init(void (*die_fn)(const char *msg))
 
     app_boot_reset_iop_minimal();
 
-    scr_printf("[BOOT] app_boot_init: before ps2_video_init_once\n");
+  scr_printf("[BOOT] app_boot_init: before ps2_video_init_once\n");
     if (!ps2_video_init_once())
         die_fn("ps2_video_init_once() falhou");
     scr_printf("[BOOT] app_boot_init: after ps2_video_init_once\n");
 
-    scr_printf("[AUDIO] boot init begin\n");
-    if (!ps2_audio_init_once())
-        scr_printf("[AUDIO] boot init FAILED, continuing without audio\n");
-    else
-        scr_printf("[AUDIO] boot init OK\n");
+    printf("[AUDIO] boot init begin\n");
+    printf("[BOOTP] before ps2_audio_init_once\n");
+    if (!ps2_audio_init_once()) {
+        printf("[AUDIO] boot init FAILED, continuing without audio\n");
+        printf("[BOOTP] after ps2_audio_init_once FAIL\n");
+    } else {
+        printf("[AUDIO] boot init OK\n");
+        printf("[BOOTP] after ps2_audio_init_once OK\n");
+    }
 
-    scr_printf("[BOOT] app_boot_init: before ps2_input_init_once\n");
+    printf("[BOOTP] before ps2_input_init_once\n");
     (void)ps2_input_init_once();
-    scr_printf("[BOOT] app_boot_init: after ps2_input_init_once\n");
+    printf("[BOOTP] after ps2_input_init_once\n");
 
-    scr_printf("[BOOT] app_boot_init: before ps2_menu_init\n");
+    printf("[BOOTP] before ps2_menu_init\n");
     ps2_menu_init();
-    scr_printf("[BOOT] app_boot_init: after ps2_menu_init\n");
+    printf("[BOOTP] after ps2_menu_init\n");
+
+    printf("[BOOTP] app_boot_init return\n");
 }
 
 void app_boot_log_core_info(void)

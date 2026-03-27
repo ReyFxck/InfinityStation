@@ -49,7 +49,7 @@
 #define BACKEND_FEED_BYTES          (BACKEND_FEED_FRAMES * PS2_AUDIO_FRAME_BYTES)
 
 /* Thread priority */
-#define SOUND_THREAD_PRIO           46
+#define SOUND_THREAD_PRIO           96
 #define SOUND_THREAD_STACK          0x2000
 
 /* ===================================================================== */
@@ -93,8 +93,9 @@ static void ps2_audio_wait_loops(int loops)
 {
     volatile int i;
     while (loops-- > 0) {
-        for (i = 0; i < 0x4000; i++) {
+        for (i = 0; i < 0x1000; i++) {
         }
+        RotateThreadReadyQueue(SOUND_THREAD_PRIO);
     }
 }
 
@@ -415,13 +416,7 @@ int ps2_audio_init_once(void)
         return 0;
     }
 
-    ret = ps2_audio_start_thread();
-    if (ret < 0) {
-        ps2_backend_shutdown();
-        g_audio_state = -1;
-        printf("[PS2AUDIO] FAIL: start_thread\n");
-        return 0;
-    }
+    printf("[PS2AUDIO] thread bypass debug: not starting sound thread\n");
 
     g_warned_not_ready = 0;
     g_warned_overrun = 0;

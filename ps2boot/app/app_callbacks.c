@@ -14,6 +14,7 @@
 #define DEBUG_OVERLAY 0
 
 static unsigned g_frame_count = 0;
+static int g_logged_video_cb = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
 
 static bool environ_cb(unsigned cmd, void *data)
@@ -54,6 +55,10 @@ static bool environ_cb(unsigned cmd, void *data)
 
 static void video_cb(const void *data, unsigned width, unsigned height, size_t pitch)
 {
+    if (!g_logged_video_cb) {
+        printf("[APPCB] first video_cb %ux%u pitch=%u\n", width, height, (unsigned)pitch);
+        g_logged_video_cb = 1;
+    }
 #if DEBUG_OVERLAY
     char l1[32], l2[32], l3[32], l4[32];
 #endif

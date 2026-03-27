@@ -7,6 +7,7 @@
 #include <kernel.h>
 #include <debug.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "libretro.h"
 #include "ps2_input.h"
@@ -31,27 +32,50 @@ int main(int argc, char *argv[])
     (void)argc;
     (void)argv;
 
+    printf("[MAIN] before app_boot_init\n");
     app_boot_init(die);
+    printf("[MAIN] after app_boot_init\n");
+
+    printf("[MAIN] before app_callbacks_register\n");
     app_callbacks_register();
+    printf("[MAIN] after app_callbacks_register\n");
 
+    printf("[MAIN] before retro_init\n");
     retro_init();
+    printf("[MAIN] after retro_init\n");
+
+    printf("[MAIN] before app_boot_log_core_info\n");
     app_boot_log_core_info();
+    printf("[MAIN] after app_boot_log_core_info\n");
 
+    printf("[MAIN] before app_boot_run_launcher\n");
     app_boot_run_launcher(&g_prev_buttons, &saved_launcher_x, &saved_launcher_y);
+    printf("[MAIN] after app_boot_run_launcher\n");
 
+    printf("[MAIN] before app_game_load_selected\n");
     if (!app_game_load_selected())
         die("retro_load_game() falhou");
+    printf("[MAIN] after app_game_load_selected\n");
 
+    printf("[MAIN] before app_overlay_reset_timing\n");
     app_overlay_reset_timing();
+    printf("[MAIN] after app_overlay_reset_timing\n");
 
+    printf("[MAIN] before app_boot_refresh_av_info\n");
     app_boot_refresh_av_info(&av);
+    printf("[MAIN] after app_boot_refresh_av_info fps=%u\n", (unsigned)av.timing.fps);
+
     if (av.timing.fps > 1.0)
         app_overlay_set_core_nominal_fps(av.timing.fps);
 
-
+    printf("[MAIN] before scr_clear\n");
     scr_clear();
+    printf("[MAIN] after scr_clear\n");
 
     while (1) {
+        static int g_log_loop = 0;
+        static int g_log_menu = 0;
+        static int g_log_run = 0;
         uint32_t buttons;
         uint32_t pressed;
 
@@ -59,16 +83,37 @@ int main(int argc, char *argv[])
         buttons = ps2_input_buttons();
         pressed = buttons & ~g_prev_buttons;
 
+        if (g_log_loop < 5) {
+            printf("[MAIN] loop %d buttons=%u pressed=%u prev=%u\n",
+                   g_log_loop, (unsigned)buttons, (unsigned)pressed, (unsigned)g_prev_buttons);
+            g_log_loop++;
+        }
+
         if (app_runtime_handle_menu(buttons,
                                     pressed,
                                     &g_prev_buttons,
                                     &av,
                                     &saved_launcher_x,
                                     &saved_launcher_y,
-                                    die))
+                                    die)) {
+            if (g_log_menu < 10) {
+                printf("[MAIN] menu consumed loop=%d buttons=%u pressed=%u\n",
+                       g_log_menu, (unsigned)buttons, (unsigned)pressed);
+                g_log_menu++;
+            }
             continue;
+        }
+
+        if (g_log_run < 10)
+            printf("[MAIN] before retro_run %d\n", g_log_run);
 
         retro_run();
+
+        if (g_log_run < 10) {
+            printf("[MAIN] after retro_run %d\n", g_log_run);
+            g_log_run++;
+        }
+
         app_overlay_throttle_if_needed();
         g_prev_buttons = buttons;
     }
