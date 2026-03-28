@@ -97,10 +97,11 @@ void app_boot_log_core_info(void)
 
 void app_boot_run_launcher(uint32_t *prev_buttons, int *saved_launcher_x, int *saved_launcher_y)
 {
-    (void)prev_buttons;
-    *saved_launcher_x = 0;
-    *saved_launcher_y = 0;
-    printf("[BOOT] launcher bypass debug\n");
+    ps2_video_get_offsets(saved_launcher_x, saved_launcher_y);
+    ps2_video_set_offsets(0, 0);
+    scr_clear();
+    app_launcher_run(prev_buttons);
+    ps2_video_set_offsets(*saved_launcher_x, *saved_launcher_y);
 }
 
 void app_boot_refresh_av_info(struct retro_system_av_info *av)
