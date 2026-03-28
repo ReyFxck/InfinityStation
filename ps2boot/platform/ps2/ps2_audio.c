@@ -91,6 +91,9 @@ static volatile unsigned int g_buffered_frames = 0;
 static int16_t g_backend_block[BACKEND_FEED_FRAMES * PS2_AUDIO_CHANNELS] __attribute__((aligned(64)));
 static int16_t g_resample_out[RESAMPLE_OUT_MAX_FRAMES * PS2_AUDIO_CHANNELS] __attribute__((aligned(64)));
 static unsigned int g_resample_phase = 0;
+static int16_t g_resample_prev_l = 0;
+static int16_t g_resample_prev_r = 0;
+static int g_resample_have_prev = 0;
 
 /* ===================================================================== */
 /* Utilidades                                                             */
@@ -544,26 +547,41 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 
     while (done < frames) {
         size_t chunk = frames - done;
-        size_t src_idx = 0;
         size_t out_frames = 0;
+        size_t i;
         int bytes;
         int ret;
 
         if (chunk > BACKEND_FEED_FRAMES)
             chunk = BACKEND_FEED_FRAMES;
 
-        while (src_idx < chunk && out_frames < RESAMPLE_OUT_MAX_FRAMES) {
-            g_resample_out[out_frames * 2 + 0] = data[(done + src_idx) * 2 + 0];
-            g_resample_out[out_frames * 2 + 1] = data[(done + src_idx) * 2 + 1];
-            out_frames++;
+        if (!g_resample_have_prev && chunk > 0) {
+            g_resample_prev_l = data[done * 2 + 0];
+            g_resample_prev_r = data[done * 2 + 1];
+            g_resample_have_prev = 1;
+        }
 
-            g_resample_phase += CORE_AUDIO_RATE;
-            while (g_resample_phase >= PS2_AUDIO_RATE) {
-                g_resample_phase -= PS2_AUDIO_RATE;
-                src_idx++;
-                if (src_idx >= chunk)
-                    break;
+        for (i = 0; i < chunk && out_frames < RESAMPLE_OUT_MAX_FRAMES; i++) {
+            int16_t cur_l = data[(done + i) * 2 + 0];
+            int16_t cur_r = data[(done + i) * 2 + 1];
+
+            while (g_resample_phase < PS2_AUDIO_RATE && out_frames < RESAMPLE_OUT_MAX_FRAMES) {
+                int a = (int)g_resample_phase;
+                int b = (int)(PS2_AUDIO_RATE - a);
+
+                g_resample_out[out_frames * 2 + 0] =
+                    (int16_t)(((int)g_resample_prev_l * b + (int)cur_l * a) / (int)PS2_AUDIO_RATE);
+                g_resample_out[out_frames * 2 + 1] =
+                    (int16_t)(((int)g_resample_prev_r * b + (int)cur_r * a) / (int)PS2_AUDIO_RATE);
+                out_frames++;
+                g_resample_phase += CORE_AUDIO_RATE;
             }
+
+            while (g_resample_phase >= PS2_AUDIO_RATE)
+                g_resample_phase -= PS2_AUDIO_RATE;
+
+            g_resample_prev_l = cur_l;
+            g_resample_prev_r = cur_r;
         }
 
         if (out_frames == 0) {
@@ -585,5 +603,6 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 
     return done;
 }
+
 
 
