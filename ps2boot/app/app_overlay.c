@@ -5,11 +5,43 @@
 
 #include "ps2_menu.h"
 #include "ps2_video.h"
+#include "ui/select_menu/select_menu_state.h"
 
 static unsigned g_fps_display = 0;
 static unsigned g_fps_accum = 0;
 static clock_t g_fps_last_clock = 0;
 static double g_core_nominal_fps = 60.0;
+static clock_t g_throttle_last_clock = 0;
+
+static double app_overlay_target_fps(void)
+{
+    int mode = ps2_menu_frame_limit_mode();
+
+    switch (mode) {
+        case SELECT_MENU_FRAME_LIMIT_AUTO:
+            return (g_core_nominal_fps > 1.0) ? g_core_nominal_fps : 60.0;
+        case SELECT_MENU_FRAME_LIMIT_50:
+            return 50.0;
+        case SELECT_MENU_FRAME_LIMIT_60:
+            return 60.0;
+        case SELECT_MENU_FRAME_LIMIT_OFF:
+        default:
+            return 0.0;
+    }
+}
+
+static const char *app_overlay_frame_limit_label(void)
+{
+    int mode = ps2_menu_frame_limit_mode();
+
+    switch (mode) {
+        case SELECT_MENU_FRAME_LIMIT_AUTO: return "AUTO";
+        case SELECT_MENU_FRAME_LIMIT_50:   return "50";
+        case SELECT_MENU_FRAME_LIMIT_60:   return "60";
+        case SELECT_MENU_FRAME_LIMIT_OFF:
+        default:                           return "OFF";
+    }
+}
 
 void app_overlay_reset_timing(void)
 {
@@ -17,6 +49,7 @@ void app_overlay_reset_timing(void)
     g_fps_accum = 0;
     g_fps_last_clock = 0;
     g_core_nominal_fps = 60.0;
+    g_throttle_last_clock = 0;
 }
 
 void app_overlay_set_core_nominal_fps(double fps)
@@ -34,7 +67,35 @@ double app_overlay_get_core_nominal_fps(void)
 
 void app_overlay_throttle_if_needed(void)
 {
-    /* desativado para diagnosticar travamento no NetherSX2 */
+    double target_fps = app_overlay_target_fps();
+    clock_t now;
+    clock_t frame_ticks;
+
+    if (target_fps <= 1.0) {
+        g_throttle_last_clock = 0;
+        return;
+    }
+
+    frame_ticks = (clock_t)(((double)CLOCKS_PER_SEC / target_fps) + 0.5);
+    if (frame_ticks < 1)
+        frame_ticks = 1;
+
+    now = clock();
+
+    if (g_throttle_last_clock == 0) {
+        g_throttle_last_clock = now;
+        return;
+    }
+
+    while ((now - g_throttle_last_clock) < frame_ticks)
+        now = clock();
+
+    /* avanca em passos fixos para evitar jitter/drift */
+    g_throttle_last_clock += frame_ticks;
+
+    /* se atrasou demais, resincroniza */
+    if ((now - g_throttle_last_clock) > (frame_ticks * 4))
+        g_throttle_last_clock = now;
 }
 
 void app_overlay_update_fps(void)
@@ -57,7 +118,7 @@ void app_overlay_update_fps(void)
 
     if (ps2_menu_show_fps_enabled()) {
         snprintf(l1, sizeof(l1), "FPS: %u", g_fps_display);
-        snprintf(l2, sizeof(l2), "LIMIT: OFF");
+        snprintf(l2, sizeof(l2), "LIMIT: %s", app_overlay_frame_limit_label());
         ps2_video_set_debug(l1, l2, "", "");
     } else {
         ps2_video_set_debug("", "", "", "");

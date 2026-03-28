@@ -20,7 +20,7 @@ void select_menu_cycle_frame_limit(int dir)
 
 int select_menu_game_options_count(void)
 {
-    return g_select_menu.show_fps ? 3 : 2;
+    return g_select_menu.show_fps ? 4 : 3;
 }
 
 void select_menu_actions_init(void)
