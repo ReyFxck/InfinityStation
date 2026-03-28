@@ -11,6 +11,15 @@
 #include "app_overlay.h"
 #include "platform/ps2/ps2_audio.h"
 
+/* QUIET_RUNTIME_LOGS_BEGIN */
+#define QUIET_RUNTIME_LOGS 1
+#if QUIET_RUNTIME_LOGS
+#undef printf
+#define printf(...) ((void)0)
+#endif
+/* QUIET_RUNTIME_LOGS_END */
+
+
 #define DEBUG_OVERLAY 0
 
 static unsigned g_frame_count = 0;

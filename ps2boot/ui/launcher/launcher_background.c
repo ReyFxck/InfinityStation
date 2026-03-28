@@ -23,7 +23,7 @@ void launcher_background_draw(void)
     unsigned x;
     unsigned y;
 
-    if (graph_get_region() == GRAPH_MODE_PAL) {
+    if (0 /* force NTSC test */ == GRAPH_MODE_PAL) {
         pixels = launcher_bg_pal_rgb565;
         width = launcher_bg_pal_width;
         height = launcher_bg_pal_height;

@@ -14,6 +14,15 @@
 #include "platform/ps2/ps2_audio.h"
 #include "ui/launcher/launcher.h"
 
+/* QUIET_RUNTIME_LOGS_BEGIN */
+#define QUIET_RUNTIME_LOGS 1
+#if QUIET_RUNTIME_LOGS
+#undef printf
+#define printf(...) ((void)0)
+#endif
+/* QUIET_RUNTIME_LOGS_END */
+
+
 static uint32_t g_prev_buttons = 0;
 
 static void die(const char *msg)

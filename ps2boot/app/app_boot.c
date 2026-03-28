@@ -20,62 +20,62 @@ static void app_boot_reset_iop_minimal(void)
 {
     int r;
 
-    scr_printf("[BOOT] iop reset: begin\n");
+    /* log removido */
 
     SifExitRpc();
     SifInitRpc(0);
 
     while (!SifIopReset(NULL, 0)) { }
-    scr_printf("[BOOT] iop reset: requested\n");
+    /* log removido */
 
     while (!SifIopSync()) { }
-    scr_printf("[BOOT] iop reset: synced\n");
+    /* log removido */
 
     SifInitRpc(0);
     SifInitIopHeap();
     SifLoadFileInit();
-    scr_printf("[BOOT] iop reset: services ready\n");
+    /* log removido */
 
     r = sbv_patch_enable_lmb();
-    scr_printf("[BOOT] sbv_patch_enable_lmb -> %d\n", r);
+    /* log removido */
 
     r = sbv_patch_disable_prefix_check();
-    scr_printf("[BOOT] sbv_patch_disable_prefix_check -> %d\n", r);
+    /* log removido */
 }
 
 void app_boot_init(void (*die_fn)(const char *msg))
 {
-    scr_printf("[BOOT] app_boot_init: enter\n");
+    /* log removido */
 
     SifInitRpc(0);
-    scr_printf("[BOOT] app_boot_init: after SifInitRpc\n");
+    /* log removido */
 
     app_boot_reset_iop_minimal();
 
-  scr_printf("[BOOT] app_boot_init: before ps2_video_init_once\n");
+  /* log removido */
     if (!ps2_video_init_once())
         die_fn("ps2_video_init_once() falhou");
-    scr_printf("[BOOT] app_boot_init: after ps2_video_init_once\n");
+    /* log removido */
 
-    printf("[AUDIO] boot init begin\n");
-    printf("[BOOTP] before ps2_audio_init_once\n");
+    /* log removido */
+    /* log removido */
     if (!ps2_audio_init_once()) {
-        printf("[AUDIO] boot init FAILED, continuing without audio\n");
-        printf("[BOOTP] after ps2_audio_init_once FAIL\n");
+        /* log removido */
+        /* log removido */
     } else {
-        printf("[AUDIO] boot init OK\n");
-        printf("[BOOTP] after ps2_audio_init_once OK\n");
+        /* log removido */
+        /* log removido */
     }
 
-    printf("[BOOTP] before ps2_input_init_once\n");
+    /* log removido */
     (void)ps2_input_init_once();
-    printf("[BOOTP] after ps2_input_init_once\n");
+    /* log removido */
 
-    printf("[BOOTP] before ps2_menu_init\n");
+    /* log removido */
     ps2_menu_init();
-    printf("[BOOTP] after ps2_menu_init\n");
+    /* log removido */
 
-    printf("[BOOTP] app_boot_init return\n");
+    /* log removido */
 }
 
 void app_boot_log_core_info(void)

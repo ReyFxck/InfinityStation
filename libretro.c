@@ -283,7 +283,7 @@ static void init_sfc_setting(void)
    Settings.CyclesPercentage = 100;
 
    Settings.DisableSoundEcho = false;
-   Settings.InterpolatedSound = true;
+   Settings.InterpolatedSound = false;
    Settings.APUEnabled = true;
 
    Settings.H_Max = SNES_CYCLES_PER_SCANLINE;
