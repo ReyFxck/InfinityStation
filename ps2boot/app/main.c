@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 
     printf("[MAIN] before app_boot_refresh_av_info\n");
     app_boot_refresh_av_info(&av);
-    printf("[MAIN] after app_boot_refresh_av_info fps=%u\n", (unsigned)av.timing.fps);
+    printf("[MAIN] after app_boot_refresh_av_info fps=%u sample_rate=%u\n", (unsigned)av.timing.fps, (unsigned)av.timing.sample_rate);
 
     if (av.timing.fps > 1.0)
         app_overlay_set_core_nominal_fps(av.timing.fps);

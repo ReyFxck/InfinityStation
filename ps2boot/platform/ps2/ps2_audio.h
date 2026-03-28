@@ -7,5 +7,6 @@
 int ps2_audio_init_once(void);
 void ps2_audio_shutdown(void);
 size_t ps2_audio_push_samples(const int16_t *data, size_t frames);
+void ps2_audio_pump(void);
 
 #endif
