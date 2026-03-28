@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 int ps2_input_init_once(void);
+void ps2_input_shutdown(void);
 void ps2_input_poll(void);
 uint32_t ps2_input_buttons(void);
 uint32_t ps2_input_raw_buttons(void);

@@ -92,6 +92,31 @@ static void ps2_input_apply_left_stick_as_dpad(uint32_t *buttons_now)
         *buttons_now |= PAD_DOWN;
 }
 
+
+void ps2_input_shutdown(void)
+{
+    /* log removido */
+
+    if (g_pad_opened) {
+        int ret_pc = padPortClose(0, 0);
+        /* log removido */
+        g_pad_opened = 0;
+    }
+
+    padEnd();
+    /* log removido */
+
+    g_input_inited = 0;
+    g_input_ready = 0;
+    g_analog_checked = 0;
+    g_analog_supported = 0;
+    g_analog_requested = 0;
+    g_buttons = 0;
+    g_buttons_raw = 0;
+
+    /* log removido */
+}
+
 int ps2_input_init_once(void)
 {
     int ret_sio2 = -1;
@@ -100,46 +125,46 @@ int ps2_input_init_once(void)
     int ret_po   = -1;
 
     if (g_input_inited) {
-        printf("[INPUT] init skipped ready=%d\n", g_input_ready);
+        /* log removido */
         return g_input_ready;
     }
 
     g_input_inited = 1;
-    printf("[INPUT] init force X enter\n");
+    /* log removido */
 
     SifLoadFileInit();
 
-    printf("[INPUT] before XSIO2MAN\n");
+    /* log removido */
     ret_sio2 = SifLoadModule("rom0:XSIO2MAN", 0, NULL);
-    printf("[INPUT] XSIO2MAN -> %d\n", ret_sio2);
+    /* log removido */
 
-    printf("[INPUT] before XPADMAN\n");
+    /* log removido */
     ret_pad = SifLoadModule("rom0:XPADMAN", 0, NULL);
-    printf("[INPUT] XPADMAN -> %d\n", ret_pad);
+    /* log removido */
 
     SifLoadFileExit();
-    printf("[INPUT] after module loads\n");
+    /* log removido */
 
     if (ret_sio2 < 0 || ret_pad < 0) {
-        printf("[INPUT] X module load fail\n");
+        /* log removido */
         return 0;
     }
 
-    printf("[INPUT] before padInit\n");
+    /* log removido */
     ret_pi = padInit(0);
-    printf("[INPUT] padInit -> %d\n", ret_pi);
+    /* log removido */
     if (ret_pi != 1)
         return 0;
 
-    printf("[INPUT] before padPortOpen\n");
+    /* log removido */
     ret_po = padPortOpen(0, 0, g_pad_buf);
-    printf("[INPUT] padPortOpen -> %d\n", ret_po);
+    /* log removido */
     if (!ret_po)
         return 0;
 
     g_pad_opened  = 1;
     g_input_ready = 1;
-    printf("[INPUT] init success\n");
+    /* log removido */
     return 1;
 }
 

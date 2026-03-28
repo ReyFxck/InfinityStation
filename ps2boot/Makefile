@@ -51,6 +51,7 @@ BASE_OBJS = \
         platform/ps2/ps2_launcher_video.o \
         platform/ps2/ps2_input.o \
         platform/ps2/ps2_menu.o \
+    platform/ps2/ps2_audio.o \
         ui/select_menu/select_menu.o \
         ui/select_menu/select_menu_actions.o \
         ui/select_menu/select_menu_render.o \
@@ -68,6 +69,7 @@ BASE_OBJS = \
         ui/launcher/launcher_browser_scan.o \
         ui/launcher/launcher_browser_sort.o \
         assets/smw_blob.o \
+    assets/audsrv_blob.o \
         $(CORE_SRCS:.c=.o)
 
 ROM_LOADER_OBJS = \
@@ -127,11 +129,11 @@ EE_OBJS = \
         $(BASE_OBJS) \
         $(EXTRA_OBJS)
 
-EE_INCS += -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
+EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
 EE_CFLAGS += -O2 -G0 -DLOAD_FROM_MEMORY -DLAGFIX
 EE_CFLAGS += -I. -Irom_loader -Irom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 EE_CFLAGS += -Iapp -Iplatform/ps2 -Iassets
-EE_LIBS += -ldebug -lpacket -ldraw -lgraph -ldma -lpad
+EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lpatches -liopreboot -laudsrv
 
 EXTRA_TARGETS = $(EE_BIN)
 

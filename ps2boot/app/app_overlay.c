@@ -5,28 +5,42 @@
 
 #include "ps2_menu.h"
 #include "ps2_video.h"
+#include "ui/select_menu/select_menu_state.h"
 
 static unsigned g_fps_display = 0;
 static unsigned g_fps_accum = 0;
 static clock_t g_fps_last_clock = 0;
 static double g_core_nominal_fps = 60.0;
-static clock_t g_frame_deadline = 0;
+static clock_t g_throttle_last_clock = 0;
 
-static double target_limit_fps(void)
+static double app_overlay_target_fps(void)
 {
     int mode = ps2_menu_frame_limit_mode();
 
-    if (mode == PS2_FRAME_LIMIT_50)
-        return 50.0;
-    if (mode == PS2_FRAME_LIMIT_60)
-        return 60.0;
-    if (mode == PS2_FRAME_LIMIT_OFF)
-        return 0.0;
+    switch (mode) {
+        case SELECT_MENU_FRAME_LIMIT_AUTO:
+            return (g_core_nominal_fps > 1.0) ? g_core_nominal_fps : 60.0;
+        case SELECT_MENU_FRAME_LIMIT_50:
+            return 50.0;
+        case SELECT_MENU_FRAME_LIMIT_60:
+            return 60.0;
+        case SELECT_MENU_FRAME_LIMIT_OFF:
+        default:
+            return 0.0;
+    }
+}
 
-    if (g_core_nominal_fps > 1.0)
-        return g_core_nominal_fps;
+static const char *app_overlay_frame_limit_label(void)
+{
+    int mode = ps2_menu_frame_limit_mode();
 
-    return 60.0;
+    switch (mode) {
+        case SELECT_MENU_FRAME_LIMIT_AUTO: return "AUTO";
+        case SELECT_MENU_FRAME_LIMIT_50:   return "50";
+        case SELECT_MENU_FRAME_LIMIT_60:   return "60";
+        case SELECT_MENU_FRAME_LIMIT_OFF:
+        default:                           return "OFF";
+    }
 }
 
 void app_overlay_reset_timing(void)
@@ -35,7 +49,7 @@ void app_overlay_reset_timing(void)
     g_fps_accum = 0;
     g_fps_last_clock = 0;
     g_core_nominal_fps = 60.0;
-    g_frame_deadline = 0;
+    g_throttle_last_clock = 0;
 }
 
 void app_overlay_set_core_nominal_fps(double fps)
@@ -53,39 +67,40 @@ double app_overlay_get_core_nominal_fps(void)
 
 void app_overlay_throttle_if_needed(void)
 {
-    double fps = target_limit_fps();
-    double ticks_per_frame_d;
-    clock_t ticks_per_frame;
+    double target_fps = app_overlay_target_fps();
     clock_t now;
+    clock_t frame_ticks;
 
-    if (fps <= 0.0)
+    if (target_fps <= 1.0) {
+        g_throttle_last_clock = 0;
         return;
+    }
 
-    ticks_per_frame_d = (double)CLOCKS_PER_SEC / fps;
-    if (ticks_per_frame_d < 1.0)
-        ticks_per_frame_d = 1.0;
+    frame_ticks = (clock_t)(((double)CLOCKS_PER_SEC / target_fps) + 0.5);
+    if (frame_ticks < 1)
+        frame_ticks = 1;
 
-    ticks_per_frame = (clock_t)(ticks_per_frame_d + 0.5);
     now = clock();
 
-    if (g_frame_deadline == 0) {
-        g_frame_deadline = now + ticks_per_frame;
+    if (g_throttle_last_clock == 0) {
+        g_throttle_last_clock = now;
         return;
     }
 
-    if (now < g_frame_deadline) {
-        while ((now = clock()) < g_frame_deadline) {}
-    } else if ((now - g_frame_deadline) > (ticks_per_frame * 4)) {
-        g_frame_deadline = now;
-    }
+    while ((now - g_throttle_last_clock) < frame_ticks)
+        now = clock();
 
-    g_frame_deadline += ticks_per_frame;
+    /* avanca em passos fixos para evitar jitter/drift */
+    g_throttle_last_clock += frame_ticks;
+
+    /* se atrasou demais, resincroniza */
+    if ((now - g_throttle_last_clock) > (frame_ticks * 4))
+        g_throttle_last_clock = now;
 }
 
 void app_overlay_update_fps(void)
 {
     clock_t now = clock();
-    double target = target_limit_fps();
     char l1[32];
     char l2[32];
 
@@ -102,27 +117,9 @@ void app_overlay_update_fps(void)
     }
 
     if (ps2_menu_show_fps_enabled()) {
-        if (target > 0.0)
-            snprintf(l1, sizeof(l1), "FPS: %u/%.0f", g_fps_display, target);
-        else
-            snprintf(l1, sizeof(l1), "FPS: %u/OFF", g_fps_display);
-
-        if (ps2_menu_frame_limit_mode() == PS2_FRAME_LIMIT_AUTO)
-            snprintf(l2, sizeof(l2), "LIMIT: AUTO");
-        else if (ps2_menu_frame_limit_mode() == PS2_FRAME_LIMIT_50)
-            snprintf(l2, sizeof(l2), "LIMIT: 50");
-        else if (ps2_menu_frame_limit_mode() == PS2_FRAME_LIMIT_60)
-            snprintf(l2, sizeof(l2), "LIMIT: 60");
-        else
-            snprintf(l2, sizeof(l2), "LIMIT: OFF");
-
-        if (ps2_menu_fps_rainbow_enabled()) {
-            char l2fx[64];
-            snprintf(l2fx, sizeof(l2fx), "%.56s MORE FPS", l2);
-            ps2_video_set_debug(l1, l2fx, "", "");
-        } else {
-            ps2_video_set_debug(l1, l2, "", "");
-        }
+        snprintf(l1, sizeof(l1), "FPS: %u", g_fps_display);
+        snprintf(l2, sizeof(l2), "LIMIT: %s", app_overlay_frame_limit_label());
+        ps2_video_set_debug(l1, l2, "", "");
     } else {
         ps2_video_set_debug("", "", "", "");
     }

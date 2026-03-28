@@ -9,10 +9,21 @@
 #include "ps2_video.h"
 #include "ps2_input.h"
 #include "app_overlay.h"
+#include "platform/ps2/ps2_audio.h"
+
+/* QUIET_RUNTIME_LOGS_BEGIN */
+#define QUIET_RUNTIME_LOGS 1
+#if QUIET_RUNTIME_LOGS
+#undef printf
+#define printf(...) ((void)0)
+#endif
+/* QUIET_RUNTIME_LOGS_END */
+
 
 #define DEBUG_OVERLAY 0
 
 static unsigned g_frame_count = 0;
+static int g_logged_video_cb = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
 
 static bool environ_cb(unsigned cmd, void *data)
@@ -20,7 +31,7 @@ static bool environ_cb(unsigned cmd, void *data)
     switch (cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
         g_pixel_format = *(const enum retro_pixel_format *)data;
-            return true;
+        return true;
 
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char **)data;
@@ -43,8 +54,6 @@ static bool environ_cb(unsigned cmd, void *data)
         return true;
 
     case RETRO_ENVIRONMENT_GET_VARIABLE:
-        return false;
-
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
         return false;
 
@@ -55,6 +64,10 @@ static bool environ_cb(unsigned cmd, void *data)
 
 static void video_cb(const void *data, unsigned width, unsigned height, size_t pitch)
 {
+    if (!g_logged_video_cb) {
+        printf("[APPCB] first video_cb %ux%u pitch=%u\n", width, height, (unsigned)pitch);
+        g_logged_video_cb = 1;
+    }
 #if DEBUG_OVERLAY
     char l1[32], l2[32], l3[32], l4[32];
 #endif
@@ -77,16 +90,26 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
         ps2_video_present_rgb565(data, width, height, pitch);
 }
 
+static int g_logged_audio_cb = 0;
+static int g_logged_audio_batch_cb = 0;
+
 static void audio_cb(int16_t left, int16_t right)
 {
-    (void)left;
-    (void)right;
+    int16_t tmp[2] = { left, right };
+    if (!g_logged_audio_cb) {
+        printf("[APPCB] first audio_cb L=%d R=%d\n", left, right);
+        g_logged_audio_cb = 1;
+    }
+    ps2_audio_push_samples(tmp, 1);
 }
 
 static size_t audio_batch_cb(const int16_t *data, size_t frames)
 {
-    (void)data;
-    return frames;
+    if (!g_logged_audio_batch_cb) {
+        printf("[APPCB] first audio_batch_cb frames=%u\n", (unsigned)frames);
+        g_logged_audio_batch_cb = 1;
+    }
+    return ps2_audio_push_samples(data, frames);
 }
 
 static void input_poll_cb(void)
@@ -105,8 +128,10 @@ void app_callbacks_register(void)
 {
     retro_set_environment(environ_cb);
     retro_set_video_refresh(video_cb);
+    printf("[APPCB] registering audio callbacks\n");
     retro_set_audio_sample(audio_cb);
     retro_set_audio_sample_batch(audio_batch_cb);
+    printf("[APPCB] audio callbacks registered\n");
     retro_set_input_poll(input_poll_cb);
     retro_set_input_state(input_state_cb);
 }

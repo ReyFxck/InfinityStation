@@ -1,36 +1,81 @@
 #include "app_boot.h"
+#include <stdio.h>
 #include "app_launcher.h"
 
 #include <debug.h>
 #include <sifrpc.h>
+#include <iopcontrol.h>
+#include <iopheap.h>
+#include <loadfile.h>
+#include <sbv_patches.h>
 #include <string.h>
 
 #include "libretro.h"
 #include "ps2_video.h"
 #include "ps2_input.h"
 #include "ps2_menu.h"
+#include "ps2_audio.h"
+
+static void app_boot_reset_iop_minimal(void)
+{
+    int r;
+
+    /* log removido */
+
+    SifExitRpc();
+    SifInitRpc(0);
+
+    while (!SifIopReset(NULL, 0)) { }
+    /* log removido */
+
+    while (!SifIopSync()) { }
+    /* log removido */
+
+    SifInitRpc(0);
+    SifInitIopHeap();
+    SifLoadFileInit();
+    /* log removido */
+
+    r = sbv_patch_enable_lmb();
+    /* log removido */
+
+    r = sbv_patch_disable_prefix_check();
+    /* log removido */
+}
 
 void app_boot_init(void (*die_fn)(const char *msg))
 {
-    scr_printf("[BOOT] app_boot_init: enter\n");
+    /* log removido */
 
     SifInitRpc(0);
-    scr_printf("[BOOT] app_boot_init: after SifInitRpc\n");
+    /* log removido */
 
-    scr_printf("[BOOT] app_boot_init: before ps2_video_init_once\n");
+    app_boot_reset_iop_minimal();
+
+  /* log removido */
     if (!ps2_video_init_once())
         die_fn("ps2_video_init_once() falhou");
-    scr_printf("[BOOT] app_boot_init: after ps2_video_init_once\n");
+    /* log removido */
 
-    scr_printf("[BOOT] app_boot_init: before ps2_input_init_once\n");
+    /* log removido */
+    /* log removido */
+    if (!ps2_audio_init_once()) {
+        /* log removido */
+        /* log removido */
+    } else {
+        /* log removido */
+        /* log removido */
+    }
+
+    /* log removido */
     (void)ps2_input_init_once();
-    scr_printf("[BOOT] app_boot_init: after ps2_input_init_once\n");
+    /* log removido */
 
-    scr_printf("[BOOT] app_boot_init: before ps2_menu_init\n");
+    /* log removido */
     ps2_menu_init();
-    scr_printf("[BOOT] app_boot_init: after ps2_menu_init\n");
+    /* log removido */
 
-    scr_printf("[AUDIO] boot init SKIPPED\n");
+    /* log removido */
 }
 
 void app_boot_log_core_info(void)

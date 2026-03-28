@@ -1,0 +1,8 @@
+DECLARE_EXPORT_TABLE(libsdpcm, 1, 0)
+/*00*/  DECLARE_EXPORT(_start)
+        DECLARE_EXPORT(_retonly)
+        DECLARE_EXPORT(_retonly)
+        DECLARE_EXPORT(_retonly)
+END_EXPORT_TABLE
+
+void _retonly() {}
