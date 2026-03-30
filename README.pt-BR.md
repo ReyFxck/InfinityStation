@@ -1,6 +1,6 @@
 <div align="center">
 
-# PS2 SNES Concept
+# InfinityStation - PS2 SNES Frontend
 
 [![English](https://img.shields.io/badge/English-red)](README.md)
 [![Português-BR](https://img.shields.io/badge/Português--BR-blue)](README.pt-BR.md)
