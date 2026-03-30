@@ -52,6 +52,8 @@ BASE_OBJS = \
         platform/ps2/ps2_input.o \
         platform/ps2/ps2_menu.o \
     platform/ps2/ps2_audio.o \
+platform/ps2/ps2_audio_backend_audsrv.o \
+platform/ps2/ps2_audio_resampler.o \
         ui/select_menu/select_menu.o \
         ui/select_menu/select_menu_actions.o \
         ui/select_menu/select_menu_render.o \

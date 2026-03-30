@@ -1,4 +1,4 @@
-#include "ps2_audio.h"
+#include "ps2_audio_internal.h"
 
 #include <tamtypes.h>
 #include <kernel.h>
@@ -8,74 +8,14 @@
 #include <iopcontrol.h>
 #include <iopheap.h>
 #include <sbv_patches.h>
-#include <audsrv.h>
-#include "audsrv_irx_blob.h"
 
-#include <stdint.h>
-#include <stddef.h>
-#include <stdio.h>
 #include <string.h>
-
-/* QUIET_PS2AUDIO_LOGS_BEGIN */
-#define QUIET_PS2AUDIO_LOGS 1
-#if QUIET_PS2AUDIO_LOGS
-#define PS2AUDIO_LOG(...) ((void)0)
-#else
-#define PS2AUDIO_LOG(...) printf(__VA_ARGS__)
-#endif
-/* QUIET_PS2AUDIO_LOGS_END */
-
-
-/*
- * Estrutura:
- * - boot/init do PS2 no estilo PicoDrive
- * - ringbuffer + thread de audio no EE
- * - backend abstrato (sem audsrv/sjpcm aqui)
- *
- * Trocar depois só estas funcs:
- *   ps2_backend_init()
- *   ps2_backend_queue_audio()
- *   ps2_backend_queued_bytes()
- *   ps2_backend_shutdown()
- */
-
-#define PS2_AUDIO_RATE              44100
-#define CORE_AUDIO_RATE             32040
-#define RESAMPLE_OUT_MAX_FRAMES     1024
-#define PS2_AUDIO_CHANNELS          2
-#define PS2_AUDIO_BYTES_PER_SAMPLE  2
-#define PS2_AUDIO_FRAME_BYTES       (PS2_AUDIO_CHANNELS * PS2_AUDIO_BYTES_PER_SAMPLE)
-
-/* Quantos blocos ficam no ringbuffer */
-#define SOUND_BLOCK_COUNT           8
-
-/* Frames por bloco */
-#define SOUND_BUFFER_CHUNK          1024
-
-/* Tamanho total do buffer em frames */
-#define SOUND_TOTAL_FRAMES          (SOUND_BLOCK_COUNT * SOUND_BUFFER_CHUNK)
-
-/* Tamanho total do buffer em bytes */
-#define SOUND_TOTAL_BYTES           (SOUND_TOTAL_FRAMES * PS2_AUDIO_FRAME_BYTES)
-
-/* Quanto o backend deve tentar consumir por vez */
-#define BACKEND_FEED_FRAMES         256
-#define BACKEND_FEED_BYTES          (BACKEND_FEED_FRAMES * PS2_AUDIO_FRAME_BYTES)
-
-/* Thread priority */
-#define SOUND_THREAD_PRIO           96
-#define SOUND_THREAD_STACK          0x2000
-
-/* ===================================================================== */
-/* Estado geral                                                           */
-/* ===================================================================== */
 
 static int g_audio_state = 0; /* 0=off, 1=ready, -1=failed */
 static int g_warned_not_ready = 0;
 static int g_warned_overrun = 0;
 static int g_warned_underrun = 0;
 static int g_logged_first_push = 0;
-static int g_audsrv_loaded = 0;
 
 static int g_sound_tid = -1;
 static volatile int g_sound_thread_running = 0;
@@ -99,15 +39,6 @@ static volatile unsigned int g_buffered_frames = 0;
 
 /* Scratch block contínuo para alimentar backend */
 static int16_t g_backend_block[BACKEND_FEED_FRAMES * PS2_AUDIO_CHANNELS] __attribute__((aligned(64)));
-static int16_t g_resample_out[RESAMPLE_OUT_MAX_FRAMES * PS2_AUDIO_CHANNELS] __attribute__((aligned(64)));
-static unsigned int g_resample_phase = 0;
-static int16_t g_resample_prev_l = 0;
-static int16_t g_resample_prev_r = 0;
-static int g_resample_have_prev = 0;
-
-/* ===================================================================== */
-/* Utilidades                                                             */
-/* ===================================================================== */
 
 static void ps2_audio_wait_loops(int loops)
 {
@@ -146,10 +77,6 @@ static unsigned int ps2_audio_ring_buffered_frames(void)
     return g_buffered_frames;
 }
 
-/* ===================================================================== */
-/* Boot/init do PS2 estilo PicoDrive                                      */
-/* ===================================================================== */
-
 static void ps2_audio_reset_iop(void)
 {
     PS2AUDIO_LOG("[PS2AUDIO] reset IOP begin\n");
@@ -181,113 +108,6 @@ static void ps2_audio_reset_iop(void)
 
     PS2AUDIO_LOG("[PS2AUDIO] reset IOP done\n");
 }
-
-/* ===================================================================== */
-/* Backend abstrato                                                       */
-/* ===================================================================== */
-
-/*
- * IMPLEMENTAR DEPOIS:
- *
- * Retorno esperado:
- *   0  = ok
- *  <0  = falha
- *
- * queued_bytes:
- *   quantos bytes ainda estão pendentes no backend
- *
- * queue_audio:
- *   envia "bytes" do buffer PCM estéreo s16le
- *   retorna quantidade aceita:
- *      bytes  = aceitou tudo
- *      >= 0   = aceitou parcial
- *      < 0    = erro
- */
-
-
-static int ps2_backend_init(int rate, int channels, int bits)
-{
-    audsrv_fmt_t fmt;
-    int ret;
-    int mod;
-
-    PS2AUDIO_LOG("[PS2AUDIO] backend_init audsrv rate=%d ch=%d bits=%d\n", rate, channels, bits);
-
-    mod = SifLoadModule("rom0:LIBSD", 0, NULL);
-    PS2AUDIO_LOG("[PS2AUDIO] load LIBSD for audsrv -> %d\n", mod);
-    if (mod < 0)
-        return -1;
-
-    {
-        const unsigned char *pp = (const unsigned char *)audsrv_irx;
-        PS2AUDIO_LOG("[PS2AUDIO] audsrv irx first16: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
-            pp[0], pp[1], pp[2], pp[3], pp[4], pp[5], pp[6], pp[7],
-            pp[8], pp[9], pp[10], pp[11], pp[12], pp[13], pp[14], pp[15]);
-    }
-
-    ret = SifExecModuleBuffer((void *)audsrv_irx, size_audsrv_irx, 0, NULL, NULL);
-    PS2AUDIO_LOG("[PS2AUDIO] SifExecModuleBuffer(audsrv) -> %d\n", ret);
-    if (ret < 0)
-        return -2;
-
-    g_audsrv_loaded = 1;
-
-    ret = audsrv_init();
-    PS2AUDIO_LOG("[PS2AUDIO] audsrv_init -> %d\n", ret);
-    if (ret < 0)
-        return -3;
-
-    memset(&fmt, 0, sizeof(fmt));
-    fmt.freq = rate;
-    fmt.bits = bits;
-    fmt.channels = channels;
-
-    ret = audsrv_set_format(&fmt);
-    PS2AUDIO_LOG("[PS2AUDIO] audsrv_set_format -> %d\n", ret);
-    if (ret < 0)
-        return -4;
-
-    return 0;
-}
-
-static int ps2_backend_queued_bytes(void)
-{
-    int q = audsrv_queued();
-    if (q < 0)
-        return 0;
-    return q;
-}
-
-static int ps2_backend_available_bytes(void)
-{
-    int a = audsrv_available();
-    if (a < 0)
-        return 0;
-    return a;
-}
-
-static int ps2_backend_queue_audio(const int16_t *data, int bytes)
-{
-    int ret = audsrv_play_audio((char *)data, bytes);
-    if (ret < 0) {
-        PS2AUDIO_LOG("[PS2AUDIO] audsrv_play_audio FAIL -> %d\n", ret);
-        return ret;
-    }
-    return bytes;
-}
-
-static void ps2_backend_shutdown(void)
-{
-    if (g_audsrv_loaded) {
-        PS2AUDIO_LOG("[PS2AUDIO] audsrv_shutdown\n");
-        audsrv_quit();
-        g_audsrv_loaded = 0;
-    }
-}
-
-/* ===================================================================== */
-/* Ringbuffer                                                             */
-/* ===================================================================== */
 
 static unsigned int ps2_audio_copy_from_ring(int16_t *dst, unsigned int frames)
 {
@@ -344,10 +164,6 @@ static unsigned int ps2_audio_copy_to_ring(const int16_t *src, unsigned int fram
     return written;
 }
 
-/* ===================================================================== */
-/* Thread de áudio                                                        */
-/* ===================================================================== */
-
 static void ps2_audio_sound_thread(void *arg)
 {
     (void)arg;
@@ -381,10 +197,6 @@ static void ps2_audio_sound_thread(void *arg)
 
         g_warned_underrun = 0;
 
-        /*
-         * Backend já cheio demais? espera um pouco.
-         * O valor exato pode ser ajustado quando o backend real existir.
-         */
         if (queued_bytes > (BACKEND_FEED_BYTES * 3)) {
             ps2_audio_wait_loops(1);
             continue;
@@ -476,10 +288,6 @@ static void ps2_audio_stop_thread(void)
     g_sound_thread_running = 0;
 }
 
-/* ===================================================================== */
-/* API pública                                                            */
-/* ===================================================================== */
-
 int ps2_audio_init_once(void)
 {
     int ret;
@@ -489,7 +297,7 @@ int ps2_audio_init_once(void)
         return g_audio_state > 0;
     }
 
-    PS2AUDIO_LOG("[PS2AUDIO] init enter (PicoDrive-style skeleton)\n");
+    PS2AUDIO_LOG("[PS2AUDIO] init enter (phase 1 split)\n");
 
     ps2_audio_reset_iop();
     ps2_audio_clear_ring();
@@ -511,7 +319,6 @@ int ps2_audio_init_once(void)
     ps2_audio_log_state("init success");
     return 1;
 }
-
 
 void ps2_audio_pump(void)
 {
@@ -536,12 +343,6 @@ void ps2_audio_shutdown(void)
     PS2AUDIO_LOG("[PS2AUDIO] shutdown done\n");
 }
 
-/*
- * Recebe PCM estéreo s16 interleaved:
- * L R L R ...
- *
- * Retorna quantos frames foram aceitos.
- */
 size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 {
     size_t done = 0;
@@ -563,43 +364,14 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 
     while (done < frames) {
         size_t chunk = frames - done;
-        size_t out_frames = 0;
-        size_t i;
+        size_t out_frames;
         int bytes;
         int ret;
 
         if (chunk > BACKEND_FEED_FRAMES)
             chunk = BACKEND_FEED_FRAMES;
 
-        if (!g_resample_have_prev && chunk > 0) {
-            g_resample_prev_l = data[done * 2 + 0];
-            g_resample_prev_r = data[done * 2 + 1];
-            g_resample_have_prev = 1;
-        }
-
-        for (i = 0; i < chunk && out_frames < RESAMPLE_OUT_MAX_FRAMES; i++) {
-            int16_t cur_l = data[(done + i) * 2 + 0];
-            int16_t cur_r = data[(done + i) * 2 + 1];
-
-            while (g_resample_phase < PS2_AUDIO_RATE && out_frames < RESAMPLE_OUT_MAX_FRAMES) {
-                int a = (int)g_resample_phase;
-                int b = (int)(PS2_AUDIO_RATE - a);
-
-                g_resample_out[out_frames * 2 + 0] =
-                    (int16_t)(((int)g_resample_prev_l * b + (int)cur_l * a) / (int)PS2_AUDIO_RATE);
-                g_resample_out[out_frames * 2 + 1] =
-                    (int16_t)(((int)g_resample_prev_r * b + (int)cur_r * a) / (int)PS2_AUDIO_RATE);
-                out_frames++;
-                g_resample_phase += CORE_AUDIO_RATE;
-            }
-
-            while (g_resample_phase >= PS2_AUDIO_RATE)
-                g_resample_phase -= PS2_AUDIO_RATE;
-
-            g_resample_prev_l = cur_l;
-            g_resample_prev_r = cur_r;
-        }
-
+        out_frames = ps2_audio_resample_chunk(&data[done * 2], chunk);
         if (out_frames == 0) {
             done += chunk;
             continue;
@@ -607,7 +379,7 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 
         bytes = (int)(out_frames * PS2_AUDIO_FRAME_BYTES);
 
-        audsrv_wait_audio(bytes);
+        ps2_backend_wait_audio(bytes);
         ret = ps2_backend_queue_audio(g_resample_out, bytes);
         if (ret < 0) {
             PS2AUDIO_LOG("[PS2AUDIO] direct audsrv queue FAIL -> %d\n", ret);
@@ -619,6 +391,3 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 
     return done;
 }
-
-
-
