@@ -31,13 +31,16 @@ void launcher_pages_fit_text(char *out, size_t out_size, const char *src, int ma
 
 void launcher_pages_draw(const launcher_state_t *state)
 {
-    if (!state)
-        return;
+    if (!state) return;
 
     if (state->page == LAUNCHER_PAGE_MAIN)
         launcher_pages_draw_main_page(state);
     else if (state->page == LAUNCHER_PAGE_BROWSER)
         launcher_pages_draw_browser_page();
-    else
+    else if (state->page == LAUNCHER_PAGE_OPTIONS)
         launcher_pages_draw_options_page();
+    else if (state->page == LAUNCHER_PAGE_CREDITS)
+        launcher_pages_draw_credits_page();
+    else
+        launcher_pages_draw_main_page(state);
 }

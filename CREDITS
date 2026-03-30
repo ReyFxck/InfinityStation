@@ -1,0 +1,26 @@
+CREDITS
+
+Thank you for trying this project.
+This is a hobby project made for fun,
+and I hope you enjoy it.
+
+- CORE -
+Thanks to the Libretro community.
+Based on snes9x2005, adapted for PS2.
+
+- IDEAS -
+Initial UI inspired by the SnesStation and PGEN developers.
+Configuration ideas inspired by Libretro and SNESticle.
+
+- LEGACY CREDITS -
+A. Hiryu - UI ideas
+Aragon (PGEN) - UI ideas and folder fixes
+Isra (wLaunchELF ISR) - folder fixes and selection fixes
+PS2SDK / PS2DEV - PS2 ELF development
+OPL team - IOP method ideas
+PicoDrive - audsrv logic ideas
+SNESticle (Iaddis and forks) - ideas and inspiration
+miniz - ZIP decompression support for ROM files
+And others I may have forgotten.
+
+THANK YOU FOR PLAYING

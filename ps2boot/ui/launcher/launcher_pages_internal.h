@@ -14,5 +14,6 @@ void launcher_pages_fit_text(char *out, size_t out_size, const char *src, int ma
 void launcher_pages_draw_main_page(const launcher_state_t *state);
 void launcher_pages_draw_browser_page(void);
 void launcher_pages_draw_options_page(void);
+void launcher_pages_draw_credits_page(void);
 
 #endif

@@ -139,7 +139,8 @@ void launcher_render(const launcher_state_t *state)
 
     if (state->page == LAUNCHER_PAGE_MAIN) {
         draw_glass_panel(180, 125, 280, 220);
-    } else if (state->page == LAUNCHER_PAGE_BROWSER) {
+    } else if (state->page == LAUNCHER_PAGE_BROWSER ||
+               state->page == LAUNCHER_PAGE_CREDITS) {
         draw_glass_panel(95, 95, 450, 285);
     }
 

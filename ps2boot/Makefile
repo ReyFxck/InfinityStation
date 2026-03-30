@@ -103,6 +103,7 @@ LAUNCHER_OBJS = \
         ui/launcher/launcher_pages_main.o \
         ui/launcher/launcher_pages_browser.o \
         ui/launcher/launcher_pages_options.o \
+ ui/launcher/launcher_pages_credits.o \
         ui/launcher/launcher_actions_main.o \
         ui/launcher/launcher_actions_browser.o \
         ui/launcher/launcher_actions_options.o \
@@ -138,14 +139,69 @@ EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph 
 EXTRA_TARGETS = $(EE_BIN)
 
 PS2SDK = $(PS2DEV)/ps2sdk
+
+ANDROID_OUT_DIR ?= /sdcard/ps2
+WIN_OUT_DIR ?=
+
 include $(PS2SDK)/samples/Makefile.pref
 EE_DBGINFOFLAGS :=
 include $(PS2SDK)/samples/Makefile.eeglobal
 EE_CFLAGS := $(filter-out -g -gdwarf-2 -gz,$(EE_CFLAGS))
 
+V ?= 0
 
-$(EE_BIN): $(EXTRA_OBJS)
+ifeq ($(V),0)
+REAL_EE_CC := $(EE_CC)
+REAL_EE_CXX := $(EE_CXX)
+REAL_EE_AS := $(EE_AS)
+
+EE_CC = ./tools/build_step.sh CC "$(REAL_EE_CC)"
+EE_CXX = ./tools/build_step.sh CXX "$(REAL_EE_CXX)"
+EE_AS = ./tools/build_step.sh AS "$(REAL_EE_AS)"
+
+.SILENT:
+endif
+
+.DEFAULT_GOAL := $(EE_BIN)
+
+.PHONY: help push push-android push-win clean rebuild
+help:
+	@echo "InfinityStation / ps2boot"
+	@echo
+	@printf "  %-20s %s\n" "make" "Compila o projeto"
+	@printf "  %-20s %s\n" "make clean" "Remove arquivos gerados"
+	@printf "  %-20s %s\n" "make rebuild" "Limpa e recompila"
+	@printf "  %-20s %s\n" "make V=1" "Mostra os comandos completos do compilador"
+	@printf "  %-20s %s\n" "make help" "Mostra esta ajuda"
+	@printf "  %-20s %s\n" "make push" "Copia o ELF para o destino padrao (Android)"
+	@printf "  %-20s %s\n" "make push-android" "Copia o ELF para $(ANDROID_OUT_DIR)"
+	@printf "  %-20s %s\n" "make push-win" "Copia o ELF para WIN_OUT_DIR"
+	@printf "  %-20s %s\n" "make push-win WIN_OUT_DIR=/caminho" "Define a pasta de destino no Windows"
+	@echo
+	@printf "  %-20s %s\n" "ANDROID_OUT_DIR" "$(ANDROID_OUT_DIR)"
+	@printf "  %-20s %s\n" "WIN_OUT_DIR" "$(if $(WIN_OUT_DIR),$(WIN_OUT_DIR),<nao definido>)"
+	@printf "  %-20s %s\n" "EE_BIN" "$(EE_BIN)"
+
+push: push-android
+
+push-android: $(EE_BIN)
+	@mkdir -p "$(ANDROID_OUT_DIR)"
+	@cp -fv "$(EE_BIN)" "$(ANDROID_OUT_DIR)/"
+
+push-win: $(EE_BIN)
+	@if [ -z "$(WIN_OUT_DIR)" ]; then \
+		echo "ERRO: defina WIN_OUT_DIR. Exemplo:"; \
+		echo '  make push-win WIN_OUT_DIR="/mnt/c/Users/SeuNome/Desktop/ps2"'; \
+		exit 1; \
+	fi
+	@mkdir -p "$(WIN_OUT_DIR)"
+	@cp -fv "$(EE_BIN)" "$(WIN_OUT_DIR)/"
 
 clean:
-	find . -name '*.o' -delete
-	rm -f $(EE_BIN)
+	@echo "[clean] removendo binario e objetos..."
+	@rm -f "$(EE_BIN)"
+	@find . -type f \( -name '*.o' -o -name '*.d' \) -delete
+	@echo "[clean] ok"
+
+rebuild: clean
+	@$(MAKE) $(EE_BIN)
