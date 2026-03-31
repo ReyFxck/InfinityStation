@@ -1,4 +1,5 @@
 #include "select_menu_actions_internal.h"
+#include "frontend_config.h"
 
 void select_menu_actions_handle_game(uint32_t pressed)
 {
@@ -18,17 +19,24 @@ void select_menu_actions_handle_game(uint32_t pressed)
             (pressed & PAD_START) || (pressed & PAD_CROSS)) {
             state->show_fps = !state->show_fps;
             state->fps_rainbow = state->show_fps ? state->fps_rainbow : 0;
+            frontend_config_set_show_fps(state->show_fps);
+            frontend_config_set_fps_rainbow(state->fps_rainbow);
+
             if (state->game_sel >= select_menu_game_options_count())
                 state->game_sel = select_menu_game_options_count() - 1;
         }
     } else if (state->show_fps && state->game_sel == 1) {
         if ((pressed & PAD_LEFT) || (pressed & PAD_RIGHT) ||
-            (pressed & PAD_START) || (pressed & PAD_CROSS))
+            (pressed & PAD_START) || (pressed & PAD_CROSS)) {
             state->fps_rainbow = !state->fps_rainbow;
+            frontend_config_set_fps_rainbow(state->fps_rainbow);
+        }
     } else if (state->game_sel == vsync_index) {
         if ((pressed & PAD_LEFT) || (pressed & PAD_RIGHT) ||
-            (pressed & PAD_START) || (pressed & PAD_CROSS))
+            (pressed & PAD_START) || (pressed & PAD_CROSS)) {
             state->game_vsync = !state->game_vsync;
+            frontend_config_set_game_vsync(state->game_vsync);
+        }
     } else if (state->game_sel == frame_index) {
         if (pressed & PAD_LEFT)
             select_menu_cycle_frame_limit(-1);

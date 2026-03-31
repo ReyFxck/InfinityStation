@@ -1,4 +1,5 @@
 #include "select_menu_actions_internal.h"
+#include "frontend_config.h"
 
 int select_menu_wrap_index(int v, int count)
 {
@@ -13,6 +14,7 @@ void select_menu_cycle_frame_limit(int dir)
 {
     select_menu_state_t *state = select_menu_state_mut();
     state->frame_limit = select_menu_wrap_index(state->frame_limit + dir, 4);
+    frontend_config_set_frame_limit(state->frame_limit);
 }
 
 int select_menu_game_options_count(void)
@@ -23,7 +25,19 @@ int select_menu_game_options_count(void)
 
 void select_menu_actions_init(void)
 {
+    select_menu_state_t *state;
+    const frontend_config_t *cfg;
+
+    frontend_config_init_defaults();
     select_menu_state_reset();
+
+    state = select_menu_state_mut();
+    cfg = frontend_config_get();
+
+    state->show_fps = cfg->show_fps;
+    state->fps_rainbow = cfg->fps_rainbow;
+    state->frame_limit = cfg->frame_limit;
+    state->game_vsync = cfg->game_vsync;
 }
 
 int select_menu_actions_is_open(void)
@@ -87,7 +101,6 @@ void select_menu_actions_handle(uint32_t pressed)
     if (!state->open)
         return;
 
-    /* preserva teu fix de fechamento rápido */
     if (pressed & (PAD_SELECT | PAD_SQUARE)) {
         mut->open = 0;
         mut->page = SELECT_MENU_PAGE_MAIN;

@@ -1,6 +1,8 @@
 #include "select_menu.h"
+
 #include "select_menu_actions.h"
 #include "select_menu_render.h"
+#include "ps2_video.h"
 
 void select_menu_init(void)
 {
@@ -29,10 +31,15 @@ void select_menu_handle(uint32_t pressed)
 
 void select_menu_draw(void)
 {
+    select_menu_view_state_t view_state;
+
     if (!select_menu_actions_is_open())
         return;
 
-    select_menu_render(select_menu_actions_state());
+    ps2_video_get_offsets(&view_state.display_x, &view_state.display_y);
+    view_state.current_aspect = ps2_video_get_aspect();
+
+    select_menu_render(select_menu_actions_state(), &view_state);
 }
 
 int select_menu_show_fps_enabled(void)

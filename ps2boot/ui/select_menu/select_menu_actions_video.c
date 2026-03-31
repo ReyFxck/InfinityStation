@@ -1,4 +1,5 @@
 #include "select_menu_actions_internal.h"
+#include "frontend_config.h"
 
 #include "ps2_video.h"
 
@@ -7,6 +8,7 @@ void select_menu_actions_handle_video(uint32_t pressed)
     select_menu_state_t *state = select_menu_state_mut();
     int x;
     int y;
+    int aspect = -1;
 
     if (state->page == SELECT_MENU_PAGE_VIDEO) {
         if (pressed & PAD_UP)
@@ -40,6 +42,7 @@ void select_menu_actions_handle_video(uint32_t pressed)
         if (pressed & PAD_DOWN)  y += 8;
 
         ps2_video_set_offsets(x, y);
+        frontend_config_set_display(x, y);
 
         if (pressed & (PAD_START | PAD_CROSS | PAD_CIRCLE))
             state->page = SELECT_MENU_PAGE_VIDEO;
@@ -55,13 +58,18 @@ void select_menu_actions_handle_video(uint32_t pressed)
 
         if (pressed & (PAD_START | PAD_CROSS)) {
             if (state->aspect_sel == 0)
-                ps2_video_set_aspect(PS2_ASPECT_4_3);
+                aspect = PS2_ASPECT_4_3;
             else if (state->aspect_sel == 1)
-                ps2_video_set_aspect(PS2_ASPECT_16_9);
+                aspect = PS2_ASPECT_16_9;
             else if (state->aspect_sel == 2)
-                ps2_video_set_aspect(PS2_ASPECT_FULL);
+                aspect = PS2_ASPECT_FULL;
             else if (state->aspect_sel == 3)
-                ps2_video_set_aspect(PS2_ASPECT_PIXEL);
+                aspect = PS2_ASPECT_PIXEL;
+
+            if (aspect >= 0) {
+                ps2_video_set_aspect(aspect);
+                frontend_config_set_aspect(aspect);
+            }
 
             state->page = SELECT_MENU_PAGE_VIDEO;
         }
