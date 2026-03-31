@@ -49,9 +49,10 @@ int app_game_load_selected(void)
         game.size = g_loaded_rom_size;
         game.meta = NULL;
 
-        
+        scr_printf("rom externa: %s\n", path);
+        scr_printf("rom size: %u bytes\n", (unsigned)g_loaded_rom_size);
 
-if (retro_load_game(&game))
+        if (retro_load_game(&game))
             return 1;
 
         app_game_unload_loaded();
@@ -64,6 +65,6 @@ if (retro_load_game(&game))
     game.size = (size_t)(smw_sfc_end - smw_sfc_start);
     game.meta = NULL;
 
-    
-return retro_load_game(&game) ? 1 : 0;
+    scr_printf("embedded rom size: %u bytes\n", (unsigned)game.size);
+    return retro_load_game(&game) ? 1 : 0;
 }

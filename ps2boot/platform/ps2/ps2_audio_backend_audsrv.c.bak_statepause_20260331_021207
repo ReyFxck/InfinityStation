@@ -77,15 +77,6 @@ int ps2_backend_queue_audio(const int16_t *data, int bytes)
     return bytes;
 }
 
-void ps2_backend_stop_audio(void)
-{
-    if (!g_audsrv_loaded)
-        return;
-
-    PS2AUDIO_LOG("[PS2AUDIO] audsrv_stop_audio\n");
-    audsrv_stop_audio();
-}
-
 void ps2_backend_shutdown(void)
 {
     if (g_audsrv_loaded) {

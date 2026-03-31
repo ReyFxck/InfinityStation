@@ -10,7 +10,6 @@
 
 #include "libretro.h"
 #include "ps2_video.h"
-#include "platform/ps2/ps2_audio.h"
 
 static void app_transition_refresh_av_info(struct retro_system_av_info *av)
 {
@@ -45,13 +44,11 @@ void app_transition_restart_game(struct retro_system_av_info *av,
                                  uint32_t *prev_buttons,
                                  void (*die_fn)(const char *msg))
 {
-    ps2_audio_pause();
     retro_unload_game();
     app_game_unload_loaded();
     app_transition_prepare(prev_buttons);
     scr_clear();
     app_transition_load_selected_game(av, die_fn);
-    ps2_audio_resume();
     scr_clear();
     app_state_set_mode(APP_MODE_GAME);
 }
@@ -75,7 +72,6 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
     ps2_video_set_offsets(*saved_launcher_x, *saved_launcher_y);
 
     app_transition_load_selected_game(av, die_fn);
-    ps2_audio_resume();
     scr_clear();
     app_state_set_mode(APP_MODE_GAME);
 }

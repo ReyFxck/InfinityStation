@@ -16,7 +16,6 @@ static int g_warned_not_ready = 0;
 static int g_warned_overrun = 0;
 static int g_warned_underrun = 0;
 static int g_logged_first_push = 0;
-static int g_audio_paused = 0;
 
 static int g_sound_tid = -1;
 static volatile int g_sound_thread_running = 0;
@@ -51,23 +50,13 @@ static void ps2_audio_wait_loops(int loops)
     }
 }
 
-static void ps2_audio_reset_stream_state(void)
-{
-    g_resample_phase = 0;
-    g_resample_prev_l = 0;
-    g_resample_prev_r = 0;
-    g_resample_have_prev = 0;
-    memset(g_resample_out, 0, sizeof(g_resample_out));
-}
-
 static void ps2_audio_log_state(const char *tag)
 {
-    PS2AUDIO_LOG("[PS2AUDIO] %s wp=%u rp=%u buffered=%u paused=%d\n",
+    PS2AUDIO_LOG("[PS2AUDIO] %s wp=%u rp=%u buffered=%u\n",
            tag,
            g_write_pos,
            g_read_pos,
-           g_buffered_frames,
-           g_audio_paused);
+           g_buffered_frames);
 }
 
 static void ps2_audio_clear_ring(void)
@@ -312,10 +301,8 @@ int ps2_audio_init_once(void)
 
     ps2_audio_reset_iop();
     ps2_audio_clear_ring();
-    ps2_audio_reset_stream_state();
-    g_audio_paused = 0;
 
-    ret = ps2_backend_init(PS2_AUDIO_RATE, PS2_AUDIO_CHANNELS, 16);
+    ret = ps2_backend_init(CORE_AUDIO_RATE, PS2_AUDIO_CHANNELS, 16);
     if (ret < 0) {
         g_audio_state = -1;
         PS2AUDIO_LOG("[PS2AUDIO] FAIL: backend_init\n");
@@ -338,52 +325,20 @@ void ps2_audio_pump(void)
     /* direct-audsrv debug path: sem pump/ringbuffer */
 }
 
-void ps2_audio_pause(void)
-{
-    if (g_audio_state != 1)
-        return;
-
-    g_audio_paused = 1;
-    ps2_backend_stop_audio();
-    ps2_audio_clear_ring();
-    ps2_audio_reset_stream_state();
-    g_warned_overrun = 0;
-    g_warned_underrun = 0;
-    g_logged_first_push = 0;
-    ps2_audio_log_state("paused");
-}
-
-void ps2_audio_resume(void)
-{
-    if (g_audio_state != 1)
-        return;
-
-    g_audio_paused = 0;
-    ps2_audio_clear_ring();
-    ps2_audio_reset_stream_state();
-    g_warned_overrun = 0;
-    g_warned_underrun = 0;
-    g_logged_first_push = 0;
-    ps2_audio_log_state("resumed");
-}
-
 void ps2_audio_shutdown(void)
 {
     if (g_audio_state == 1) {
         PS2AUDIO_LOG("[PS2AUDIO] shutdown begin\n");
     }
 
-    g_audio_paused = 1;
     ps2_audio_stop_thread();
     ps2_backend_shutdown();
     ps2_audio_clear_ring();
-    ps2_audio_reset_stream_state();
 
     g_audio_state = 0;
     g_warned_not_ready = 0;
     g_warned_overrun = 0;
     g_warned_underrun = 0;
-    g_logged_first_push = 0;
 
     PS2AUDIO_LOG("[PS2AUDIO] shutdown done\n");
 }
@@ -402,9 +357,6 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 
     g_warned_not_ready = 0;
 
-    if (g_audio_paused)
-        return frames;
-
     if (!g_logged_first_push) {
         PS2AUDIO_LOG("[PS2AUDIO] first push frames=%u\n", (unsigned)frames);
         g_logged_first_push = 1;
@@ -412,23 +364,16 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 
     while (done < frames) {
         size_t chunk = frames - done;
-        size_t out_frames;
         int bytes;
         int ret;
 
         if (chunk > BACKEND_FEED_FRAMES)
             chunk = BACKEND_FEED_FRAMES;
 
-        out_frames = ps2_audio_resample_chunk(&data[done * 2], chunk);
-        if (out_frames == 0) {
-            done += chunk;
-            continue;
-        }
-
-        bytes = (int)(out_frames * PS2_AUDIO_FRAME_BYTES);
+        bytes = (int)(chunk * PS2_AUDIO_FRAME_BYTES);
 
         ps2_backend_wait_audio(bytes);
-        ret = ps2_backend_queue_audio(g_resample_out, bytes);
+        ret = ps2_backend_queue_audio(&data[done * 2], bytes);
         if (ret < 0) {
             PS2AUDIO_LOG("[PS2AUDIO] direct audsrv queue FAIL -> %d\n", ret);
             break;

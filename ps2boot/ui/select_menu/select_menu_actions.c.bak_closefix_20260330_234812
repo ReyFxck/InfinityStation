@@ -95,7 +95,7 @@ void select_menu_actions_handle(uint32_t pressed)
     if (!g_select_menu.open)
         return;
 
-    if (pressed & (PAD_SELECT | PAD_SQUARE)) {
+    if (pressed & PAD_SELECT) {
         g_select_menu.open = 0;
         g_select_menu.page = SELECT_MENU_PAGE_MAIN;
         return;
