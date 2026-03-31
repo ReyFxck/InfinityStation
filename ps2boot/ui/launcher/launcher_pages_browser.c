@@ -1,7 +1,4 @@
 #include "ps2_launcher_video.h"
-#include <stdio.h>
-#include <string.h>
-
 #include "font/browser_font.h"
 #include "launcher_pages_internal.h"
 
@@ -12,7 +9,6 @@ static unsigned screen_center_x(unsigned screen_w, unsigned obj_w)
 {
     if (obj_w >= screen_w)
         return 0;
-
     return (screen_w - obj_w) / 2;
 }
 
@@ -44,7 +40,6 @@ static void browser_copy_ellipsis(char *out, size_t out_size, const char *src, i
     }
 
     len = strlen(src);
-
     if ((int)len <= visible_chars) {
         browser_copy_plain(out, out_size, src);
         return;
@@ -56,7 +51,6 @@ static void browser_copy_ellipsis(char *out, size_t out_size, const char *src, i
     }
 
     keep = (size_t)(visible_chars - 3);
-
     for (i = 0; i < keep && i + 1 < out_size; i++)
         out[i] = src[i];
 
@@ -86,7 +80,6 @@ static void browser_copy_marquee(char *out, size_t out_size, const char *src, in
     }
 
     len = strlen(src);
-
     if ((int)len <= visible_chars) {
         browser_copy_plain(out, out_size, src);
         return;
@@ -97,17 +90,13 @@ static void browser_copy_marquee(char *out, size_t out_size, const char *src, in
 
     for (i = 0; i < (size_t)visible_chars && i + 1 < out_size; i++) {
         unsigned pos = offset + (unsigned)i;
-
         if (pos >= period)
             pos -= period;
-
         out[i] = (pos < len) ? src[pos] : ' ';
     }
 
     out[i] = '\0';
 }
-
-
 
 static void launcher_pages_draw_status_circle(int x, int y, uint16_t color)
 {
@@ -116,64 +105,59 @@ static void launcher_pages_draw_status_circle(int x, int y, uint16_t color)
     for (dy = -3; dy <= 3; dy++) {
         for (dx = -3; dx <= 3; dx++) {
             int d2 = dx * dx + dy * dy;
-
             if (d2 <= 9)
                 ps2_launcher_video_put_pixel((unsigned)(x + dx), (unsigned)(y + dy), 0x0000);
-
             if (d2 <= 4)
                 ps2_launcher_video_put_pixel((unsigned)(x + dx), (unsigned)(y + dy), color);
         }
     }
 }
 
-void launcher_pages_draw_browser_page(void)
+void launcher_pages_draw_browser_page(const launcher_state_t *state,
+                                      const launcher_browser_state_t *browser_state)
 {
     char path_line[96];
-    int count = launcher_browser_count();
-    int scroll = launcher_browser_scroll();
-    int selected = launcher_browser_selected();
+    int count;
+    int scroll;
+    int selected;
     int row;
-    const char *current_path = launcher_browser_current_path();
-
+    const char *current_path;
     static int s_prev_selected = -9999;
     static char s_prev_path[256] = "";
     static unsigned s_marquee_delay_frames = 0;
     static unsigned s_marquee_tick = 0;
-
     const int content_x = 105;
     const int content_y = 105;
-
     const unsigned path_w = 11;
     const unsigned path_h = 17;
-
     const unsigned item_w = 10;
     const unsigned item_h = 16;
-
-    const uint16_t path_color = 0x2411; /* turquesa */
-    const uint16_t normal     = 0x39E7; /* cinza escuro */
-    const uint16_t select     = 0x7053; /* roxo */
-
+    const uint16_t path_color = 0x2411;
+    const uint16_t normal = 0x39E7;
+    const uint16_t select = 0x7053;
     const int visible_name_chars = 24;
-    const unsigned marquee_delay_frames = 4; /* ajuste fino */
+    const unsigned marquee_delay_frames = 4;
 
-    if (!current_path)
-        current_path = "";
+    (void)state;
 
-    launcher_pages_fit_text(path_line, sizeof(path_line), launcher_browser_current_path(), 34);
+    if (!browser_state)
+        return;
 
-    launcher_logo_draw(
-        screen_center_x(640, launcher_logo_width),
-        18
-    );
+    count = browser_state->entry_count;
+    scroll = browser_state->scroll;
+    selected = browser_state->selected;
+    current_path = browser_state->current_path;
+
+    if (!current_path || !current_path[0])
+        current_path = "DEVICES";
+
+    launcher_pages_fit_text(path_line, sizeof(path_line), current_path, 34);
+
+    launcher_logo_draw(screen_center_x(640, launcher_logo_width), 18);
 
     browser_font_draw_string_color_sized(
-        content_x,
-        content_y + 0,
-        path_line,
-        path_color,
-        path_w,
-        path_h
-    );
+        content_x, content_y + 0,
+        path_line, path_color, path_w, path_h);
 
     if (selected != s_prev_selected || strcmp(current_path, s_prev_path) != 0) {
         s_prev_selected = selected;
@@ -181,12 +165,14 @@ void launcher_pages_draw_browser_page(void)
         s_marquee_delay_frames = 0;
         s_marquee_tick = 0;
     } else {
-        const launcher_browser_entry_t *sel_entry = launcher_browser_entry(selected);
+        const launcher_browser_entry_t *sel_entry = NULL;
 
-        if (!launcher_browser_last_error() &&
+        if (selected >= 0 && selected < count)
+            sel_entry = &browser_state->entries[selected];
+
+        if (!browser_state->last_error &&
             count > 0 &&
             sel_entry &&
-            sel_entry->name &&
             (int)strlen(sel_entry->name) > visible_name_chars) {
             if (s_marquee_delay_frames < marquee_delay_frames)
                 s_marquee_delay_frames++;
@@ -198,27 +184,24 @@ void launcher_pages_draw_browser_page(void)
         }
     }
 
-    if (current_path &&
-        !strcmp(current_path, "DEVICES") &&
-        !launcher_browser_last_error() &&
-        count > 0) {
+    if (current_path && !strcmp(current_path, "DEVICES") &&
+        !browser_state->last_error && count > 0) {
         launcher_browser_refresh_root_device_statuses();
-
-        launcher_pages_draw_status_circle(content_x + 15, content_y + 48, launcher_browser_device_ready("mc0:/")   ? 0x07E0 : 0xF800);
-        launcher_pages_draw_status_circle(content_x + 15, content_y + 65, launcher_browser_device_ready("mc1:/")   ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 48, launcher_browser_device_ready("mc0:/") ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 65, launcher_browser_device_ready("mc1:/") ? 0x07E0 : 0xF800);
         launcher_pages_draw_status_circle(content_x + 15, content_y + 82, launcher_browser_device_ready("mass0:/") ? 0x07E0 : 0xF800);
         launcher_pages_draw_status_circle(content_x + 15, content_y + 99, launcher_browser_device_ready("mass1:/") ? 0x07E0 : 0xF800);
     }
 
-    if (launcher_browser_last_error()) {
+    if (browser_state->last_error) {
+        const char *fail_msg = "OPEN FAILED";
+        int fail_w = (int)strlen(fail_msg) * 12;
+        int fail_x = 95 + ((450 - fail_w) / 2) - 24;
+        int fail_y = content_y + 118;
+
         browser_font_draw_string_color_sized(
-            content_x,
-            content_y + 66,
-            "OPEN FAILED",
-            select,
-            12,
-            18
-        );
+            fail_x, fail_y,
+            fail_msg, select, 12, 18);
     } else if (count <= 0) {
         const char *empty_msg = "NO FOLDERS OR ROMS";
 
@@ -228,13 +211,8 @@ void launcher_pages_draw_browser_page(void)
             empty_msg = "EMPTY DEVICE";
 
         browser_font_draw_string_color_sized(
-            content_x,
-            content_y + 66,
-            empty_msg,
-            normal,
-            11,
-            17
-        );
+            content_x, content_y + 66,
+            empty_msg, normal, 11, 17);
     } else {
         for (row = 0; row < LAUNCHER_BROWSER_ROWS; row++) {
             int index = scroll + row;
@@ -246,12 +224,9 @@ void launcher_pages_draw_browser_page(void)
             if (index >= count)
                 break;
 
-            entry = launcher_browser_entry(index);
-            if (!entry)
-                break;
+            entry = &browser_state->entries[index];
 
             if (index == selected &&
-                entry->name &&
                 (int)strlen(entry->name) > visible_name_chars) {
                 if (s_marquee_delay_frames < marquee_delay_frames)
                     browser_copy_ellipsis(name_buf, sizeof(name_buf), entry->name, visible_name_chars);
@@ -274,8 +249,7 @@ void launcher_pages_draw_browser_page(void)
                 line,
                 color,
                 item_w,
-                item_h
-            );
+                item_h);
         }
     }
 }

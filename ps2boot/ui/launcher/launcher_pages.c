@@ -1,8 +1,5 @@
 #include "launcher_pages_internal.h"
 
-#include <stdio.h>
-#include <string.h>
-
 void launcher_pages_fit_text(char *out, size_t out_size, const char *src, int max_chars)
 {
     size_t len;
@@ -29,18 +26,17 @@ void launcher_pages_fit_text(char *out, size_t out_size, const char *src, int ma
     snprintf(out, out_size, "...%s", src + (len - (size_t)(max_chars - 3)));
 }
 
-void launcher_pages_draw(const launcher_state_t *state)
+void launcher_pages_draw(const launcher_state_t *state,
+                         const launcher_browser_state_t *browser_state)
 {
-    if (!state) return;
+    if (!state)
+        return;
 
-    if (state->page == LAUNCHER_PAGE_MAIN)
+    if (state->page == LAUNCHER_PAGE_MAIN) {
         launcher_pages_draw_main_page(state);
-    else if (state->page == LAUNCHER_PAGE_BROWSER)
-        launcher_pages_draw_browser_page();
-    else if (state->page == LAUNCHER_PAGE_OPTIONS)
+    } else if (state->page == LAUNCHER_PAGE_BROWSER) {
+        launcher_pages_draw_browser_page(state, browser_state);
+    } else {
         launcher_pages_draw_options_page();
-    else if (state->page == LAUNCHER_PAGE_CREDITS)
-        launcher_pages_draw_credits_page();
-    else
-        launcher_pages_draw_main_page(state);
+    }
 }
