@@ -50,3 +50,6 @@ ps2boot/ui/assets/launcher_logo_rgba
 *.no_shadow_test
 *.close_black_test
 *.select_button_patch
+*.bak
+*.bak_*
+*.bak.*
