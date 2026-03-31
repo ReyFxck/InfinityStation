@@ -85,6 +85,7 @@ ROM_LOADER_OBJS = \
 APP_OBJS = \
         app/app_game.o \
  app/app_state.o \
+ app/app_transition.o \
         app/app_launcher.o \
         app/app_runtime.o \
         app/app_overlay.o \
