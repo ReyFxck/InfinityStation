@@ -18,7 +18,6 @@ int app_runtime_handle_menu(uint32_t buttons, uint32_t pressed, uint32_t *prev_b
             ps2_menu_clear_restart_game_request();
             ps2_menu_close();
             app_state_set_mode(APP_MODE_GAME);
-            ps2_audio_resume();
             app_state_request(APP_REQUEST_RESTART_GAME);
 
             if (prev_buttons)
@@ -38,9 +37,11 @@ int app_runtime_handle_menu(uint32_t buttons, uint32_t pressed, uint32_t *prev_b
         }
 
         if (ps2_menu_is_open()) {
+            ps2_audio_pump();
             ps2_menu_draw();
         } else {
             app_state_set_mode(APP_MODE_GAME);
+            ps2_audio_resume();
         }
 
         if (prev_buttons)
@@ -52,6 +53,7 @@ int app_runtime_handle_menu(uint32_t buttons, uint32_t pressed, uint32_t *prev_b
         ps2_audio_pause();
         ps2_menu_open();
         app_state_set_mode(APP_MODE_MENU);
+        ps2_audio_pump();
         ps2_menu_draw();
 
         if (prev_buttons)

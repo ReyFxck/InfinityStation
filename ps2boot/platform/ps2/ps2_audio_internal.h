@@ -44,6 +44,7 @@ int ps2_backend_init(int rate, int channels, int bits);
 int ps2_backend_queued_bytes(void);
 void ps2_backend_wait_audio(int bytes);
 int ps2_backend_queue_audio(const int16_t *data, int bytes);
+int ps2_backend_set_volume(int vol);
 void ps2_backend_shutdown(void);
 void ps2_backend_stop_audio(void);
 

@@ -46,6 +46,7 @@ void app_transition_restart_game(struct retro_system_av_info *av,
                                  void (*die_fn)(const char *msg))
 {
     ps2_audio_pause();
+    ps2_audio_pause();
     retro_unload_game();
     app_game_unload_loaded();
     app_transition_prepare(prev_buttons);
@@ -71,6 +72,7 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
 
     scr_clear();
     app_state_set_mode(APP_MODE_LAUNCHER);
+    ps2_audio_pump();
     app_launcher_run(prev_buttons);
     ps2_video_set_offsets(*saved_launcher_x, *saved_launcher_y);
 

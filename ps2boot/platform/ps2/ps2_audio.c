@@ -17,6 +17,7 @@ static int g_warned_overrun = 0;
 static int g_warned_underrun = 0;
 static int g_logged_first_push = 0;
 static int g_audio_paused = 0;
+static int g_audio_resume_armed = 0;
 
 static int g_sound_tid = -1;
 static volatile int g_sound_thread_running = 0;
@@ -40,6 +41,7 @@ static volatile unsigned int g_buffered_frames = 0;
 
 /* Scratch block contínuo para alimentar backend */
 static int16_t g_backend_block[BACKEND_FEED_FRAMES * PS2_AUDIO_CHANNELS] __attribute__((aligned(64)));
+static int16_t g_menu_silence_block[BACKEND_FEED_FRAMES * PS2_AUDIO_CHANNELS] __attribute__((aligned(64)));
 
 static void ps2_audio_wait_loops(int loops)
 {
@@ -313,7 +315,9 @@ int ps2_audio_init_once(void)
     ps2_audio_reset_iop();
     ps2_audio_clear_ring();
     ps2_audio_reset_stream_state();
+    memset(g_menu_silence_block, 0, sizeof(g_menu_silence_block));
     g_audio_paused = 0;
+    g_audio_resume_armed = 0;
 
     ret = ps2_backend_init(PS2_AUDIO_RATE, PS2_AUDIO_CHANNELS, 16);
     if (ret < 0) {
@@ -328,6 +332,7 @@ int ps2_audio_init_once(void)
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_audio_state = 1;
+    ps2_backend_set_volume(0x3fff);
 
     ps2_audio_log_state("init success");
     return 1;
@@ -335,7 +340,11 @@ int ps2_audio_init_once(void)
 
 void ps2_audio_pump(void)
 {
-    /* direct-audsrv debug path: sem pump/ringbuffer */
+    if (g_audio_state != 1 || !g_audio_paused)
+        return;
+
+    ps2_backend_wait_audio(BACKEND_FEED_BYTES);
+    (void)ps2_backend_queue_audio(g_menu_silence_block, BACKEND_FEED_BYTES);
 }
 
 void ps2_audio_pause(void)
@@ -344,9 +353,15 @@ void ps2_audio_pause(void)
         return;
 
     g_audio_paused = 1;
-    ps2_backend_stop_audio();
+    g_audio_resume_armed = 1;
+
+    /* pause suave estilo PGEN: backend continua vivo, mas mutado */
+    ps2_backend_set_volume(0);
+
     ps2_audio_clear_ring();
     ps2_audio_reset_stream_state();
+    memset(g_menu_silence_block, 0, sizeof(g_menu_silence_block));
+
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_logged_first_push = 0;
@@ -358,13 +373,16 @@ void ps2_audio_resume(void)
     if (g_audio_state != 1)
         return;
 
+    /* continua mutado ate o primeiro audio real do jogo chegar */
     g_audio_paused = 0;
+    g_audio_resume_armed = 1;
     ps2_audio_clear_ring();
     ps2_audio_reset_stream_state();
+    g_warned_not_ready = 0;
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_logged_first_push = 0;
-    ps2_audio_log_state("resumed");
+    ps2_audio_log_state("resumed-armed");
 }
 
 void ps2_audio_shutdown(void)
@@ -374,6 +392,8 @@ void ps2_audio_shutdown(void)
     }
 
     g_audio_paused = 1;
+    g_audio_resume_armed = 0;
+    ps2_backend_set_volume(0);
     ps2_audio_stop_thread();
     ps2_backend_shutdown();
     ps2_audio_clear_ring();
@@ -404,6 +424,11 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 
     if (g_audio_paused)
         return frames;
+
+    if (g_audio_resume_armed) {
+        ps2_backend_set_volume(0x3fff);
+        g_audio_resume_armed = 0;
+    }
 
     if (!g_logged_first_push) {
         PS2AUDIO_LOG("[PS2AUDIO] first push frames=%u\n", (unsigned)frames);

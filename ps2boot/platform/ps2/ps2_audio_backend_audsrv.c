@@ -86,6 +86,14 @@ void ps2_backend_stop_audio(void)
     audsrv_stop_audio();
 }
 
+int ps2_backend_set_volume(int vol)
+{
+    if (!g_audsrv_loaded)
+        return -1;
+
+    return audsrv_set_volume(vol);
+}
+
 void ps2_backend_shutdown(void)
 {
     if (g_audsrv_loaded) {
