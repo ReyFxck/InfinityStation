@@ -1,139 +1,92 @@
 #include "launcher_browser_internal.h"
 
-static char launcher_browser_to_lower_ascii(char c)
+#include <string.h>
+
+void launcher_browser_path_join(char *out, size_t out_size, const char *base, const char *name)
 {
-    if (c >= 'A' && c <= 'Z')
-        return (char)(c - 'A' + 'a');
-    return c;
-}
+    size_t len;
 
-static int launcher_browser_ext_eq(const char *dot, const char *ext)
-{
-    size_t i = 0;
+    if (!out || out_size == 0)
+        return;
 
-    if (!dot || !ext)
-        return 0;
-
-    while (dot[i] && ext[i]) {
-        if (launcher_browser_to_lower_ascii(dot[i]) != launcher_browser_to_lower_ascii(ext[i]))
-            return 0;
-        i++;
+    if (!base || !base[0]) {
+        snprintf(out, out_size, "%s", name ? name : "");
+        return;
     }
 
-    return dot[i] == '\0' && ext[i] == '\0';
-}
+    len = strlen(base);
 
-static int launcher_browser_has_rom_ext(const char *name)
-{
-    const char *dot = strrchr(name, '.');
-    if (!dot)
-        return 0;
-
-    if (launcher_browser_ext_eq(dot, ".smc")) return 1;
-    if (launcher_browser_ext_eq(dot, ".sfc")) return 1;
-    if (launcher_browser_ext_eq(dot, ".swc")) return 1;
-    if (launcher_browser_ext_eq(dot, ".fig")) return 1;
-    if (launcher_browser_ext_eq(dot, ".zip")) return 1;
-
-    return 0;
+    if (len > 0 && (base[len - 1] == '/' || base[len - 1] == ':'))
+        snprintf(out, out_size, "%s%s", base, name ? name : "");
+    else
+        snprintf(out, out_size, "%s/%s", base, name ? name : "");
 }
 
 int launcher_browser_open_scan_dir(const char *path)
 {
+    launcher_browser_state_t *state = launcher_browser_state_mut();
+
     launcher_browser_close_scan_dir();
 
-    g_scan_dir = opendir(path);
-    if (!g_scan_dir) {
-        g_last_error = 1;
-        g_scan_done = 1;
+    state->scan_dir = opendir(path);
+    if (!state->scan_dir) {
+        state->last_error = 1;
+        state->scan_done = 1;
         return 0;
     }
 
-    g_scan_done = 0;
+    state->scan_done = 0;
+    state->last_error = 0;
     return 1;
-}
-
-void launcher_browser_path_join(char *out, size_t out_size, const char *base, const char *name)
-{
-    size_t len = strlen(base);
-
-    if (len > 0 && base[len - 1] == '/')
-        snprintf(out, out_size, "%s%s", base, name);
-    else
-        snprintf(out, out_size, "%s/%s", base, name);
-}
-
-static int launcher_browser_dirent_is_dir(const struct dirent *de, const char *full)
-{
-#if defined(DT_DIR)
-    if (de->d_type == DT_DIR)
-        return 1;
-#endif
-
-#if defined(DT_REG)
-    if (de->d_type == DT_REG)
-        return 0;
-#endif
-
-#if defined(DT_LNK)
-    if (de->d_type == DT_LNK)
-        return 0;
-#endif
-
-#if defined(DT_UNKNOWN)
-    if (de->d_type != DT_UNKNOWN)
-        return 0;
-#endif
-
-    {
-        struct stat st;
-        if (stat(full, &st) == 0 && S_ISDIR(st.st_mode))
-            return 1;
-    }
-
-    return 0;
 }
 
 int launcher_browser_load_more_entries(int want)
 {
-    int added = 0;
+    launcher_browser_state_t *state = launcher_browser_state_mut();
+    int loaded = 0;
 
-    if (want <= 0)
-        want = 1;
-
-    if (g_scan_done)
+    if (state->scan_done)
         return 1;
 
-    while (added < want) {
+    while (loaded < want) {
         struct dirent *de;
         char full[512];
-        int is_dir;
+        struct stat st;
+        int is_dir = 0;
 
-        de = readdir(g_scan_dir);
+        de = readdir(state->scan_dir);
         if (!de) {
+            state->scan_done = 1;
             launcher_browser_close_scan_dir();
-            g_scan_done = 1;
-            break;
+            launcher_browser_sort_entries();
+
+            if (state->selected >= state->entry_count)
+                state->selected = (state->entry_count > 0) ? (state->entry_count - 1) : 0;
+            if (state->scroll > state->selected)
+                state->scroll = state->selected;
+            if (state->scroll < 0)
+                state->scroll = 0;
+
+            return 1;
         }
 
         if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
             continue;
 
-        launcher_browser_path_join(full, sizeof(full), g_current_path, de->d_name);
+        launcher_browser_path_join(full, sizeof(full), state->current_path, de->d_name);
 
-        is_dir = launcher_browser_dirent_is_dir(de, full);
+        if (stat(full, &st) == 0)
+            is_dir = S_ISDIR(st.st_mode) ? 1 : 0;
 
-        if (!is_dir && !launcher_browser_has_rom_ext(de->d_name))
-            continue;
-
-        if (!launcher_browser_append_entry(de->d_name, is_dir))
+        if (!launcher_browser_append_entry(de->d_name, is_dir)) {
+            state->last_error = 1;
+            state->scan_done = 1;
+            launcher_browser_close_scan_dir();
             return 0;
+        }
 
-        added++;
+        loaded++;
     }
-
-    if (g_scan_done)
-        launcher_browser_sort_entries();
 
     return 1;
 }
