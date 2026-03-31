@@ -1,15 +1,12 @@
 #include "launcher_actions_internal.h"
 
-#include <libpad.h>
-
 #include "ps2_input.h"
 
-enum
-{
-    BROWSER_NAV_NONE   = 0,
-    BROWSER_NAV_SLOW   = 1,
+enum {
+    BROWSER_NAV_NONE = 0,
+    BROWSER_NAV_SLOW = 1,
     BROWSER_NAV_MEDIUM = 2,
-    BROWSER_NAV_FAST   = 3
+    BROWSER_NAV_FAST = 3
 };
 
 static int g_browser_nav_dir = 0;
@@ -26,20 +23,20 @@ static void browser_nav_reset(void)
 static int browser_nav_repeat_start(int speed)
 {
     switch (speed) {
-        case BROWSER_NAV_SLOW:   return 20;
-        case BROWSER_NAV_FAST:   return 6;
-        case BROWSER_NAV_MEDIUM:
-        default:                 return 12;
+    case BROWSER_NAV_SLOW: return 20;
+    case BROWSER_NAV_FAST: return 6;
+    case BROWSER_NAV_MEDIUM:
+    default: return 12;
     }
 }
 
 static int browser_nav_repeat_step(int speed)
 {
     switch (speed) {
-        case BROWSER_NAV_SLOW:   return 9;
-        case BROWSER_NAV_FAST:   return 2;
-        case BROWSER_NAV_MEDIUM:
-        default:                 return 4;
+    case BROWSER_NAV_SLOW: return 9;
+    case BROWSER_NAV_FAST: return 2;
+    case BROWSER_NAV_MEDIUM:
+    default: return 4;
     }
 }
 
@@ -113,13 +110,11 @@ static int browser_nav_take_step(void)
     }
 
     g_browser_nav_hold++;
-
     start = browser_nav_repeat_start(speed);
     step = browser_nav_repeat_step(speed);
 
     if (g_browser_nav_hold < start)
         return 0;
-
     if (((g_browser_nav_hold - start) % step) == 0)
         return dir;
 
@@ -128,6 +123,7 @@ static int browser_nav_take_step(void)
 
 void launcher_actions_handle_browser(uint32_t pressed)
 {
+    launcher_state_t *state = launcher_state_mut();
     int nav_step = browser_nav_take_step();
 
     if (nav_step < 0)
@@ -137,10 +133,8 @@ void launcher_actions_handle_browser(uint32_t pressed)
 
     if (pressed & PAD_L1)
         launcher_browser_move(-LAUNCHER_BROWSER_ROWS, LAUNCHER_BROWSER_ROWS);
-
     if (pressed & PAD_R1)
         launcher_browser_move(LAUNCHER_BROWSER_ROWS, LAUNCHER_BROWSER_ROWS);
-
     if (pressed & PAD_SELECT)
         launcher_browser_refresh();
 
@@ -148,14 +142,14 @@ void launcher_actions_handle_browser(uint32_t pressed)
         int activate_result;
 
         browser_nav_reset();
-        g_launcher.selected_path[0] = '\0';
+        state->selected_path[0] = '\0';
 
         activate_result = launcher_browser_activate(
-                g_launcher.selected_path, sizeof(g_launcher.selected_path),
-                g_launcher.selected_label, sizeof(g_launcher.selected_label));
+            state->selected_path, sizeof(state->selected_path),
+            state->selected_label, sizeof(state->selected_label));
 
-        if (activate_result > 0 && g_launcher.selected_path[0] != '\0')
-            g_launcher.should_start_game = 1;
+        if (activate_result > 0 && state->selected_path[0] != '\0')
+            state->should_start_game = 1;
     }
 
     if (pressed & PAD_CIRCLE) {
@@ -167,6 +161,6 @@ void launcher_actions_handle_browser(uint32_t pressed)
         }
 
         if (!launcher_browser_go_parent())
-            g_launcher.page = LAUNCHER_PAGE_MAIN;
+            state->page = LAUNCHER_PAGE_MAIN;
     }
 }

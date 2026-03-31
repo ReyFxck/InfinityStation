@@ -61,6 +61,7 @@ platform/ps2/ps2_audio_resampler.o \
         ui/select_menu/font/select_menu_font.o \
         ui/launcher/launcher.o \
         ui/launcher/launcher_actions.o \
+ ui/launcher/launcher_state.o \
         ui/launcher/launcher_render.o \
         ui/launcher/launcher_font.o \
         ui/launcher/launcher_pages.o \
@@ -95,6 +96,7 @@ APP_OBJS = \
 SELECT_MENU_OBJS = \
         ui/select_menu/select_menu_actions_main.o \
         ui/select_menu/select_menu_actions_video.o \
+ ui/select_menu/select_menu_state.o \
         ui/select_menu/select_menu_actions_game.o \
         ui/select_menu/select_menu_pages_main.o \
         ui/select_menu/select_menu_pages_video.o \
