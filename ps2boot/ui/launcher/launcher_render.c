@@ -1,5 +1,5 @@
+#include <stdint.h>
 #include "launcher_render.h"
-
 #include "launcher_font.h"
 #include "font/browser_font.h"
 #include "ps2_video.h"
@@ -10,7 +10,6 @@
 static void launcher_draw_credit_underline(int x, int y, int w, uint16_t color)
 {
     int i;
-
     for (i = 0; i < w; i++) {
         ps2_video_ui_put_pixel((unsigned)(x + i), (unsigned)y, color);
         ps2_video_ui_put_pixel((unsigned)(x + i), (unsigned)(y + 1), color);
@@ -31,7 +30,6 @@ static void launcher_draw_credit_overlay(void)
 
     browser_font_draw_string_color_sized(8, 58, "ALPHA 1.0", credit_color, 10, 14);
     browser_font_draw_string_color_sized(8, 74, "19.3.2026", credit_color, 10, 14);
-
     browser_font_draw_string_color_sized(498, 59, "BY: ReyFxck", credit_color, 10, 14);
     browser_font_draw_string_color_sized(498, 75, "Thomas Reis", credit_color, 10, 14);
 }
@@ -45,7 +43,6 @@ static int point_in_round_rect(int px, int py, int x, int y, int w, int h, int r
 
     if (px < x || py < y || px >= x + w || py >= y + h)
         return 0;
-
     if (px >= x + r && px < x + w - r)
         return 1;
     if (py >= y + r && py < y + h - r)
@@ -110,12 +107,10 @@ static void draw_glass_panel(int x, int y, int w, int h)
     }
 }
 
-void launcher_render(const launcher_state_t *state,
-                     const launcher_browser_state_t *browser_state)
+void launcher_render(const launcher_state_t *state)
 {
     if (!state)
         return;
-
     if (!ps2_launcher_video_init_once())
         return;
 
@@ -124,12 +119,11 @@ void launcher_render(const launcher_state_t *state,
 
     if (state->page == LAUNCHER_PAGE_MAIN) {
         draw_glass_panel(180, 125, 280, 220);
-    } else if (state->page == LAUNCHER_PAGE_BROWSER ||
-               state->page == LAUNCHER_PAGE_CREDITS) {
+    } else if (state->page == LAUNCHER_PAGE_BROWSER || state->page == LAUNCHER_PAGE_CREDITS) {
         draw_glass_panel(95, 95, 450, 285);
     }
 
-    launcher_pages_draw(state, browser_state);
+    launcher_pages_draw(state);
     launcher_draw_credit_overlay();
     ps2_launcher_video_end_frame();
 }
