@@ -107,7 +107,8 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
     if (height > 224)
         height = 224;
 
-    memset(g_upload, 0, sizeof(g_upload));
+    if (width < 256 || height < 224)
+        memset(g_upload, 0, sizeof(g_upload));
 
     for (y = 0; y < height; y++) {
         const uint16_t *line = (const uint16_t *)(src + (y * pitch));
