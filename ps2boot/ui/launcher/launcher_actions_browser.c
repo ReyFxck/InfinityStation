@@ -1,6 +1,6 @@
 #include "launcher_actions_internal.h"
-
 #include "ps2_input.h"
+#include "rom_loader/rom_loader.h"
 
 enum {
     BROWSER_NAV_NONE = 0,
@@ -23,20 +23,20 @@ static void browser_nav_reset(void)
 static int browser_nav_repeat_start(int speed)
 {
     switch (speed) {
-    case BROWSER_NAV_SLOW: return 20;
-    case BROWSER_NAV_FAST: return 6;
-    case BROWSER_NAV_MEDIUM:
-    default: return 12;
+        case BROWSER_NAV_SLOW: return 20;
+        case BROWSER_NAV_FAST: return 6;
+        case BROWSER_NAV_MEDIUM:
+        default: return 12;
     }
 }
 
 static int browser_nav_repeat_step(int speed)
 {
     switch (speed) {
-    case BROWSER_NAV_SLOW: return 9;
-    case BROWSER_NAV_FAST: return 2;
-    case BROWSER_NAV_MEDIUM:
-    default: return 4;
+        case BROWSER_NAV_SLOW: return 9;
+        case BROWSER_NAV_FAST: return 2;
+        case BROWSER_NAV_MEDIUM:
+        default: return 4;
     }
 }
 
@@ -135,6 +135,7 @@ void launcher_actions_handle_browser(uint32_t pressed)
         launcher_browser_move(-LAUNCHER_BROWSER_ROWS, LAUNCHER_BROWSER_ROWS);
     if (pressed & PAD_R1)
         launcher_browser_move(LAUNCHER_BROWSER_ROWS, LAUNCHER_BROWSER_ROWS);
+
     if (pressed & PAD_SELECT)
         launcher_browser_refresh();
 
@@ -145,10 +146,15 @@ void launcher_actions_handle_browser(uint32_t pressed)
         state->selected_path[0] = '\0';
 
         activate_result = launcher_browser_activate(
-            state->selected_path, sizeof(state->selected_path),
-            state->selected_label, sizeof(state->selected_label));
+            state->selected_path,
+            sizeof(state->selected_path),
+            state->selected_label,
+            sizeof(state->selected_label)
+        );
 
-        if (activate_result > 0 && state->selected_path[0] != '\0')
+        if (activate_result > 0 &&
+            state->selected_path[0] != '\0' &&
+            rom_loader_is_supported(state->selected_path))
             state->should_start_game = 1;
     }
 

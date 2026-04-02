@@ -141,7 +141,7 @@ EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/i
 EE_CFLAGS += -O2 -G0 -DLOAD_FROM_MEMORY -DLAGFIX
 EE_CFLAGS += -I. -Irom_loader -Irom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 EE_CFLAGS += -Iapp -Iplatform/ps2 -Iassets
-EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lpatches -liopreboot -laudsrv
+EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lmc -lpatches -liopreboot -laudsrv
 
 EXTRA_TARGETS = $(EE_BIN)
 

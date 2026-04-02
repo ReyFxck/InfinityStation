@@ -115,6 +115,26 @@ static void launcher_pages_draw_status_circle(int x, int y, uint16_t color)
     }
 }
 
+static void launcher_pages_draw_centered_message(const char *msg,
+                                                 uint16_t color,
+                                                 unsigned glyph_w,
+                                                 unsigned glyph_h,
+                                                 int y)
+{
+    int panel_x = 95;
+    int panel_w = 450;
+    int text_w;
+    int x;
+
+    if (!msg)
+        return;
+
+    text_w = (int)strlen(msg) * (int)glyph_w;
+    x = panel_x + ((panel_w - text_w) / 2) - 15;
+
+    browser_font_draw_string_color_sized(x, y, msg, color, glyph_w, glyph_h);
+}
+
 void launcher_pages_draw_browser_page(void)
 {
     char path_line[96];
@@ -128,6 +148,8 @@ void launcher_pages_draw_browser_page(void)
     static char s_prev_path[256] = "";
     static unsigned s_marquee_delay_frames = 0;
     static unsigned s_marquee_tick = 0;
+    static int s_root_status_active = 0;
+    static unsigned s_root_status_cooldown = 0;
     const int content_x = 105;
     const int content_y = 105;
     const unsigned path_w = 11;
@@ -139,6 +161,7 @@ void launcher_pages_draw_browser_page(void)
     const uint16_t select = 0x7053;
     const int visible_name_chars = 24;
     const unsigned marquee_delay_frames = 4;
+    const unsigned root_status_refresh_frames = 20;
 
     count = launcher_browser_count();
     scroll = launcher_browser_scroll();
@@ -177,29 +200,36 @@ void launcher_pages_draw_browser_page(void)
     }
 
     if (current_path && !strcmp(current_path, "DEVICES") && !last_error && count > 0) {
-        launcher_browser_refresh_root_device_statuses();
+        if (!s_root_status_active || s_root_status_cooldown == 0) {
+            launcher_browser_refresh_root_device_statuses();
+            s_root_status_active = 1;
+            s_root_status_cooldown = root_status_refresh_frames;
+        } else {
+            s_root_status_cooldown--;
+        }
+
         launcher_pages_draw_status_circle(content_x + 15, content_y + 48, launcher_browser_device_ready("mc0:/")   ? 0x07E0 : 0xF800);
         launcher_pages_draw_status_circle(content_x + 15, content_y + 65, launcher_browser_device_ready("mc1:/")   ? 0x07E0 : 0xF800);
         launcher_pages_draw_status_circle(content_x + 15, content_y + 82, launcher_browser_device_ready("mass0:/") ? 0x07E0 : 0xF800);
         launcher_pages_draw_status_circle(content_x + 15, content_y + 99, launcher_browser_device_ready("mass1:/") ? 0x07E0 : 0xF800);
+    } else {
+        s_root_status_active = 0;
+        s_root_status_cooldown = 0;
     }
 
     if (last_error) {
-        const char *fail_msg = "OPEN FAILED";
-        int fail_w = (int)strlen(fail_msg) * 12;
-        int fail_x = 95 + ((450 - fail_w) / 2) - 24;
-        int fail_y = content_y + 118;
-
-        browser_font_draw_string_color_sized(fail_x, fail_y, fail_msg, select, 12, 18);
+        launcher_pages_draw_centered_message("OPEN FAILED", select, 12, 18, content_y + 118);
     } else if (count <= 0) {
-        const char *empty_msg = "NO FOLDERS OR ROMS";
+        const char *empty_msg = "NO SNES ROMS FOUND";
 
-        if (!strncmp(current_path, "mc0", 3) || !strncmp(current_path, "mc1", 3))
-            empty_msg = "EMPTY MEMORY CARD";
-        else if (!strncmp(current_path, "mass0", 5) || !strncmp(current_path, "mass1", 5))
-            empty_msg = "EMPTY DEVICE";
+        if (!strcmp(current_path, "mc0:/") || !strcmp(current_path, "mc0:") ||
+            !strcmp(current_path, "mc1:/") || !strcmp(current_path, "mc1:"))
+            empty_msg = "MEMORY CARD NOT READY";
+        else if (!strcmp(current_path, "mass0:/") || !strcmp(current_path, "mass0:") ||
+                 !strcmp(current_path, "mass1:/") || !strcmp(current_path, "mass1:"))
+            empty_msg = "USB DEVICE NOT READY";
 
-        browser_font_draw_string_color_sized(content_x, content_y + 66, empty_msg, normal, 11, 17);
+        launcher_pages_draw_centered_message(empty_msg, select, 11, 17, content_y + 118);
     } else {
         for (row = 0; row < LAUNCHER_BROWSER_ROWS; row++) {
             int index = scroll + row;

@@ -1,6 +1,15 @@
 #include "launcher_browser_internal.h"
 
-#include <stdio.h>
+static int launcher_browser_is_soft_root_device(const char *path)
+{
+    if (!path)
+        return 0;
+
+    return !strcmp(path, "mc0:/")   || !strcmp(path, "mc0:")   ||
+           !strcmp(path, "mc1:/")   || !strcmp(path, "mc1:")   ||
+           !strcmp(path, "mass0:/") || !strcmp(path, "mass0:") ||
+           !strcmp(path, "mass1:/") || !strcmp(path, "mass1:");
+}
 
 void launcher_browser_move(int delta, int visible_rows)
 {
@@ -41,10 +50,8 @@ void launcher_browser_move(int delta, int visible_rows)
 
     if (state->selected < state->scroll)
         state->scroll = state->selected;
-
     if (state->selected >= state->scroll + visible_rows)
         state->scroll = state->selected - visible_rows + 1;
-
     if (state->scroll < 0)
         state->scroll = 0;
 }
@@ -74,6 +81,14 @@ int launcher_browser_activate(char *selected_path, size_t path_size,
     if (entry->is_dir) {
         if (launcher_browser_open(full))
             return 0;
+
+        if (launcher_browser_is_soft_root_device(full)) {
+            state->selected = 0;
+            state->scroll = 0;
+            state->scan_done = 1;
+            state->last_error = 0;
+            return 0;
+        }
 
         if (previous_path[0])
             launcher_browser_open(previous_path);

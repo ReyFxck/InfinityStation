@@ -1,6 +1,5 @@
 #include "launcher_browser_internal.h"
-
-#include <string.h>
+#include "rom_loader/rom_loader.h"
 
 void launcher_browser_path_join(char *out, size_t out_size, const char *base, const char *name)
 {
@@ -15,7 +14,6 @@ void launcher_browser_path_join(char *out, size_t out_size, const char *base, co
     }
 
     len = strlen(base);
-
     if (len > 0 && (base[len - 1] == '/' || base[len - 1] == ':'))
         snprintf(out, out_size, "%s%s", base, name ? name : "");
     else
@@ -27,8 +25,8 @@ int launcher_browser_open_scan_dir(const char *path)
     launcher_browser_state_t *state = launcher_browser_state_mut();
 
     launcher_browser_close_scan_dir();
-
     state->scan_dir = opendir(path);
+
     if (!state->scan_dir) {
         state->last_error = 1;
         state->scan_done = 1;
@@ -77,6 +75,9 @@ int launcher_browser_load_more_entries(int want)
 
         if (stat(full, &st) == 0)
             is_dir = S_ISDIR(st.st_mode) ? 1 : 0;
+
+        if (!is_dir && !rom_loader_is_supported(full))
+            continue;
 
         if (!launcher_browser_append_entry(de->d_name, is_dir)) {
             state->last_error = 1;
