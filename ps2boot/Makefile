@@ -47,6 +47,7 @@ BASE_OBJS = \
         platform/ps2/ps2_video_core.o \
         platform/ps2/ps2_video_menu.o \
         platform/ps2/ps2_video_debug.o \
+ platform/ps2/ps2_debug_font.o \
         platform/ps2/ps2_video_color.o \
         platform/ps2/ps2_launcher_video.o \
         platform/ps2/ps2_input.o \

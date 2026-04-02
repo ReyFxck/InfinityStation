@@ -2,6 +2,7 @@
 #define PS2_VIDEO_INTERNAL_H
 
 #include "ps2_video.h"
+#include "ps2_debug_font.h"
 #include "ps2_menu.h"
 
 #include <string.h>
@@ -53,7 +54,6 @@ void ps2_video_build_lut(void);
 void ps2_video_apply_display_offset(void);
 void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync);
 
-void dbg_draw_string_color(unsigned x, unsigned y, const char *s, uint16_t color);
 void dbg_overlay(void);
 void menu_tint_blue(void);
 void ps2_video_menu_put_pixel_store(unsigned x, unsigned y, uint16_t color);
