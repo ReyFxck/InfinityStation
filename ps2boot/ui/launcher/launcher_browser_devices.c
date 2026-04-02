@@ -12,6 +12,7 @@ static int g_mc0_ready = 0;
 static int g_mc1_ready = 0;
 static int g_mass0_ready = 0;
 static int g_mass1_ready = 0;
+static int g_host_ready = 0;
 static int g_mc_init_done = 0;
 
 static sceMcTblGetDir g_mc_dir[LAUNCHER_BROWSER_MC_LIST_MAX] __attribute__((aligned(64)));
@@ -129,7 +130,9 @@ void launcher_browser_refresh_root_device_statuses(void)
     g_mass0_ready = 0;
     g_mass1_ready = 0;
 
-    (void)launcher_browser_probe_device;
+    g_host_ready = launcher_browser_probe_device("host:");
+    if (!g_host_ready)
+        g_host_ready = launcher_browser_probe_device("host:/");
 }
 
 int launcher_browser_device_ready(const char *name)
@@ -145,6 +148,8 @@ int launcher_browser_device_ready(const char *name)
         return g_mass0_ready;
     if (!strcmp(name, "mass1:/") || !strcmp(name, "mass1:"))
         return g_mass1_ready;
+    if (!strcmp(name, "host:/") || !strcmp(name, "host:"))
+        return g_host_ready;
 
     return 0;
 }
@@ -171,6 +176,8 @@ int launcher_browser_scan_root_devices(void)
     if (!launcher_browser_append_entry("mass0:/", 1))
         return 0;
     if (!launcher_browser_append_entry("mass1:/", 1))
+        return 0;
+    if (!launcher_browser_append_entry("host:/", 1))
         return 0;
 
     return 1;

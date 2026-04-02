@@ -53,6 +53,8 @@ static int launcher_browser_root_index_for_device_path(const char *path)
         return 2;
     if (!strncmp(path, "mass1", 5))
         return 3;
+    if (!strncmp(path, "host", 4))
+        return 4;
 
     return -1;
 }

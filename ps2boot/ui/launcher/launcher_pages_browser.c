@@ -212,6 +212,7 @@ void launcher_pages_draw_browser_page(void)
         launcher_pages_draw_status_circle(content_x + 15, content_y + 65, launcher_browser_device_ready("mc1:/")   ? 0x07E0 : 0xF800);
         launcher_pages_draw_status_circle(content_x + 15, content_y + 82, launcher_browser_device_ready("mass0:/") ? 0x07E0 : 0xF800);
         launcher_pages_draw_status_circle(content_x + 15, content_y + 99, launcher_browser_device_ready("mass1:/") ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 116, launcher_browser_device_ready("host:/") ? 0x07E0 : 0xF800);
     } else {
         s_root_status_active = 0;
         s_root_status_cooldown = 0;
@@ -222,12 +223,17 @@ void launcher_pages_draw_browser_page(void)
     } else if (count <= 0) {
         const char *empty_msg = "NO SNES ROMS FOUND";
 
-        if (!strcmp(current_path, "mc0:/") || !strcmp(current_path, "mc0:") ||
-            !strcmp(current_path, "mc1:/") || !strcmp(current_path, "mc1:"))
+        if ((!strcmp(current_path, "mc0:/") || !strcmp(current_path, "mc0:") ||
+             !strcmp(current_path, "mc1:/") || !strcmp(current_path, "mc1:")) &&
+            !launcher_browser_device_ready(current_path))
             empty_msg = "MEMORY CARD NOT READY";
-        else if (!strcmp(current_path, "mass0:/") || !strcmp(current_path, "mass0:") ||
-                 !strcmp(current_path, "mass1:/") || !strcmp(current_path, "mass1:"))
+        else if ((!strcmp(current_path, "mass0:/") || !strcmp(current_path, "mass0:") ||
+                  !strcmp(current_path, "mass1:/") || !strcmp(current_path, "mass1:")) &&
+                 !launcher_browser_device_ready(current_path))
             empty_msg = "USB DEVICE NOT READY";
+        else if ((!strcmp(current_path, "host:/") || !strcmp(current_path, "host:")) &&
+                 !launcher_browser_device_ready(current_path))
+            empty_msg = "HOST NOT READY";
 
         launcher_pages_draw_centered_message(empty_msg, select, 11, 17, content_y + 118);
     } else {

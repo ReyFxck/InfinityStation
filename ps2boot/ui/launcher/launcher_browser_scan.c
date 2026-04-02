@@ -1,6 +1,54 @@
 #include "launcher_browser_internal.h"
 #include "rom_loader/rom_loader.h"
 
+static int launcher_browser_is_host_path(const char *path)
+{
+    return path && !strncmp(path, "host:", 5);
+}
+
+static const char *launcher_browser_basename(const char *path)
+{
+    const char *slash;
+
+    if (!path)
+        return "";
+
+    slash = strrchr(path, '/');
+    return slash ? (slash + 1) : path;
+}
+
+static const char *launcher_browser_host_rel_base(const char *base)
+{
+    if (!base || strncmp(base, "host:", 5) != 0)
+        return "";
+
+    base += 5;
+    while (*base == '/')
+        base++;
+
+    return base;
+}
+
+static void launcher_browser_host_join(char *out, size_t out_size, const char *base, const char *name)
+{
+    const char *rel;
+
+    if (!out || out_size == 0)
+        return;
+
+    if (!name || !name[0]) {
+        out[0] = '\0';
+        return;
+    }
+
+    rel = launcher_browser_host_rel_base(base);
+
+    if (!rel[0])
+        snprintf(out, out_size, "host:%s", name);
+    else
+        snprintf(out, out_size, "host:%s/%s", rel, name);
+}
+
 void launcher_browser_path_join(char *out, size_t out_size, const char *base, const char *name)
 {
     size_t len;
@@ -49,8 +97,12 @@ int launcher_browser_load_more_entries(int want)
     while (loaded < want) {
         struct dirent *de;
         char full[512];
+        char entry_name_buf[256];
+        const char *entry_name;
         struct stat st;
         int is_dir = 0;
+        int is_host;
+        int supported;
 
         de = readdir(state->scan_dir);
         if (!de) {
@@ -71,15 +123,42 @@ int launcher_browser_load_more_entries(int want)
         if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))
             continue;
 
-        launcher_browser_path_join(full, sizeof(full), state->current_path, de->d_name);
+        is_host = launcher_browser_is_host_path(state->current_path);
+        entry_name = de->d_name;
 
-        if (stat(full, &st) == 0)
-            is_dir = S_ISDIR(st.st_mode) ? 1 : 0;
+        if (is_host) {
+            snprintf(entry_name_buf, sizeof(entry_name_buf), "%s",
+                     launcher_browser_basename(de->d_name));
+            entry_name = entry_name_buf;
+        }
 
-        if (!is_dir && !rom_loader_is_supported(full))
+        if (!entry_name[0])
             continue;
 
-        if (!launcher_browser_append_entry(de->d_name, is_dir)) {
+        if (is_host)
+            launcher_browser_host_join(full, sizeof(full), state->current_path, entry_name);
+        else
+            launcher_browser_path_join(full, sizeof(full), state->current_path, entry_name);
+
+        supported = rom_loader_is_supported(entry_name) || rom_loader_is_supported(full);
+
+        if (is_host) {
+            if (supported) {
+                is_dir = 0;
+            } else if (!strchr(entry_name, '.')) {
+                is_dir = 1;
+            } else {
+                continue;
+            }
+        } else {
+            if (stat(full, &st) == 0)
+                is_dir = S_ISDIR(st.st_mode) ? 1 : 0;
+
+            if (!is_dir && !supported)
+                continue;
+        }
+
+        if (!launcher_browser_append_entry(entry_name, is_dir)) {
             state->last_error = 1;
             state->scan_done = 1;
             launcher_browser_close_scan_dir();

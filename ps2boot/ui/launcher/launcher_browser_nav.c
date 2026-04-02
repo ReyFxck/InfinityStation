@@ -8,7 +8,67 @@ static int launcher_browser_is_soft_root_device(const char *path)
     return !strcmp(path, "mc0:/")   || !strcmp(path, "mc0:")   ||
            !strcmp(path, "mc1:/")   || !strcmp(path, "mc1:")   ||
            !strcmp(path, "mass0:/") || !strcmp(path, "mass0:") ||
-           !strcmp(path, "mass1:/") || !strcmp(path, "mass1:");
+           !strcmp(path, "mass1:/") || !strcmp(path, "mass1:") ||
+           !strcmp(path, "host:/")  || !strcmp(path, "host:");
+}
+
+static int launcher_browser_is_host_path(const char *path)
+{
+    return path && !strncmp(path, "host:", 5);
+}
+
+static const char *launcher_browser_host_rel_base(const char *base)
+{
+    if (!base || strncmp(base, "host:", 5) != 0)
+        return "";
+
+    base += 5;
+    while (*base == '/')
+        base++;
+
+    return base;
+}
+
+static void launcher_browser_host_join(char *out, size_t out_size,
+                                       const char *base,
+                                       const char *entry_name)
+{
+    const char *rel;
+
+    if (!out || out_size == 0)
+        return;
+
+    if (!entry_name || !entry_name[0]) {
+        out[0] = '\0';
+        return;
+    }
+
+    rel = launcher_browser_host_rel_base(base);
+
+    if (!rel[0])
+        snprintf(out, out_size, "host:%s", entry_name);
+    else
+        snprintf(out, out_size, "host:%s/%s", rel, entry_name);
+}
+
+static void launcher_browser_build_full_path(char *out, size_t out_size,
+                                             const char *current_path,
+                                             const char *entry_name)
+{
+    if (!out || out_size == 0)
+        return;
+
+    if (launcher_browser_is_root_path(current_path)) {
+        snprintf(out, out_size, "%s", entry_name ? entry_name : "");
+        return;
+    }
+
+    if (launcher_browser_is_host_path(current_path)) {
+        launcher_browser_host_join(out, out_size, current_path, entry_name);
+        return;
+    }
+
+    launcher_browser_path_join(out, out_size, current_path, entry_name);
 }
 
 void launcher_browser_move(int delta, int visible_rows)
@@ -73,10 +133,7 @@ int launcher_browser_activate(char *selected_path, size_t path_size,
     if (selected_label && label_size > 0)
         snprintf(selected_label, label_size, "%s", entry->name);
 
-    if (launcher_browser_is_root_path(state->current_path))
-        snprintf(full, sizeof(full), "%s", entry->name);
-    else
-        launcher_browser_path_join(full, sizeof(full), state->current_path, entry->name);
+    launcher_browser_build_full_path(full, sizeof(full), state->current_path, entry->name);
 
     if (entry->is_dir) {
         if (launcher_browser_open(full))
