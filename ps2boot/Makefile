@@ -139,9 +139,21 @@ EE_OBJS = \
         $(EXTRA_OBJS)
 
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
-EE_CFLAGS += -O2 -G0 -DLOAD_FROM_MEMORY -DLAGFIX
+EE_CFLAGS += -O3 -G0 -DLOAD_FROM_MEMORY -DLAGFIX
 EE_CFLAGS += -I. -Irom_loader -Irom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 EE_CFLAGS += -Iapp -Iplatform/ps2 -Iassets
+
+HOT_CORE_OBJS = \
+	$(SRC_DIR)/ppu.o \
+	$(SRC_DIR)/tile.o \
+	$(SRC_DIR)/apu.o \
+	$(SRC_DIR)/soundux.o \
+	$(SRC_DIR)/spc700.o \
+	$(SRC_DIR)/cpuops.o \
+	$(SRC_DIR)/cpuexec.o
+
+$(HOT_CORE_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
+
 EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lmc -lpatches -liopreboot -laudsrv
 
 EXTRA_TARGETS = $(EE_BIN)
