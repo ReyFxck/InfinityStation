@@ -120,7 +120,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         }
     }
 
-    memcpy(g_frame_base, g_upload, sizeof(g_upload));
+    /* PERF TEST: memcpy extra removido */
 
     dbg_overlay();
     ps2_video_upload_and_draw_bound(width, height, select_menu_actions_game_vsync_enabled());

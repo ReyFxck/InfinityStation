@@ -62,6 +62,14 @@ int ps2_backend_queued_bytes(void)
     return q;
 }
 
+int ps2_backend_available_bytes(void)
+{
+    int a = audsrv_available();
+    if (a < 0)
+        return 0;
+    return a;
+}
+
 void ps2_backend_wait_audio(int bytes)
 {
     audsrv_wait_audio(bytes);
