@@ -1,5 +1,6 @@
 #include "ps2_launcher_video.h"
 #include "ps2_video.h"
+#include "ps2_video_internal.h"
 
 #include <string.h>
 #include <kernel.h>
@@ -9,7 +10,6 @@
 #include <packet.h>
 #include <gs_psm.h>
 
-static uint16_t g_launcher_upload[PS2_LAUNCHER_HEIGHT][PS2_LAUNCHER_WIDTH];
 
 static int g_launcher_video_ready = 0;
 static texbuffer_t g_launcher_tex;
