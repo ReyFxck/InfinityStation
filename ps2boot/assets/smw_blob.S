@@ -4,5 +4,5 @@
     .global smw_sfc_end
 
 smw_sfc_start:
-    .incbin "smw.sfc"
+    .incbin "assets/smw.sfc"
 smw_sfc_end:
