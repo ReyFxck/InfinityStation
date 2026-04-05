@@ -55,6 +55,7 @@ BASE_OBJS = \
     platform/ps2/ps2_audio.o \
 platform/ps2/ps2_audio_backend_audsrv.o \
 platform/ps2/ps2_audio_resampler.o \
+ platform/ps2/ps2_disc.o \
         ui/select_menu/select_menu.o \
         ui/select_menu/select_menu_actions.o \
         ui/select_menu/select_menu_render.o \
@@ -154,7 +155,7 @@ HOT_CORE_OBJS = \
 
 $(HOT_CORE_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
-EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lmc -lpatches -liopreboot -laudsrv
+EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lmc -lpatches -liopreboot -laudsrv -lcdvd
 
 EXTRA_TARGETS = $(EE_BIN)
 

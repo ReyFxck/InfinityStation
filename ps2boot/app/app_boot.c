@@ -15,6 +15,7 @@
 #include "ps2_input.h"
 #include "ps2_menu.h"
 #include "ps2_audio.h"
+#include "ps2_disc.h"
 
 static void app_boot_reset_iop_minimal(void)
 {
@@ -51,6 +52,7 @@ void app_boot_init(void (*die_fn)(const char *msg))
     /* log removido */
 
     app_boot_reset_iop_minimal();
+    ps2_disc_init_once();
 
   /* log removido */
     if (!ps2_video_init_once())

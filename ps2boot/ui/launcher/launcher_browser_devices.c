@@ -5,13 +5,14 @@
 #include <libmc.h>
 
 #include "rom_loader/rom_loader.h"
+#include "ps2_disc.h"
 
 #define LAUNCHER_BROWSER_MC_LIST_MAX 256
 
 static int g_mc0_ready = 0;
 static int g_mc1_ready = 0;
 static int g_mass0_ready = 0;
-static int g_mass1_ready = 0;
+static int g_mass1_ready = 0; static int g_cdfs_ready = 0;
 static int g_host_ready = 0;
 static int g_mc_init_done = 0;
 
@@ -130,6 +131,9 @@ void launcher_browser_refresh_root_device_statuses(void)
     g_mass0_ready = 0;
     g_mass1_ready = 0;
 
+    ps2_disc_init_once();
+    g_cdfs_ready = ps2_disc_refresh();
+
     g_host_ready = launcher_browser_probe_device("host:");
     if (!g_host_ready)
         g_host_ready = launcher_browser_probe_device("host:/");
@@ -137,20 +141,13 @@ void launcher_browser_refresh_root_device_statuses(void)
 
 int launcher_browser_device_ready(const char *name)
 {
-    if (!name)
-        return 0;
-
-    if (!strcmp(name, "mc0:/") || !strcmp(name, "mc0:"))
-        return g_mc0_ready;
-    if (!strcmp(name, "mc1:/") || !strcmp(name, "mc1:"))
-        return g_mc1_ready;
-    if (!strcmp(name, "mass0:/") || !strcmp(name, "mass0:"))
-        return g_mass0_ready;
-    if (!strcmp(name, "mass1:/") || !strcmp(name, "mass1:"))
-        return g_mass1_ready;
-    if (!strcmp(name, "host:/") || !strcmp(name, "host:"))
-        return g_host_ready;
-
+    if (!name) return 0;
+    if (!strcmp(name, "cdfs:/") || !strcmp(name, "cdfs:")) return g_cdfs_ready;
+    if (!strcmp(name, "mc0:/") || !strcmp(name, "mc0:")) return g_mc0_ready;
+    if (!strcmp(name, "mc1:/") || !strcmp(name, "mc1:")) return g_mc1_ready;
+    if (!strcmp(name, "mass0:/") || !strcmp(name, "mass0:")) return g_mass0_ready;
+    if (!strcmp(name, "mass1:/") || !strcmp(name, "mass1:")) return g_mass1_ready;
+    if (!strcmp(name, "host:/") || !strcmp(name, "host:")) return g_host_ready;
     return 0;
 }
 
@@ -169,16 +166,12 @@ int launcher_browser_scan_root_devices(void)
 
     launcher_browser_refresh_root_device_statuses();
 
-    if (!launcher_browser_append_entry("mc0:/", 1))
-        return 0;
-    if (!launcher_browser_append_entry("mc1:/", 1))
-        return 0;
-    if (!launcher_browser_append_entry("mass0:/", 1))
-        return 0;
-    if (!launcher_browser_append_entry("mass1:/", 1))
-        return 0;
-    if (!launcher_browser_append_entry("host:/", 1))
-        return 0;
+    if (!launcher_browser_append_entry("cdfs:/", 1)) return 0;
+    if (!launcher_browser_append_entry("mc0:/", 1)) return 0;
+    if (!launcher_browser_append_entry("mc1:/", 1)) return 0;
+    if (!launcher_browser_append_entry("mass0:/", 1)) return 0;
+    if (!launcher_browser_append_entry("mass1:/", 1)) return 0;
+    if (!launcher_browser_append_entry("host:/", 1)) return 0;
 
     return 1;
 }

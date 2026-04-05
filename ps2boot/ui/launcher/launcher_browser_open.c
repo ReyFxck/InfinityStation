@@ -42,20 +42,13 @@ static int launcher_browser_is_memory_card_path(const char *path)
 
 static int launcher_browser_root_index_for_device_path(const char *path)
 {
-    if (!path || !path[0])
-        return -1;
-
-    if (!strncmp(path, "mc0", 3))
-        return 0;
-    if (!strncmp(path, "mc1", 3))
-        return 1;
-    if (!strncmp(path, "mass0", 5))
-        return 2;
-    if (!strncmp(path, "mass1", 5))
-        return 3;
-    if (!strncmp(path, "host", 4))
-        return 4;
-
+    if (!path || !path[0]) return -1;
+    if (!strncmp(path, "cdfs",  4)) return 0;
+    if (!strncmp(path, "mc0",   3)) return 1;
+    if (!strncmp(path, "mc1",   3)) return 2;
+    if (!strncmp(path, "mass0", 5)) return 3;
+    if (!strncmp(path, "mass1", 5)) return 4;
+    if (!strncmp(path, "host",  4)) return 5;
     return -1;
 }
 

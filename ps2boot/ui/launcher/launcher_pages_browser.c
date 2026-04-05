@@ -208,11 +208,12 @@ void launcher_pages_draw_browser_page(void)
             s_root_status_cooldown--;
         }
 
-        launcher_pages_draw_status_circle(content_x + 15, content_y + 48, launcher_browser_device_ready("mc0:/")   ? 0x07E0 : 0xF800);
-        launcher_pages_draw_status_circle(content_x + 15, content_y + 65, launcher_browser_device_ready("mc1:/")   ? 0x07E0 : 0xF800);
-        launcher_pages_draw_status_circle(content_x + 15, content_y + 82, launcher_browser_device_ready("mass0:/") ? 0x07E0 : 0xF800);
-        launcher_pages_draw_status_circle(content_x + 15, content_y + 99, launcher_browser_device_ready("mass1:/") ? 0x07E0 : 0xF800);
-        launcher_pages_draw_status_circle(content_x + 15, content_y + 116, launcher_browser_device_ready("host:/") ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 48, launcher_browser_device_ready("cdfs:/")  ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 65, launcher_browser_device_ready("mc0:/")   ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 82, launcher_browser_device_ready("mc1:/")   ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 99, launcher_browser_device_ready("mass0:/") ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 116, launcher_browser_device_ready("mass1:/") ? 0x07E0 : 0xF800);
+        launcher_pages_draw_status_circle(content_x + 15, content_y + 133, launcher_browser_device_ready("host:/") ? 0x07E0 : 0xF800);
     } else {
         s_root_status_active = 0;
         s_root_status_cooldown = 0;
