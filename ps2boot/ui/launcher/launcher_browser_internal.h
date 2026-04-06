@@ -32,6 +32,7 @@ int launcher_browser_go_parent(void);
 int launcher_browser_scan_root_devices(void);
 int launcher_browser_scan_memory_card_path(const char *path);
 int launcher_browser_open_scan_dir(const char *path);
+int launcher_browser_scan_disc_path(const char *path);
 int launcher_browser_load_more_entries(int want);
 void launcher_browser_path_join(char *out, size_t out_size, const char *base, const char *name);
 void launcher_browser_sort_entries(void);

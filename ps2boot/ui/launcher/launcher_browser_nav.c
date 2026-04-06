@@ -1,11 +1,11 @@
 #include "launcher_browser_internal.h"
+#include "rom_loader/rom_loader.h"
 
 static int launcher_browser_is_soft_root_device(const char *path)
 {
-    if (!path)
-        return 0;
-
-    return !strcmp(path, "mc0:/")   || !strcmp(path, "mc0:")   ||
+    if (!path) return 0;
+    return !strcmp(path, "disc:/")  || !strcmp(path, "disc:")  ||
+           !strcmp(path, "mc0:/")   || !strcmp(path, "mc0:")   ||
            !strcmp(path, "mc1:/")   || !strcmp(path, "mc1:")   ||
            !strcmp(path, "mass0:/") || !strcmp(path, "mass0:") ||
            !strcmp(path, "mass1:/") || !strcmp(path, "mass1:") ||
@@ -17,9 +17,26 @@ static int launcher_browser_is_host_path(const char *path)
     return path && !strncmp(path, "host:", 5);
 }
 
+static int launcher_browser_is_disc_path(const char *path)
+{
+    return path && !strncmp(path, "disc:", 5);
+}
+
 static const char *launcher_browser_host_rel_base(const char *base)
 {
     if (!base || strncmp(base, "host:", 5) != 0)
+        return "";
+
+    base += 5;
+    while (*base == '/')
+        base++;
+
+    return base;
+}
+
+static const char *launcher_browser_disc_rel_base(const char *base)
+{
+    if (!base || strncmp(base, "disc:", 5) != 0)
         return "";
 
     base += 5;
@@ -44,11 +61,69 @@ static void launcher_browser_host_join(char *out, size_t out_size,
     }
 
     rel = launcher_browser_host_rel_base(base);
-
     if (!rel[0])
         snprintf(out, out_size, "host:%s", entry_name);
     else
         snprintf(out, out_size, "host:%s/%s", rel, entry_name);
+}
+
+static void launcher_browser_disc_build_cdrom_path(char *out, size_t out_size,
+                                                   const char *base,
+                                                   const char *entry_name)
+{
+    char rel[256];
+    size_t i, j = 0;
+    const char *base_rel = launcher_browser_disc_rel_base(base);
+
+    if (!out || out_size == 0)
+        return;
+
+    if (!entry_name || !entry_name[0]) {
+        out[0] = '\0';
+        return;
+    }
+
+    if (base_rel && base_rel[0])
+        snprintf(rel, sizeof(rel), "%s/%s", base_rel, entry_name);
+    else
+        snprintf(rel, sizeof(rel), "%s", entry_name);
+
+    for (i = 0; rel[i] && j + 1 < sizeof(rel); i++) {
+        char c = rel[i];
+        if (c == '/')
+            rel[j++] = '\\';
+        else
+            rel[j++] = c;
+    }
+    rel[j] = '\0';
+
+    snprintf(out, out_size, "cdrom0:\\%s;1", rel);
+}
+
+static void launcher_browser_disc_join(char *out, size_t out_size,
+                                       const char *base,
+                                       const char *entry_name)
+{
+    const char *rel;
+
+    if (!out || out_size == 0)
+        return;
+
+    if (!entry_name || !entry_name[0]) {
+        out[0] = '\0';
+        return;
+    }
+
+    if (rom_loader_is_supported(entry_name)) {
+        launcher_browser_disc_build_cdrom_path(out, out_size, base, entry_name);
+        return;
+    }
+
+    rel = launcher_browser_disc_rel_base(base);
+    if (!rel[0])
+        snprintf(out, out_size, "disc:/%s", entry_name);
+    else
+        snprintf(out, out_size, "disc:/%s/%s", rel, entry_name);
 }
 
 static void launcher_browser_build_full_path(char *out, size_t out_size,
@@ -65,6 +140,11 @@ static void launcher_browser_build_full_path(char *out, size_t out_size,
 
     if (launcher_browser_is_host_path(current_path)) {
         launcher_browser_host_join(out, out_size, current_path, entry_name);
+        return;
+    }
+
+    if (launcher_browser_is_disc_path(current_path)) {
+        launcher_browser_disc_join(out, out_size, current_path, entry_name);
         return;
     }
 

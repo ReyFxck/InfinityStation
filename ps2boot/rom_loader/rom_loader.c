@@ -4,12 +4,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#define DISC_READ_CHUNK (128 * 1024)
 
 static char to_lower_ascii(char c)
 {
     if (c >= 'A' && c <= 'Z')
         return (char)(c - 'A' + 'a');
     return c;
+}
+
+static int is_cdrom_path(const char *path)
+{
+    return path && !strncmp(path, "cdrom0:", 7);
 }
 
 static int ext_equals(const char *path, const char *ext)
@@ -29,7 +38,16 @@ static int ext_equals(const char *path, const char *ext)
             return 0;
     }
 
-    return dot[i] == '\0' && ext[i] == '\0';
+    if (ext[i] != '\0')
+        return 0;
+
+    if (dot[i] == '\0')
+        return 1;
+
+    if (dot[i] == ';') /* aceita ISO9660: .SFC;1 / .ZIP;1 */
+        return 1;
+
+    return 0;
 }
 
 static const char *base_name_only(const char *path)
@@ -62,25 +80,96 @@ static const char *host_rel_path(const char *path)
     return path;
 }
 
-static int load_plain_file_once(const char *path, void **out_data, size_t *out_size)
+static int read_disc_file_once(const char *path, void **out_data, size_t *out_size)
+{
+    int fd;
+    int file_size;
+    unsigned char *buf;
+    int total = 0;
+
+    printf("[DBG] read_disc_file_once: open('%s')\n", path ? path : "");
+    fflush(stdout);
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        printf("[DBG] open() falhou para '%s' fd=%d\n", path ? path : "", fd);
+        fflush(stdout);
+        return 0;
+    }
+
+    file_size = lseek(fd, 0, SEEK_END);
+    if (file_size <= 0) {
+        printf("[DBG] lseek(SEEK_END) retornou %d para '%s'\n", file_size, path ? path : "");
+        fflush(stdout);
+        close(fd);
+        return 0;
+    }
+
+    if (lseek(fd, 0, SEEK_SET) < 0) {
+        printf("[DBG] lseek(SEEK_SET) falhou para '%s'\n", path ? path : "");
+        fflush(stdout);
+        close(fd);
+        return 0;
+    }
+
+    buf = (unsigned char *)malloc((size_t)file_size);
+    if (!buf) {
+        printf("[DBG] malloc(%d) falhou para '%s'\n", file_size, path ? path : "");
+        fflush(stdout);
+        close(fd);
+        return 0;
+    }
+
+    while (total < file_size) {
+        int want = file_size - total;
+        int got;
+
+        if (want > DISC_READ_CHUNK)
+            want = DISC_READ_CHUNK;
+
+        got = read(fd, buf + total, want);
+        if (got <= 0) {
+            printf("[DBG] read() falhou/encerrou em %d de %d para '%s' got=%d\n",
+                   total, file_size, path ? path : "", got);
+            fflush(stdout);
+            free(buf);
+            close(fd);
+            return 0;
+        }
+
+        total += got;
+    }
+
+    close(fd);
+
+    *out_data = buf;
+    *out_size = (size_t)file_size;
+
+    printf("[DBG] read_disc_file_once OK: size=%u path='%s'\n",
+           (unsigned)*out_size, path ? path : "");
+    fflush(stdout);
+    return 1;
+}
+
+static int load_plain_file_stdio(const char *path, void **out_data, size_t *out_size)
 {
     FILE *fp;
     long file_size;
     size_t read_bytes;
     void *buf;
 
-    printf("[DBG] load_plain_file_once: fopen('%s')\n", path ? path : "<null>");
+    printf("[DBG] load_plain_file_stdio: fopen('%s')\n", path ? path : "");
     fflush(stdout);
 
     fp = fopen(path, "rb");
     if (!fp) {
-        printf("[DBG] fopen() falhou para '%s'\n", path ? path : "<null>");
+        printf("[DBG] fopen() falhou para '%s'\n", path ? path : "");
         fflush(stdout);
         return 0;
     }
 
     if (fseek(fp, 0, SEEK_END) != 0) {
-        printf("[DBG] fseek(SEEK_END) falhou para '%s'\n", path);
+        printf("[DBG] fseek(SEEK_END) falhou para '%s'\n", path ? path : "");
         fflush(stdout);
         fclose(fp);
         return 0;
@@ -88,14 +177,14 @@ static int load_plain_file_once(const char *path, void **out_data, size_t *out_s
 
     file_size = ftell(fp);
     if (file_size <= 0) {
-        printf("[DBG] ftell() retornou %ld para '%s'\n", file_size, path);
+        printf("[DBG] ftell() retornou %ld para '%s'\n", file_size, path ? path : "");
         fflush(stdout);
         fclose(fp);
         return 0;
     }
 
     if (fseek(fp, 0, SEEK_SET) != 0) {
-        printf("[DBG] fseek(SEEK_SET) falhou para '%s'\n", path);
+        printf("[DBG] fseek(SEEK_SET) falhou para '%s'\n", path ? path : "");
         fflush(stdout);
         fclose(fp);
         return 0;
@@ -103,7 +192,7 @@ static int load_plain_file_once(const char *path, void **out_data, size_t *out_s
 
     buf = malloc((size_t)file_size);
     if (!buf) {
-        printf("[DBG] malloc(%ld) falhou para '%s'\n", file_size, path);
+        printf("[DBG] malloc(%ld) falhou para '%s'\n", file_size, path ? path : "");
         fflush(stdout);
         fclose(fp);
         return 0;
@@ -114,7 +203,7 @@ static int load_plain_file_once(const char *path, void **out_data, size_t *out_s
 
     if (read_bytes != (size_t)file_size) {
         printf("[DBG] fread curto: leu=%u esperado=%u path='%s'\n",
-               (unsigned)read_bytes, (unsigned)file_size, path);
+               (unsigned)read_bytes, (unsigned)file_size, path ? path : "");
         fflush(stdout);
         free(buf);
         return 0;
@@ -123,11 +212,18 @@ static int load_plain_file_once(const char *path, void **out_data, size_t *out_s
     *out_data = buf;
     *out_size = (size_t)file_size;
 
-    printf("[DBG] load_plain_file_once OK: size=%u path='%s'\n",
-           (unsigned)*out_size, path);
+    printf("[DBG] load_plain_file_stdio OK: size=%u path='%s'\n",
+           (unsigned)*out_size, path ? path : "");
     fflush(stdout);
-
     return 1;
+}
+
+static int load_plain_file_once(const char *path, void **out_data, size_t *out_size)
+{
+    if (is_cdrom_path(path))
+        return read_disc_file_once(path, out_data, out_size);
+
+    return load_plain_file_stdio(path, out_data, out_size);
 }
 
 static int try_candidate(const char *candidate, void **out_data, size_t *out_size)
@@ -137,7 +233,6 @@ static int try_candidate(const char *candidate, void **out_data, size_t *out_siz
 
     printf("[DBG] tentativa host candidate='%s'\n", candidate);
     fflush(stdout);
-
     return load_plain_file_once(candidate, out_data, out_size);
 }
 
@@ -175,16 +270,13 @@ int rom_loader_is_supported(const char *path)
 {
     if (!path || !path[0])
         return 0;
-    if (ext_equals(path, ".smc"))
-        return 1;
-    if (ext_equals(path, ".sfc"))
-        return 1;
-    if (ext_equals(path, ".swc"))
-        return 1;
-    if (ext_equals(path, ".fig"))
-        return 1;
-    if (ext_equals(path, ".zip"))
-        return 1;
+
+    if (ext_equals(path, ".smc")) return 1;
+    if (ext_equals(path, ".sfc")) return 1;
+    if (ext_equals(path, ".swc")) return 1;
+    if (ext_equals(path, ".fig")) return 1;
+    if (ext_equals(path, ".zip")) return 1;
+
     return 0;
 }
 
@@ -199,7 +291,6 @@ int rom_loader_load(const char *path, void **out_data, size_t *out_size,
 
     *out_data = NULL;
     *out_size = 0;
-
     if (out_name && out_name_size > 0)
         out_name[0] = '\0';
 
@@ -224,8 +315,12 @@ int rom_loader_load(const char *path, void **out_data, size_t *out_size,
     }
 
     if (out_name && out_name_size > 0) {
+        char *semi;
         strncpy(out_name, base_name_only(path), out_name_size - 1);
         out_name[out_name_size - 1] = '\0';
+        semi = strrchr(out_name, ';');
+        if (semi)
+            *semi = '\0';
         printf("[DBG] rom_loader_load: out_name='%s'\n", out_name);
         fflush(stdout);
     }
@@ -239,6 +334,7 @@ void rom_loader_free(void **data, size_t *size)
         free(*data);
         *data = NULL;
     }
+
     if (size)
         *size = 0;
 }

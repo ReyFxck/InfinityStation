@@ -1,21 +1,24 @@
 #include "launcher_browser_internal.h"
-
+#include <dirent.h>
+#include <stdio.h>
+#include <string.h>
 #include <sifrpc.h>
 #include <loadfile.h>
 #include <libmc.h>
-
 #include "rom_loader/rom_loader.h"
 #include "ps2_disc.h"
 
 #define LAUNCHER_BROWSER_MC_LIST_MAX 256
+#define HOST_PROBE_BACKOFF_REFRESHES 15
 
 static int g_mc0_ready = 0;
 static int g_mc1_ready = 0;
 static int g_mass0_ready = 0;
-static int g_mass1_ready = 0; static int g_cdfs_ready = 0;
+static int g_mass1_ready = 0;
+static int g_disc_ready = 0;
 static int g_host_ready = 0;
+static int g_host_probe_backoff = 0;
 static int g_mc_init_done = 0;
-
 static sceMcTblGetDir g_mc_dir[LAUNCHER_BROWSER_MC_LIST_MAX] __attribute__((aligned(64)));
 
 static int launcher_browser_probe_device(const char *path)
@@ -29,12 +32,9 @@ static int launcher_browser_probe_device(const char *path)
 
 static int launcher_browser_mc_port_from_path(const char *path)
 {
-    if (!path)
-        return -1;
-    if (!strncmp(path, "mc0:", 4))
-        return 0;
-    if (!strncmp(path, "mc1:", 4))
-        return 1;
+    if (!path) return -1;
+    if (!strncmp(path, "mc0:", 4)) return 0;
+    if (!strncmp(path, "mc1:", 4)) return 1;
     return -1;
 }
 
@@ -122,6 +122,26 @@ static void launcher_browser_mc_pattern_from_path(const char *path, char *out, s
         snprintf(out, out_size, "/%s/*", rel);
 }
 
+static void launcher_browser_refresh_host_status(void)
+{
+    if (g_host_ready) {
+        g_host_probe_backoff = 0;
+        return;
+    }
+
+    if (g_host_probe_backoff > 0) {
+        g_host_probe_backoff--;
+        return;
+    }
+
+    g_host_ready = launcher_browser_probe_device("host:");
+    if (!g_host_ready)
+        g_host_ready = launcher_browser_probe_device("host:/");
+
+    if (!g_host_ready)
+        g_host_probe_backoff = HOST_PROBE_BACKOFF_REFRESHES;
+}
+
 void launcher_browser_refresh_root_device_statuses(void)
 {
     g_mc0_ready = launcher_browser_mc_probe_port(0);
@@ -132,22 +152,20 @@ void launcher_browser_refresh_root_device_statuses(void)
     g_mass1_ready = 0;
 
     ps2_disc_init_once();
-    g_cdfs_ready = ps2_disc_refresh();
+    g_disc_ready = ps2_disc_refresh();
 
-    g_host_ready = launcher_browser_probe_device("host:");
-    if (!g_host_ready)
-        g_host_ready = launcher_browser_probe_device("host:/");
+    launcher_browser_refresh_host_status();
 }
 
 int launcher_browser_device_ready(const char *name)
 {
     if (!name) return 0;
-    if (!strcmp(name, "cdfs:/") || !strcmp(name, "cdfs:")) return g_cdfs_ready;
-    if (!strcmp(name, "mc0:/") || !strcmp(name, "mc0:")) return g_mc0_ready;
-    if (!strcmp(name, "mc1:/") || !strcmp(name, "mc1:")) return g_mc1_ready;
+    if (!strcmp(name, "disc:/")  || !strcmp(name, "disc:"))  return g_disc_ready;
+    if (!strcmp(name, "mc0:/")   || !strcmp(name, "mc0:"))   return g_mc0_ready;
+    if (!strcmp(name, "mc1:/")   || !strcmp(name, "mc1:"))   return g_mc1_ready;
     if (!strcmp(name, "mass0:/") || !strcmp(name, "mass0:")) return g_mass0_ready;
     if (!strcmp(name, "mass1:/") || !strcmp(name, "mass1:")) return g_mass1_ready;
-    if (!strcmp(name, "host:/") || !strcmp(name, "host:")) return g_host_ready;
+    if (!strcmp(name, "host:/")  || !strcmp(name, "host:"))  return g_host_ready;
     return 0;
 }
 
@@ -166,12 +184,12 @@ int launcher_browser_scan_root_devices(void)
 
     launcher_browser_refresh_root_device_statuses();
 
-    if (!launcher_browser_append_entry("cdfs:/", 1)) return 0;
-    if (!launcher_browser_append_entry("mc0:/", 1)) return 0;
-    if (!launcher_browser_append_entry("mc1:/", 1)) return 0;
+    if (!launcher_browser_append_entry("disc:/", 1))  return 0;
+    if (!launcher_browser_append_entry("mc0:/", 1))   return 0;
+    if (!launcher_browser_append_entry("mc1:/", 1))   return 0;
     if (!launcher_browser_append_entry("mass0:/", 1)) return 0;
     if (!launcher_browser_append_entry("mass1:/", 1)) return 0;
-    if (!launcher_browser_append_entry("host:/", 1)) return 0;
+    if (!launcher_browser_append_entry("host:/", 1))  return 0;
 
     return 1;
 }
@@ -205,20 +223,17 @@ int launcher_browser_scan_memory_card_path(const char *path)
 
     mcGetInfo(port, 0, &type, &free_blocks, &format);
     mcSync(0, NULL, &ret);
-
     if (ret <= -10)
         return 1;
 
     launcher_browser_mc_pattern_from_path(path, pattern, sizeof(pattern));
-
     mcGetDir(port, 0, pattern, 0, LAUNCHER_BROWSER_MC_LIST_MAX, g_mc_dir);
     mcSync(0, NULL, &ret);
-
     if (ret < 0)
         return 1;
 
     for (i = 0; i < ret; i++) {
-        const char *name = g_mc_dir[i].EntryName;
+        const char *name = (const char *)g_mc_dir[i].EntryName;
         int is_dir = (g_mc_dir[i].AttrFile & MC_ATTR_SUBDIR) ? 1 : 0;
         char full[256];
 
@@ -226,7 +241,6 @@ int launcher_browser_scan_memory_card_path(const char *path)
             continue;
 
         launcher_browser_path_join(full, sizeof(full), path, name);
-
         if (!is_dir && !rom_loader_is_supported(full))
             continue;
 

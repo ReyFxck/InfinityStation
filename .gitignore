@@ -53,3 +53,6 @@ ps2boot/ui/assets/launcher_logo_rgba
 *.bak
 *.bak_*
 *.bak.*
+ps2boot/tools/*.iso
+ps2boot/tools/boot_iso_root/
+ps2boot/tools/disc_root/

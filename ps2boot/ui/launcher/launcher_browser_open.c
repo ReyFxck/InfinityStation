@@ -1,5 +1,7 @@
 #include "launcher_browser_internal.h"
 
+int launcher_browser_scan_disc_path(const char *path);
+
 static int launcher_browser_finish_scan(void)
 {
     while (!launcher_browser_state_get()->scan_done) {
@@ -38,6 +40,12 @@ static int launcher_browser_is_memory_card_path(const char *path)
         return 0;
 
     return !strncmp(path, "mc0:", 4) || !strncmp(path, "mc1:", 4);
+}
+
+
+static int launcher_browser_is_disc_path(const char *path)
+{
+    return path && !strncmp(path, "disc:", 5);
 }
 
 static int launcher_browser_root_index_for_device_path(const char *path)
@@ -80,7 +88,11 @@ int launcher_browser_reset_to_path(const char *path)
     if (launcher_browser_is_memory_card_path(state->current_path))
         return launcher_browser_scan_memory_card_path(state->current_path);
 
-    if (!launcher_browser_open_scan_dir(state->current_path))
+    
+    if (launcher_browser_is_disc_path(state->current_path))
+        return launcher_browser_scan_disc_path(state->current_path);
+
+if (!launcher_browser_open_scan_dir(state->current_path))
         return 0;
 
     if (!launcher_browser_finish_scan())
