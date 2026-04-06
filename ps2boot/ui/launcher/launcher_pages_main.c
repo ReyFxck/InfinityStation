@@ -38,14 +38,12 @@ void launcher_pages_draw_main_page(const launcher_state_t *state)
 
     const char *title_text = "MAIN MENU";
     const char *item0 = "ROM EXPLORER";
-    const char *item1 = "EMBEDDED MARIO";
-    const char *item2 = "OPTIONS";
-    const char *item3 = "CREDITS";
+    const char *item1 = "OPTIONS";
+    const char *item2 = "CREDITS";
 
     uint16_t c0 = state->main_sel == 0 ? select : normal;
     uint16_t c1 = state->main_sel == 1 ? select : normal;
     uint16_t c2 = state->main_sel == 2 ? select : normal;
-    uint16_t c3 = state->main_sel == 3 ? select : normal;
 
     launcher_logo_draw(screen_center_x(640, launcher_logo_width), 18);
 
@@ -55,17 +53,13 @@ void launcher_pages_draw_main_page(const launcher_state_t *state)
 
     browser_font_draw_string_color_sized(
         panel_center_x(panel_x, panel_w, item0, char_w),
-        190, item0, c0, char_w, char_h);
+        208, item0, c0, char_w, char_h);
 
     browser_font_draw_string_color_sized(
         panel_center_x(panel_x, panel_w, item1, char_w),
-        225, item1, c1, char_w, char_h);
+        243, item1, c1, char_w, char_h);
 
     browser_font_draw_string_color_sized(
         panel_center_x(panel_x, panel_w, item2, char_w),
-        260, item2, c2, char_w, char_h);
-
-    browser_font_draw_string_color_sized(
-        panel_center_x(panel_x, panel_w, item3, char_w),
-        295, item3, c3, char_w, char_h);
+        278, item2, c2, char_w, char_h);
 }

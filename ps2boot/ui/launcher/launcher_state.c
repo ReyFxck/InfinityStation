@@ -12,9 +12,7 @@ void launcher_state_reset(void)
     g_launcher_state.main_sel = 0;
     g_launcher_state.should_start_game = 0;
     g_launcher_state.selected_path[0] = '\0';
-    snprintf(g_launcher_state.selected_label,
-             sizeof(g_launcher_state.selected_label),
-             "EMBEDDED MARIO");
+    g_launcher_state.selected_label[0] = '\0';
 }
 
 const launcher_state_t *launcher_state_get(void)
