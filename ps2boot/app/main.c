@@ -1,5 +1,4 @@
 #include "app_boot.h"
-#include "app_callbacks.h"
 #include "app_game.h"
 #include "app_runtime.h"
 #include "app_overlay.h"
@@ -8,7 +7,6 @@
 
 #include <debug.h>
 #include <kernel.h>
-#include <stdio.h>
 
 #include "libretro.h"
 #include "ps2_input.h"
@@ -40,11 +38,7 @@ int main(int argc, char *argv[])
     (void)argv;
 
     app_state_init();
-
     app_boot_init(die);
-    app_callbacks_register();
-    retro_init();
-    app_boot_log_core_info();
 
     app_state_set_mode(APP_MODE_LAUNCHER);
     app_boot_run_launcher(&g_prev_buttons, &saved_launcher_x, &saved_launcher_y);
@@ -52,7 +46,6 @@ int main(int argc, char *argv[])
     app_transition_load_selected_game(&av, die);
     app_overlay_reset_timing();
     app_boot_refresh_av_info(&av);
-
     if (av.timing.fps > 1.0)
         app_overlay_set_core_nominal_fps(av.timing.fps);
 
@@ -70,17 +63,14 @@ int main(int argc, char *argv[])
         pressed = buttons & ~g_prev_buttons;
 
         menu_consumed = app_runtime_handle_menu(buttons, pressed, &g_prev_buttons);
-
         req = app_state_take_request();
+
         if (req == APP_REQUEST_RESTART_GAME) {
             app_transition_restart_game(&av, &g_prev_buttons, die);
             continue;
         } else if (req == APP_REQUEST_OPEN_LAUNCHER) {
-            app_transition_open_launcher_and_reload(&av,
-                                                    &g_prev_buttons,
-                                                    &saved_launcher_x,
-                                                    &saved_launcher_y,
-                                                    die);
+            app_transition_open_launcher_and_reload(&av, &g_prev_buttons,
+                                                    &saved_launcher_x, &saved_launcher_y, die);
             continue;
         }
 

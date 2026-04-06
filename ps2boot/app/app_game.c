@@ -6,8 +6,6 @@
 #include "libretro.h"
 #include "ui/launcher/launcher.h"
 
-extern unsigned char smw_sfc_start[];
-extern unsigned char smw_sfc_end[];
 
 static void *g_loaded_rom_data = NULL;
 static size_t g_loaded_rom_size = 0;
@@ -70,23 +68,7 @@ int app_game_load_selected(void)
         return 0;
     }
 
-    g_loaded_rom_name[0] = '\0';
-    game.path = "smw.sfc";
-    game.data = smw_sfc_start;
-    game.size = (size_t)(smw_sfc_end - smw_sfc_start);
-    game.meta = NULL;
-
-    printf("[DBG] usando ROM embutida: path='%s' size=%u\n",
-           game.path, (unsigned)game.size);
-    fflush(stdout);
-
-    if (retro_load_game(&game)) {
-        printf("[DBG] retro_load_game() OK com ROM embutida\n");
-        fflush(stdout);
-        return 1;
-    }
-
-    printf("[DBG] retro_load_game() FALHOU com ROM embutida\n");
+    printf("[DBG] nenhuma ROM selecionada\n");
     fflush(stdout);
     return 0;
 }

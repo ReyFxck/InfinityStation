@@ -73,7 +73,6 @@ platform/ps2/ps2_audio_resampler.o \
         ui/launcher/launcher_browser_devices.o \
         ui/launcher/launcher_browser_scan.o \
         ui/launcher/launcher_browser_sort.o \
-        assets/smw_blob.o \
     assets/audsrv_blob.o \
         $(CORE_SRCS:.c=.o)
 

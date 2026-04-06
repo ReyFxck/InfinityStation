@@ -182,8 +182,6 @@ int launcher_browser_scan_root_devices(void)
     state->last_error = 0;
     state->scan_done = 1;
 
-    launcher_browser_refresh_root_device_statuses();
-
     if (!launcher_browser_append_entry("disc:/", 1))  return 0;
     if (!launcher_browser_append_entry("mc0:/", 1))   return 0;
     if (!launcher_browser_append_entry("mc1:/", 1))   return 0;

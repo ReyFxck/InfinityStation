@@ -161,7 +161,7 @@ void launcher_pages_draw_browser_page(void)
     const uint16_t select = 0x7053;
     const int visible_name_chars = 24;
     const unsigned marquee_delay_frames = 4;
-    const unsigned root_status_refresh_frames = 20;
+    const unsigned root_status_refresh_frames = 60;
 
     count = launcher_browser_count();
     scroll = launcher_browser_scroll();
