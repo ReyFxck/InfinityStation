@@ -11,4 +11,5 @@ void ps2_audio_pump(void);
 void ps2_audio_pause(void);
 void ps2_audio_resume(void);
 
+void ps2_audio_set_iop_ready(int ready);
 #endif
