@@ -2,6 +2,7 @@
 
 #include <tamtypes.h>
 #include <kernel.h>
+#include <delaythread.h>
 #include <sifrpc.h>
 #include <sifcmd.h>
 #include <loadfile.h>
@@ -10,6 +11,8 @@
 #include <sbv_patches.h>
 
 #include <string.h>
+
+#define PS2_AUDIO_WAIT_SLICE_US 250
 
 static int g_audio_ring_sema = -1;
 
@@ -59,12 +62,17 @@ static void ps2_audio_ring_unlock(void)
 
 static void ps2_audio_wait_loops(int loops)
 {
-    volatile int i;
-    while (loops-- > 0) {
-        for (i = 0; i < 0x1000; i++) {
-        }
+    int sleep_us;
+
+    if (loops <= 0)
+        return;
+
+    sleep_us = loops * PS2_AUDIO_WAIT_SLICE_US;
+    if (sleep_us < PS2_AUDIO_WAIT_SLICE_US)
+        sleep_us = PS2_AUDIO_WAIT_SLICE_US;
+
+    if (DelayThread(sleep_us) < 0)
         RotateThreadReadyQueue(SOUND_THREAD_PRIO);
-    }
 }
 
 static void ps2_audio_reset_stream_state(void)
