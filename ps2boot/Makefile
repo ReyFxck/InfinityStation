@@ -41,6 +41,23 @@ CORE_SRCS = \
         $(SRC_DIR)/spc700.c \
         $(CORE_DIR)/libretro.c
 
+
+COMM_SRCS = \
+ $(COMM_DIR)/compat/compat_posix_string.c \
+ $(COMM_DIR)/compat/compat_strcasestr.c \
+ $(COMM_DIR)/compat/compat_strl.c \
+ $(COMM_DIR)/compat/fopen_utf8.c \
+ $(COMM_DIR)/encodings/encoding_utf.c \
+ $(COMM_DIR)/file/file_path.c \
+ $(COMM_DIR)/file/file_path_io.c \
+ $(COMM_DIR)/streams/file_stream.c \
+ $(COMM_DIR)/streams/file_stream_transforms.c \
+ $(COMM_DIR)/string/stdstring.c \
+ $(COMM_DIR)/time/rtime.c \
+ $(COMM_DIR)/vfs/vfs_implementation.c
+
+COMM_OBJS = $(COMM_SRCS:.c=.o)
+
 BASE_OBJS = \
         app/main.o \
         platform/ps2/ps2_video.o \
@@ -74,7 +91,8 @@ platform/ps2/ps2_audio_resampler.o \
         ui/launcher/launcher_browser_scan.o \
         ui/launcher/launcher_browser_sort.o \
     assets/audsrv_blob.o \
-        $(CORE_SRCS:.c=.o)
+        $(CORE_SRCS:.c=.o) \
+  $(COMM_OBJS)
 
 ROM_LOADER_OBJS = \
         rom_loader/rom_loader.o \
@@ -139,7 +157,7 @@ EE_OBJS = \
         $(EXTRA_OBJS)
 
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
-EE_CFLAGS += -O3 -G0 -DLOAD_FROM_MEMORY -DLAGFIX
+EE_CFLAGS += -O3 -G0 -DLAGFIX
 EE_CFLAGS += -I. -Irom_loader -Irom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 EE_CFLAGS += -Iapp -Iplatform/ps2 -Iassets
 

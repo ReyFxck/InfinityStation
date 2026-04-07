@@ -52,6 +52,7 @@ void app_boot_init(void (*die_fn)(const char *msg))
     /* log removido */
 
     app_boot_reset_iop_minimal();
+    ps2_audio_set_iop_ready(1);
     ps2_disc_init_once();
 
   /* log removido */

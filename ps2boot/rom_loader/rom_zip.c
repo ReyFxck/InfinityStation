@@ -1,9 +1,9 @@
 #include "rom_zip.h"
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #include "miniz/miniz.h"
@@ -63,6 +63,7 @@ static const char *base_name_only(const char *path)
     a = strrchr(path, '/');
     b = strrchr(path, '\\');
     p = a;
+
     if (!p || (b && b > p))
         p = b;
 
@@ -71,10 +72,14 @@ static const char *base_name_only(const char *path)
 
 static int zip_name_is_rom(const char *name)
 {
-    if (ext_equals(name, ".smc")) return 1;
-    if (ext_equals(name, ".sfc")) return 1;
-    if (ext_equals(name, ".swc")) return 1;
-    if (ext_equals(name, ".fig")) return 1;
+    if (ext_equals(name, ".smc"))
+        return 1;
+    if (ext_equals(name, ".sfc"))
+        return 1;
+    if (ext_equals(name, ".swc"))
+        return 1;
+    if (ext_equals(name, ".fig"))
+        return 1;
     return 0;
 }
 
@@ -124,7 +129,6 @@ static int read_disc_file_once(const char *path, void **out_data, size_t *out_si
     }
 
     close(fd);
-
     *out_data = buf;
     *out_size = (size_t)file_size;
     return 1;
@@ -184,6 +188,35 @@ static int read_path_fully(const char *path, void **out_data, size_t *out_size)
     return read_stdio_file_once(path, out_data, out_size);
 }
 
+static int zip_reader_init_path(mz_zip_archive *zip, const char *zip_path,
+                                void **zip_data, size_t *zip_size)
+{
+    if (!zip || !zip_path || !zip_data || !zip_size)
+        return 0;
+
+    *zip_data = NULL;
+    *zip_size = 0;
+
+#ifndef MINIZ_NO_STDIO
+    if (!is_cdrom_path(zip_path)) {
+        if (mz_zip_reader_init_file(zip, zip_path, 0))
+            return 1;
+    }
+#endif
+
+    if (!read_path_fully(zip_path, zip_data, zip_size))
+        return 0;
+
+    if (!mz_zip_reader_init_mem(zip, *zip_data, *zip_size, 0)) {
+        free(*zip_data);
+        *zip_data = NULL;
+        *zip_size = 0;
+        return 0;
+    }
+
+    return 1;
+}
+
 int rom_zip_load(const char *zip_path, void **out_data, size_t *out_size,
                  char *out_name, size_t out_name_size)
 {
@@ -192,31 +225,29 @@ int rom_zip_load(const char *zip_path, void **out_data, size_t *out_size,
     mz_uint file_count;
     void *zip_data = NULL;
     size_t zip_size = 0;
+    int used_mem_reader = 0;
 
     if (!zip_path || !out_data || !out_size)
         return 0;
 
     *out_data = NULL;
     *out_size = 0;
+
     if (out_name && out_name_size > 0)
         out_name[0] = '\0';
 
-    if (!read_path_fully(zip_path, &zip_data, &zip_size)) {
-        printf("[DBG] rom_zip_load: nao conseguiu ler zip '%s'\n", zip_path ? zip_path : "");
+    memset(&zip, 0, sizeof(zip));
+
+    if (!zip_reader_init_path(&zip, zip_path, &zip_data, &zip_size)) {
+        printf("[DBG] rom_zip_load: nao conseguiu abrir zip '%s'\n",
+               zip_path ? zip_path : "");
         fflush(stdout);
         return 0;
     }
 
-    memset(&zip, 0, sizeof(zip));
-    if (!mz_zip_reader_init_mem(&zip, zip_data, zip_size, 0)) {
-        printf("[DBG] rom_zip_load: mz_zip_reader_init_mem falhou '%s'\n", zip_path ? zip_path : "");
-        fflush(stdout);
-        free(zip_data);
-        return 0;
-    }
+    used_mem_reader = (zip_data != NULL);
 
     file_count = mz_zip_reader_get_num_files(&zip);
-
     for (i = 0; i < file_count; i++) {
         mz_zip_archive_file_stat st;
         void *buf;
@@ -251,20 +282,24 @@ int rom_zip_load(const char *zip_path, void **out_data, size_t *out_size,
         }
 
         mz_zip_reader_end(&zip);
-        free(zip_data);
+        if (used_mem_reader)
+            free(zip_data);
 
-        printf("[DBG] rom_zip_load OK: rom='%s' size=%u zip='%s'\n",
+        printf("[DBG] rom_zip_load OK: rom='%s' size=%u zip='%s'%s\n",
                out_name ? out_name : "",
                (unsigned)*out_size,
-               zip_path ? zip_path : "");
+               zip_path ? zip_path : "",
+               used_mem_reader ? " [mem-reader]" : " [file-reader]");
         fflush(stdout);
         return 1;
     }
 
     mz_zip_reader_end(&zip);
-    free(zip_data);
+    if (used_mem_reader)
+        free(zip_data);
 
-    printf("[DBG] rom_zip_load: nenhuma ROM valida em '%s'\n", zip_path ? zip_path : "");
+    printf("[DBG] rom_zip_load: nenhuma ROM valida em '%s'\n",
+           zip_path ? zip_path : "");
     fflush(stdout);
     return 0;
 }

@@ -2,6 +2,7 @@
 
 #include <tamtypes.h>
 #include <kernel.h>
+#include <delaythread.h>
 #include <sifrpc.h>
 #include <sifcmd.h>
 #include <loadfile.h>
@@ -10,6 +11,8 @@
 #include <sbv_patches.h>
 
 #include <string.h>
+
+#define PS2_AUDIO_WAIT_SLICE_US 250
 
 static int g_audio_ring_sema = -1;
 
@@ -25,6 +28,8 @@ static int g_sound_tid = -1;
 static volatile int g_sound_thread_running = 0;
 static volatile int g_sound_thread_exit = 0;
 
+
+static int g_iop_ready = 0;
 /* stack real da thread de audio */
 static uint8_t g_sound_thread_stack[SOUND_THREAD_STACK] __attribute__((aligned(64)));
 
@@ -59,12 +64,17 @@ static void ps2_audio_ring_unlock(void)
 
 static void ps2_audio_wait_loops(int loops)
 {
-    volatile int i;
-    while (loops-- > 0) {
-        for (i = 0; i < 0x1000; i++) {
-        }
+    int sleep_us;
+
+    if (loops <= 0)
+        return;
+
+    sleep_us = loops * PS2_AUDIO_WAIT_SLICE_US;
+    if (sleep_us < PS2_AUDIO_WAIT_SLICE_US)
+        sleep_us = PS2_AUDIO_WAIT_SLICE_US;
+
+    if (DelayThread(sleep_us) < 0)
         RotateThreadReadyQueue(SOUND_THREAD_PRIO);
-    }
 }
 
 static void ps2_audio_reset_stream_state(void)
@@ -336,6 +346,11 @@ static void ps2_audio_stop_thread(void)
     g_sound_thread_running = 0;
 }
 
+void ps2_audio_set_iop_ready(int ready)
+{
+    g_iop_ready = ready ? 1 : 0;
+}
+
 int ps2_audio_init_once(void)
 {
     int ret;
@@ -347,7 +362,10 @@ int ps2_audio_init_once(void)
 
     PS2AUDIO_LOG("[PS2AUDIO] init enter (phase 1 split)\n");
 
-    ps2_audio_reset_iop();
+    if (!g_iop_ready) {
+        ps2_audio_reset_iop();
+        g_iop_ready = 1;
+    }
 
     if (g_audio_ring_sema < 0) {
         ee_sema_t sema;
@@ -463,6 +481,7 @@ void ps2_audio_shutdown(void)
     }
 
     g_audio_state = 0;
+    g_iop_ready = 0;
     g_warned_not_ready = 0;
     g_warned_overrun = 0;
     g_warned_underrun = 0;

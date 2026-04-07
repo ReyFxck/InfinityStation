@@ -67,13 +67,18 @@ static void launcher_browser_host_join(char *out, size_t out_size,
         snprintf(out, out_size, "host:%s/%s", rel, entry_name);
 }
 
-static void launcher_browser_disc_build_cdrom_path(char *out, size_t out_size,
-                                                   const char *base,
-                                                   const char *entry_name)
+static void launcher_browser_disc_build_cdrom_path(char *out, size_t out_size, const char *base, const char *entry_name)
 {
-    char rel[256];
-    size_t i, j = 0;
     const char *base_rel = launcher_browser_disc_rel_base(base);
+    const char prefix[] = "cdrom0:\\";
+    const char suffix[] = ";1";
+    size_t prefix_len = sizeof(prefix) - 1;
+    size_t suffix_len = sizeof(suffix) - 1;
+    size_t base_len = 0;
+    size_t entry_len = 0;
+    size_t needed;
+    size_t pos = 0;
+    size_t i;
 
     if (!out || out_size == 0)
         return;
@@ -84,21 +89,37 @@ static void launcher_browser_disc_build_cdrom_path(char *out, size_t out_size,
     }
 
     if (base_rel && base_rel[0])
-        snprintf(rel, sizeof(rel), "%s/%s", base_rel, entry_name);
-    else
-        snprintf(rel, sizeof(rel), "%s", entry_name);
+        base_len = strlen(base_rel);
 
-    for (i = 0; rel[i] && j + 1 < sizeof(rel); i++) {
-        char c = rel[i];
-        if (c == '/')
-            rel[j++] = '\\';
-        else
-            rel[j++] = c;
+    entry_len = strlen(entry_name);
+    needed = prefix_len + base_len + (base_len ? 1 : 0) + entry_len + suffix_len + 1;
+
+    if (needed > out_size) {
+        out[0] = '\0';
+        return;
     }
-    rel[j] = '\0';
 
-    snprintf(out, out_size, "cdrom0:\\%s;1", rel);
+    memcpy(out + pos, prefix, prefix_len);
+    pos += prefix_len;
+
+    if (base_len) {
+        for (i = 0; i < base_len; i++) {
+            char c = base_rel[i];
+            out[pos++] = (c == '/') ? '\\' : c;
+        }
+        out[pos++] = '\\';
+    }
+
+    for (i = 0; i < entry_len; i++) {
+        char c = entry_name[i];
+        out[pos++] = (c == '/') ? '\\' : c;
+    }
+
+    memcpy(out + pos, suffix, suffix_len);
+    pos += suffix_len;
+    out[pos] = '\0';
 }
+
 
 static void launcher_browser_disc_join(char *out, size_t out_size,
                                        const char *base,
@@ -196,8 +217,7 @@ void launcher_browser_move(int delta, int visible_rows)
         state->scroll = 0;
 }
 
-int launcher_browser_activate(char *selected_path, size_t path_size,
-                              char *selected_label, size_t label_size)
+int launcher_browser_activate(char *selected_path, size_t path_size, char *selected_label, size_t label_size)
 {
     launcher_browser_state_t *state = launcher_browser_state_mut();
     const launcher_browser_entry_t *entry;
@@ -215,14 +235,13 @@ int launcher_browser_activate(char *selected_path, size_t path_size,
 
     launcher_browser_build_full_path(full, sizeof(full), state->current_path, entry->name);
 
-    if (entry->is_dir) {
-        if (launcher_browser_open(full))
-            return 0;
+    if (!full[0]) {
+        state->last_error = 1;
+        return 0;
+    }
 
-        if (launcher_browser_is_soft_root_device(full)) {
-            state->selected = 0;
-            state->scroll = 0;
-            state->scan_done = 1;
+    if (entry->is_dir) {
+        if (launcher_browser_open(full)) {
             state->last_error = 0;
             return 0;
         }
@@ -239,5 +258,7 @@ int launcher_browser_activate(char *selected_path, size_t path_size,
     if (selected_path && path_size > 0)
         snprintf(selected_path, path_size, "%s", full);
 
+    state->last_error = 0;
     return 1;
 }
+
