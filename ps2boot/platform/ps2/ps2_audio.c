@@ -481,6 +481,7 @@ void ps2_audio_shutdown(void)
     }
 
     g_audio_state = 0;
+    g_iop_ready = 0;
     g_warned_not_ready = 0;
     g_warned_overrun = 0;
     g_warned_underrun = 0;
