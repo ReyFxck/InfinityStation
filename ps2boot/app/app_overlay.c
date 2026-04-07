@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <time.h>
+#include <delaythread.h>
 
 #include "ps2_menu.h"
 #include "ps2_video.h"
@@ -66,37 +67,78 @@ double app_overlay_get_core_nominal_fps(void)
 }
 
 void app_overlay_throttle_if_needed(void)
+
 {
-    double target_fps = app_overlay_target_fps();
-    clock_t now;
-    clock_t frame_ticks;
 
-    if (target_fps <= 1.0) {
-        g_throttle_last_clock = 0;
-        return;
-    }
+ double target_fps = app_overlay_target_fps();
 
-    frame_ticks = (clock_t)(((double)CLOCKS_PER_SEC / target_fps) + 0.5);
-    if (frame_ticks < 1)
-        frame_ticks = 1;
+ clock_t now;
 
-    now = clock();
+ clock_t frame_ticks;
 
-    if (g_throttle_last_clock == 0) {
-        g_throttle_last_clock = now;
-        return;
-    }
+ clock_t spin_ticks;
 
-    while ((now - g_throttle_last_clock) < frame_ticks)
-        now = clock();
+ if (target_fps <= 1.0) {
+  g_throttle_last_clock = 0;
 
-    /* avanca em passos fixos para evitar jitter/drift */
-    g_throttle_last_clock += frame_ticks;
+  return;
 
-    /* se atrasou demais, resincroniza */
-    if ((now - g_throttle_last_clock) > (frame_ticks * 4))
-        g_throttle_last_clock = now;
+ }
+
+ frame_ticks = (clock_t)(((double)CLOCKS_PER_SEC / target_fps) + 0.5);
+
+ if (frame_ticks < 1)
+
+ frame_ticks = 1;
+
+ spin_ticks = CLOCKS_PER_SEC / 1000;
+
+ if (spin_ticks < 1)
+
+ spin_ticks = 1;
+
+ now = clock();
+
+ if (g_throttle_last_clock == 0) {
+
+  g_throttle_last_clock = now;
+
+  return;
+
+ }
+
+ while ((now - g_throttle_last_clock) < frame_ticks) {
+
+  clock_t remaining = frame_ticks - (now - g_throttle_last_clock);
+
+  if (remaining > spin_ticks) {
+
+   int sleep_us = (int)(((double)(remaining - spin_ticks) * 1000000.0) /
+
+   (double)CLOCKS_PER_SEC);
+
+   if (sleep_us > 0)
+
+   DelayThread(sleep_us);
+
+  }
+
+  now = clock();
+
+ }
+
+ /* avanca em passos fixos para evitar jitter/drift */
+
+ g_throttle_last_clock += frame_ticks;
+
+ /* se atrasou demais, resincroniza */
+
+ if ((now - g_throttle_last_clock) > (frame_ticks * 4))
+
+ g_throttle_last_clock = now;
+
 }
+
 
 void app_overlay_update_fps(void)
 {
