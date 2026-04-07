@@ -217,8 +217,7 @@ void launcher_browser_move(int delta, int visible_rows)
         state->scroll = 0;
 }
 
-int launcher_browser_activate(char *selected_path, size_t path_size,
-                              char *selected_label, size_t label_size)
+int launcher_browser_activate(char *selected_path, size_t path_size, char *selected_label, size_t label_size)
 {
     launcher_browser_state_t *state = launcher_browser_state_mut();
     const launcher_browser_entry_t *entry;
@@ -236,14 +235,13 @@ int launcher_browser_activate(char *selected_path, size_t path_size,
 
     launcher_browser_build_full_path(full, sizeof(full), state->current_path, entry->name);
 
-    if (entry->is_dir) {
-        if (launcher_browser_open(full))
-            return 0;
+    if (!full[0]) {
+        state->last_error = 1;
+        return 0;
+    }
 
-        if (launcher_browser_is_soft_root_device(full)) {
-            state->selected = 0;
-            state->scroll = 0;
-            state->scan_done = 1;
+    if (entry->is_dir) {
+        if (launcher_browser_open(full)) {
             state->last_error = 0;
             return 0;
         }
@@ -260,5 +258,7 @@ int launcher_browser_activate(char *selected_path, size_t path_size,
     if (selected_path && path_size > 0)
         snprintf(selected_path, path_size, "%s", full);
 
+    state->last_error = 0;
     return 1;
 }
+
