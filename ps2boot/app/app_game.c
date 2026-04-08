@@ -119,7 +119,9 @@ int app_game_load_selected(void)
 
     if (retro_load_game(&game)) {
         app_core_apply_runtime_options(cfg->game_reduce_slowdown,
-                                       cfg->game_reduce_flicker);
+                                       cfg->game_reduce_flicker,
+                                       cfg->game_frameskip_mode,
+                                       cfg->game_frameskip_threshold);
         printf("[DBG] retro_load_game() OK\n");
         fflush(stdout);
         return 1;

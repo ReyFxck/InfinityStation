@@ -26,6 +26,15 @@ static const char *slowdown_label(int mode)
     return "DISABLED";
 }
 
+static const char *frameskip_label(int mode)
+{
+    if (mode == SELECT_MENU_GAME_FRAMESKIP_AUTO)
+        return "AUTO";
+    if (mode == SELECT_MENU_GAME_FRAMESKIP_THRESHOLD)
+        return "THRESHOLD";
+    return "DISABLED";
+}
+
 static void draw_option_line(unsigned y, const char *label, int selected)
 {
     unsigned text_x = select_menu_pages_center_x_for_text(label);
@@ -48,6 +57,8 @@ void select_menu_pages_draw_game_page(const select_menu_state_t *state)
     int frame_index = state->show_fps ? 3 : 2;
     int slowdown_index = state->show_fps ? 4 : 3;
     int flicker_index = state->show_fps ? 5 : 4;
+    int frameskip_index = state->show_fps ? 6 : 5;
+    int threshold_index = state->show_fps ? 7 : 6;
     unsigned y = 76;
 
     select_menu_font_draw_string_color(
@@ -82,6 +93,14 @@ void select_menu_pages_draw_game_page(const select_menu_state_t *state)
 
     snprintf(buf, sizeof(buf), "REDUCE FLICKER: %s", onoff_label(state->game_reduce_flicker));
     draw_option_line(y, buf, state->game_sel == flicker_index);
+    y += 16;
+
+    snprintf(buf, sizeof(buf), "FRAMESKIP: %s", frameskip_label(state->game_frameskip_mode));
+    draw_option_line(y, buf, state->game_sel == frameskip_index);
+    y += 16;
+
+    snprintf(buf, sizeof(buf), "FRAMESKIP THRESHOLD: %d", state->game_frameskip_threshold);
+    draw_option_line(y, buf, state->game_sel == threshold_index);
 
     select_menu_pages_draw_footer_line(172, gray);
     select_menu_pages_draw_footer_actions("CHANGE", "BACK", "CLOSE");

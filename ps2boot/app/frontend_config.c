@@ -18,6 +18,8 @@ void frontend_config_init_defaults(void)
     g_frontend_config.game_vsync = 0;
     g_frontend_config.game_reduce_slowdown = 0;
     g_frontend_config.game_reduce_flicker = 0;
+    g_frontend_config.game_frameskip_mode = 0;
+    g_frontend_config.game_frameskip_threshold = 33;
     g_frontend_config_inited = 1;
 }
 
@@ -82,4 +84,22 @@ void frontend_config_set_game_reduce_slowdown(int mode)
 void frontend_config_set_game_reduce_flicker(int enabled)
 {
     g_frontend_config.game_reduce_flicker = enabled ? 1 : 0;
+}
+
+void frontend_config_set_game_frameskip_mode(int mode)
+{
+    if (mode < 0)
+        mode = 0;
+    if (mode > 2)
+        mode = 2;
+    g_frontend_config.game_frameskip_mode = mode;
+}
+
+void frontend_config_set_game_frameskip_threshold(int threshold)
+{
+    if (threshold < 15)
+        threshold = 15;
+    if (threshold > 60)
+        threshold = 60;
+    g_frontend_config.game_frameskip_threshold = threshold;
 }

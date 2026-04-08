@@ -11,6 +11,8 @@ typedef struct {
     int game_vsync;
     int game_reduce_slowdown;
     int game_reduce_flicker;
+    int game_frameskip_mode;
+    int game_frameskip_threshold;
 } frontend_config_t;
 
 void frontend_config_init_defaults(void);
@@ -26,5 +28,7 @@ void frontend_config_set_frame_limit(int mode);
 void frontend_config_set_game_vsync(int enabled);
 void frontend_config_set_game_reduce_slowdown(int mode);
 void frontend_config_set_game_reduce_flicker(int enabled);
+void frontend_config_set_game_frameskip_mode(int mode);
+void frontend_config_set_game_frameskip_threshold(int threshold);
 
 #endif

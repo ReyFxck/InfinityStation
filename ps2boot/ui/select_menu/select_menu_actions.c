@@ -19,7 +19,7 @@ void select_menu_cycle_frame_limit(int dir)
 int select_menu_game_options_count(void)
 {
     const select_menu_state_t *state = select_menu_state_get();
-    return state->show_fps ? 6 : 5;
+    return state->show_fps ? 8 : 7;
 }
 
 void select_menu_actions_init(void)
@@ -47,6 +47,8 @@ void select_menu_actions_open(void)
     state->game_vsync = cfg->game_vsync;
     state->game_reduce_slowdown = cfg->game_reduce_slowdown;
     state->game_reduce_flicker = cfg->game_reduce_flicker;
+    state->game_frameskip_mode = cfg->game_frameskip_mode;
+    state->game_frameskip_threshold = cfg->game_frameskip_threshold;
 
     if (state->game_sel >= select_menu_game_options_count())
         state->game_sel = select_menu_game_options_count() - 1;

@@ -17,6 +17,12 @@ enum {
 };
 
 enum {
+    SELECT_MENU_GAME_FRAMESKIP_DISABLED = 0,
+    SELECT_MENU_GAME_FRAMESKIP_AUTO = 1,
+    SELECT_MENU_GAME_FRAMESKIP_THRESHOLD = 2
+};
+
+enum {
     SELECT_MENU_ACTION_NONE = 0,
     SELECT_MENU_ACTION_RESTART = 1,
     SELECT_MENU_ACTION_OPEN_LAUNCHER = 2
@@ -35,6 +41,8 @@ typedef struct {
     int game_vsync;
     int game_reduce_slowdown;
     int game_reduce_flicker;
+    int game_frameskip_mode;
+    int game_frameskip_threshold;
     int pending_action;
 } select_menu_state_t;
 

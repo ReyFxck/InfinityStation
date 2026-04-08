@@ -130,6 +130,8 @@ void retro_set_environment(retro_environment_t cb)
 
 
 
+static void retro_set_audio_buff_status_cb(void);
+
 static void app_core_set_reduce_slowdown_mode(unsigned mode)
 {
    overclock_cycles = false;
@@ -150,14 +152,37 @@ static void app_core_set_reduce_slowdown_mode(unsigned mode)
    }
 }
 
-void app_core_apply_runtime_options(int reduce_slowdown_mode, int reduce_flicker)
+
+static void app_core_set_frameskip_mode(unsigned mode, unsigned threshold)
+{
+   if (threshold < 15)
+      threshold = 15;
+   if (threshold > 60)
+      threshold = 60;
+
+   frameskip_type = mode;
+   frameskip_threshold = threshold;
+   frameskip_counter = 0;
+
+   retro_set_audio_buff_status_cb();
+}
+
+void app_core_apply_runtime_options(int reduce_slowdown_mode,
+                                    int reduce_flicker,
+                                    int frameskip_mode,
+                                    int frameskip_threshold)
 {
    if (reduce_slowdown_mode < 0 || reduce_slowdown_mode > 2)
       reduce_slowdown_mode = 0;
+   if (frameskip_mode < 0 || frameskip_mode > 2)
+      frameskip_mode = 0;
 
    app_core_set_reduce_slowdown_mode((unsigned)reduce_slowdown_mode);
    reduce_sprite_flicker = reduce_flicker ? true : false;
+   app_core_set_frameskip_mode((unsigned)frameskip_mode,
+                               (unsigned)frameskip_threshold);
 }
+
 
 void retro_set_video_refresh(retro_video_refresh_t cb)
 {
