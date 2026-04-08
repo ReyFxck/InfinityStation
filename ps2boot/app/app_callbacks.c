@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-#include <stdint.h>
 
 #include "libretro.h"
 #include "ps2_video.h"
@@ -25,10 +24,31 @@
 static unsigned g_frame_count = 0;
 static int g_logged_video_cb = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
+static int g_logged_audio_cb = 0;
+static int g_logged_audio_batch_cb = 0;
+static void (*g_audio_buffer_status_cb)(bool, unsigned, bool) = NULL;
 
 static int app_audio_accepts_core_audio(void)
 {
     return app_state_mode() == APP_MODE_GAME;
+}
+
+static void app_audio_report_buffer_status(void)
+{
+    bool active = false;
+    bool underrun_likely = false;
+    unsigned occupancy = 0;
+
+    if (!g_audio_buffer_status_cb)
+        return;
+
+    if (!app_audio_accepts_core_audio()) {
+        g_audio_buffer_status_cb(false, 0, false);
+        return;
+    }
+
+    ps2_audio_get_buffer_status(&active, &occupancy, &underrun_likely);
+    g_audio_buffer_status_cb(active, occupancy, underrun_likely);
 }
 
 static bool environ_cb(unsigned cmd, void *data)
@@ -36,6 +56,18 @@ static bool environ_cb(unsigned cmd, void *data)
     switch (cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
         g_pixel_format = *(const enum retro_pixel_format *)data;
+        return true;
+
+    case RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK:
+        if (!data) {
+            g_audio_buffer_status_cb = NULL;
+            return true;
+        }
+        g_audio_buffer_status_cb =
+            ((const struct retro_audio_buffer_status_callback *)data)->callback;
+        return true;
+
+    case RETRO_ENVIRONMENT_SET_MINIMUM_AUDIO_LATENCY:
         return true;
 
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
@@ -96,9 +128,6 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
         ps2_video_present_rgb565(data, width, height, pitch);
 }
 
-static int g_logged_audio_cb = 0;
-static int g_logged_audio_batch_cb = 0;
-
 static void audio_cb(int16_t left, int16_t right)
 {
     int16_t tmp[2] = { left, right };
@@ -112,10 +141,13 @@ static void audio_cb(int16_t left, int16_t right)
         return;
 
     ps2_audio_push_samples(tmp, 1);
+    app_audio_report_buffer_status();
 }
 
 static size_t audio_batch_cb(const int16_t *data, size_t frames)
 {
+    size_t written;
+
     if (!g_logged_audio_batch_cb) {
         printf("[APPCB] first audio_batch_cb frames=%u\n", (unsigned)frames);
         g_logged_audio_batch_cb = 1;
@@ -124,7 +156,9 @@ static size_t audio_batch_cb(const int16_t *data, size_t frames)
     if (!app_audio_accepts_core_audio())
         return frames;
 
-    return ps2_audio_push_samples(data, frames);
+    written = ps2_audio_push_samples(data, frames);
+    app_audio_report_buffer_status();
+    return written;
 }
 
 static void input_poll_cb(void)

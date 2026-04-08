@@ -120,6 +120,28 @@ static unsigned int ps2_audio_ring_buffered_frames(void)
     return v;
 }
 
+void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underrun_likely)
+{
+    unsigned int buffered = ps2_audio_ring_buffered_frames();
+    unsigned int occ = 0;
+
+    if (SOUND_TOTAL_FRAMES)
+        occ = (buffered * 100U) / SOUND_TOTAL_FRAMES;
+
+    if (occ > 100U)
+        occ = 100U;
+
+    if (active)
+        *active = (g_audio_state == 1) && !g_audio_paused;
+
+    if (occupancy)
+        *occupancy = occ;
+
+    if (underrun_likely)
+        *underrun_likely = (buffered < (BACKEND_FEED_FRAMES * 2));
+}
+
+
 static void ps2_audio_reset_iop(void)
 {
     PS2AUDIO_LOG("[PS2AUDIO] reset IOP begin\n");
