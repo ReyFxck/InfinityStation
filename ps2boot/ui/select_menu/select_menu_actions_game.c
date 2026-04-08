@@ -1,39 +1,67 @@
 #include "select_menu_actions_internal.h"
 #include "frontend_config.h"
+#include "app_core_options.h"
+
+static const frontend_config_t *cfg_get(void)
+{
+    return frontend_config_get();
+}
+
+static void apply_runtime_gameplay_options(void)
+{
+    const frontend_config_t *cfg = cfg_get();
+    app_core_apply_runtime_options(cfg->game_reduce_slowdown,
+                                   cfg->game_reduce_flicker);
+}
+
+static void cycle_reduce_slowdown(select_menu_state_t *state, int dir)
+{
+    state->game_reduce_slowdown = select_menu_wrap_index(
+        state->game_reduce_slowdown + dir, 3);
+    frontend_config_set_game_reduce_slowdown(state->game_reduce_slowdown);
+    apply_runtime_gameplay_options();
+}
+
+static void toggle_reduce_flicker(select_menu_state_t *state)
+{
+    state->game_reduce_flicker = !state->game_reduce_flicker;
+    frontend_config_set_game_reduce_flicker(state->game_reduce_flicker);
+    apply_runtime_gameplay_options();
+}
 
 void select_menu_actions_handle_game(uint32_t pressed)
 {
     select_menu_state_t *state = select_menu_state_mut();
     int count = select_menu_game_options_count();
+    int rainbow_index = 1;
     int vsync_index = state->show_fps ? 2 : 1;
     int frame_index = state->show_fps ? 3 : 2;
+    int slowdown_index = state->show_fps ? 4 : 3;
+    int flicker_index = state->show_fps ? 5 : 4;
+    int activate = (pressed & PAD_LEFT) || (pressed & PAD_RIGHT) ||
+                   (pressed & PAD_START) || (pressed & PAD_CROSS);
 
     if (pressed & PAD_UP)
         state->game_sel = select_menu_wrap_index(state->game_sel - 1, count);
-
     if (pressed & PAD_DOWN)
         state->game_sel = select_menu_wrap_index(state->game_sel + 1, count);
 
     if (state->game_sel == 0) {
-        if ((pressed & PAD_LEFT) || (pressed & PAD_RIGHT) ||
-            (pressed & PAD_START) || (pressed & PAD_CROSS)) {
+        if (activate) {
             state->show_fps = !state->show_fps;
             state->fps_rainbow = state->show_fps ? state->fps_rainbow : 0;
             frontend_config_set_show_fps(state->show_fps);
             frontend_config_set_fps_rainbow(state->fps_rainbow);
-
             if (state->game_sel >= select_menu_game_options_count())
                 state->game_sel = select_menu_game_options_count() - 1;
         }
-    } else if (state->show_fps && state->game_sel == 1) {
-        if ((pressed & PAD_LEFT) || (pressed & PAD_RIGHT) ||
-            (pressed & PAD_START) || (pressed & PAD_CROSS)) {
+    } else if (state->show_fps && state->game_sel == rainbow_index) {
+        if (activate) {
             state->fps_rainbow = !state->fps_rainbow;
             frontend_config_set_fps_rainbow(state->fps_rainbow);
         }
     } else if (state->game_sel == vsync_index) {
-        if ((pressed & PAD_LEFT) || (pressed & PAD_RIGHT) ||
-            (pressed & PAD_START) || (pressed & PAD_CROSS)) {
+        if (activate) {
             state->game_vsync = !state->game_vsync;
             frontend_config_set_game_vsync(state->game_vsync);
         }
@@ -44,6 +72,17 @@ void select_menu_actions_handle_game(uint32_t pressed)
             select_menu_cycle_frame_limit(1);
         if ((pressed & PAD_START) || (pressed & PAD_CROSS))
             select_menu_cycle_frame_limit(1);
+        frontend_config_set_frame_limit(state->frame_limit);
+    } else if (state->game_sel == slowdown_index) {
+        if (pressed & PAD_LEFT)
+            cycle_reduce_slowdown(state, -1);
+        if (pressed & PAD_RIGHT)
+            cycle_reduce_slowdown(state, 1);
+        if ((pressed & PAD_START) || (pressed & PAD_CROSS))
+            cycle_reduce_slowdown(state, 1);
+    } else if (state->game_sel == flicker_index) {
+        if (activate)
+            toggle_reduce_flicker(state);
     }
 
     if (pressed & PAD_CIRCLE)

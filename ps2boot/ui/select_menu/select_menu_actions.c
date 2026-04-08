@@ -14,30 +14,17 @@ void select_menu_cycle_frame_limit(int dir)
 {
     select_menu_state_t *state = select_menu_state_mut();
     state->frame_limit = select_menu_wrap_index(state->frame_limit + dir, 4);
-    frontend_config_set_frame_limit(state->frame_limit);
 }
 
 int select_menu_game_options_count(void)
 {
     const select_menu_state_t *state = select_menu_state_get();
-    return state->show_fps ? 4 : 3;
+    return state->show_fps ? 6 : 5;
 }
 
 void select_menu_actions_init(void)
 {
-    select_menu_state_t *state;
-    const frontend_config_t *cfg;
-
-    frontend_config_init_defaults();
     select_menu_state_reset();
-
-    state = select_menu_state_mut();
-    cfg = frontend_config_get();
-
-    state->show_fps = cfg->show_fps;
-    state->fps_rainbow = cfg->fps_rainbow;
-    state->frame_limit = cfg->frame_limit;
-    state->game_vsync = cfg->game_vsync;
 }
 
 int select_menu_actions_is_open(void)
@@ -48,9 +35,23 @@ int select_menu_actions_is_open(void)
 void select_menu_actions_open(void)
 {
     select_menu_state_t *state = select_menu_state_mut();
+    const frontend_config_t *cfg = frontend_config_get();
+
     state->open = 1;
     state->page = SELECT_MENU_PAGE_MAIN;
     state->pending_action = SELECT_MENU_ACTION_NONE;
+
+    state->show_fps = cfg->show_fps;
+    state->fps_rainbow = cfg->fps_rainbow;
+    state->frame_limit = cfg->frame_limit;
+    state->game_vsync = cfg->game_vsync;
+    state->game_reduce_slowdown = cfg->game_reduce_slowdown;
+    state->game_reduce_flicker = cfg->game_reduce_flicker;
+
+    if (state->game_sel >= select_menu_game_options_count())
+        state->game_sel = select_menu_game_options_count() - 1;
+    if (state->game_sel < 0)
+        state->game_sel = 0;
 }
 
 void select_menu_actions_close(void)

@@ -14,6 +14,8 @@ void select_menu_state_reset(void)
     g_select_menu_state.fps_rainbow = 0;
     g_select_menu_state.frame_limit = SELECT_MENU_FRAME_LIMIT_OFF;
     g_select_menu_state.game_vsync = 0;
+    g_select_menu_state.game_reduce_slowdown = 0;
+    g_select_menu_state.game_reduce_flicker = 0;
     g_select_menu_state.pending_action = SELECT_MENU_ACTION_NONE;
 }
 

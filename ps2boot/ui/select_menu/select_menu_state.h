@@ -33,6 +33,8 @@ typedef struct {
     int fps_rainbow;
     int frame_limit;
     int game_vsync;
+    int game_reduce_slowdown;
+    int game_reduce_flicker;
     int pending_action;
 } select_menu_state_t;
 

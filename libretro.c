@@ -25,6 +25,7 @@
 #endif
 
 #include "libretro_core_options.h"
+#include "app_core_options.h"
 
 #ifdef _3DS
 void* linearMemAlign(size_t size, size_t alignment);
@@ -125,6 +126,37 @@ void retro_set_environment(retro_environment_t cb)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VFS_INTERFACE, &vfs_iface_info))
       filestream_vfs_init(&vfs_iface_info);
 #endif
+}
+
+
+
+static void app_core_set_reduce_slowdown_mode(unsigned mode)
+{
+   overclock_cycles = false;
+
+   if (mode == 1)
+   {
+      overclock_cycles = true;
+      one_c = 4;
+      slow_one_c = 5;
+      two_c = 6;
+   }
+   else if (mode == 2)
+   {
+      overclock_cycles = true;
+      one_c = 3;
+      slow_one_c = 3;
+      two_c = 3;
+   }
+}
+
+void app_core_apply_runtime_options(int reduce_slowdown_mode, int reduce_flicker)
+{
+   if (reduce_slowdown_mode < 0 || reduce_slowdown_mode > 2)
+      reduce_slowdown_mode = 0;
+
+   app_core_set_reduce_slowdown_mode((unsigned)reduce_slowdown_mode);
+   reduce_sprite_flicker = reduce_flicker ? true : false;
 }
 
 void retro_set_video_refresh(retro_video_refresh_t cb)

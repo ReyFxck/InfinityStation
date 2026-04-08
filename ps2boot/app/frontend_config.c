@@ -1,5 +1,4 @@
 #include "frontend_config.h"
-
 #include "ps2_video.h"
 
 static frontend_config_t g_frontend_config;
@@ -17,7 +16,8 @@ void frontend_config_init_defaults(void)
     g_frontend_config.fps_rainbow = 0;
     g_frontend_config.frame_limit = 3; /* SELECT_MENU_FRAME_LIMIT_OFF */
     g_frontend_config.game_vsync = 0;
-
+    g_frontend_config.game_reduce_slowdown = 0;
+    g_frontend_config.game_reduce_flicker = 0;
     g_frontend_config_inited = 1;
 }
 
@@ -68,4 +68,18 @@ void frontend_config_set_frame_limit(int mode)
 void frontend_config_set_game_vsync(int enabled)
 {
     g_frontend_config.game_vsync = enabled ? 1 : 0;
+}
+
+void frontend_config_set_game_reduce_slowdown(int mode)
+{
+    if (mode < 0)
+        mode = 0;
+    if (mode > 2)
+        mode = 2;
+    g_frontend_config.game_reduce_slowdown = mode;
+}
+
+void frontend_config_set_game_reduce_flicker(int enabled)
+{
+    g_frontend_config.game_reduce_flicker = enabled ? 1 : 0;
 }

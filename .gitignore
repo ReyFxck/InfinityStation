@@ -56,3 +56,11 @@ ps2boot/ui/assets/launcher_logo_rgba
 ps2boot/tools/*.iso
 ps2boot/tools/boot_iso_root/
 ps2boot/tools/disc_root/
+<<<<<<< Updated upstream
+=======
+ps2boot/ui/assets/launcher_logo_rgba
+
+dist/
+ps2boot/*.elf
+*.iso
+>>>>>>> Stashed changes
