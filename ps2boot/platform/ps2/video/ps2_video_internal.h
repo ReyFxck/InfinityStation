@@ -20,6 +20,8 @@
 #define PS2_VIDEO_TEX_WIDTH   512u
 #define PS2_VIDEO_TEX_HEIGHT  256u
 #define PS2_VIDEO_TEX_PIXELS  (PS2_VIDEO_TEX_WIDTH * PS2_VIDEO_TEX_HEIGHT)
+#define PS2_VIDEO_UPLOAD_256_WIDTH 256u
+#define PS2_VIDEO_UPLOAD_256_PIXELS (PS2_VIDEO_UPLOAD_256_WIDTH * PS2_VIDEO_TEX_HEIGHT)
 
 static inline int clamp_int(int v, int lo, int hi)
 {
@@ -42,6 +44,7 @@ extern packet_t *g_draw_packet;
 
 extern uint16_t g_upload[PS2_VIDEO_TEX_PIXELS];
 extern uint16_t g_frame_base[PS2_VIDEO_TEX_PIXELS];
+extern uint16_t g_upload_256[PS2_VIDEO_UPLOAD_256_PIXELS];
 extern uint16_t g_rgb565_lut[65536];
 
 extern char g_dbg1[48];

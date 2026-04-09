@@ -31,8 +31,9 @@ static inline void ps2_video_convert_rgb565_linear(
         *dst++ = lut[*src++];
 }
 
-static inline void ps2_video_convert_rgb565_pitched(
-    const uint8_t *src_bytes, unsigned width, unsigned height, size_t pitch, uint16_t *dst_base
+static inline void ps2_video_convert_rgb565_pitched_stride(
+    const uint8_t *src_bytes, unsigned width, unsigned height, size_t pitch,
+    uint16_t *dst_base, unsigned dst_stride
 )
 {
     const uint16_t *lut = g_rgb565_lut;
@@ -40,7 +41,7 @@ static inline void ps2_video_convert_rgb565_pitched(
 
     for (y = 0; y < height; y++) {
         const uint16_t *src = (const uint16_t *)(src_bytes + (y * pitch));
-        uint16_t *dst = dst_base + (y * PS2_VIDEO_TEX_WIDTH);
+        uint16_t *dst = dst_base + (y * dst_stride);
         unsigned x = 0;
 
         for (; x + 4u <= width; x += 4u) {
@@ -54,6 +55,28 @@ static inline void ps2_video_convert_rgb565_pitched(
 
         for (; x < width; x++)
             *dst++ = lut[*src++];
+    }
+}
+
+static inline void ps2_video_convert_rgb565_pitched(
+    const uint8_t *src_bytes, unsigned width, unsigned height, size_t pitch, uint16_t *dst_base
+)
+{
+    ps2_video_convert_rgb565_pitched_stride(
+        src_bytes, width, height, pitch, dst_base, PS2_VIDEO_TEX_WIDTH
+    );
+}
+
+static inline void ps2_video_pack_256_from_staging(unsigned width, unsigned height)
+{
+    unsigned y;
+
+    for (y = 0; y < height; y++) {
+        memcpy(
+            &g_upload_256[y * PS2_VIDEO_UPLOAD_256_WIDTH],
+            &g_upload[y * PS2_VIDEO_TEX_WIDTH],
+            width * sizeof(uint16_t)
+        );
     }
 }
 
@@ -182,58 +205,29 @@ int ps2_video_init_once(void)
     return 1;
 }
 
-void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
-{
-    const uint8_t *src = (const uint8_t *)data;
-
-    if (!g_video_ready || !data || width == 0 || height == 0)
-        return;
-
-    if (width > PS2_VIDEO_TEX_WIDTH) width = PS2_VIDEO_TEX_WIDTH;
-    if (height > PS2_VIDEO_TEX_HEIGHT) height = PS2_VIDEO_TEX_HEIGHT;
-
-    memset(g_upload, 0, sizeof(g_upload));
-
-    if (width == PS2_VIDEO_TEX_WIDTH && pitch == (PS2_VIDEO_TEX_WIDTH * sizeof(uint16_t)))
-        ps2_video_convert_rgb565_linear((const uint16_t *)src, g_upload, width * height);
-    else
-        ps2_video_convert_rgb565_pitched(src, width, height, pitch, g_upload);
-
-    dbg_overlay();
-    ps2_video_upload_and_draw_bound(width, height, select_menu_actions_game_vsync_enabled());
-}
-
-void ps2_video_present_ui_fixed_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
-{
-    const uint8_t *src = (const uint8_t *)data;
-
-    if (!g_video_ready || !data || width == 0 || height == 0)
-        return;
-
-    if (width > PS2_LAUNCHER_WIDTH)
-        width = PS2_LAUNCHER_WIDTH;
-
-    if (height > PS2_LAUNCHER_HEIGHT)
-        height = PS2_LAUNCHER_HEIGHT;
-
-    memset(g_upload, 0, sizeof(g_upload));
-    ps2_video_convert_rgb565_pitched(src, width, height, pitch, g_upload);
-    ps2_video_upload_and_draw_bound(width, height, 0);
-}
-
-void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync)
+static void ps2_video_upload_and_draw_source(
+    const uint16_t *upload,
+    unsigned upload_width,
+    unsigned upload_height,
+    unsigned width,
+    unsigned height,
+    int wait_vsync
+)
 {
     qword_t *q;
     texrect_t rect;
     float x0, y0, x1, y1;
+    unsigned upload_bytes = upload_width * upload_height * sizeof(uint16_t);
 
     ps2_video_get_target_rect(&x0, &y0, &x1, &y1);
 
     dma_wait_fast();
-    SyncDCache(g_upload, (void *)((unsigned char *)g_upload + sizeof(g_upload)));
+    SyncDCache((void *)upload, (void *)((const unsigned char *)upload + upload_bytes));
 
     q = g_tex_packet->data;
-    q = draw_texture_transfer(q, g_upload, PS2_VIDEO_TEX_WIDTH, PS2_VIDEO_TEX_HEIGHT, GS_PSM_16, g_tex.address, g_tex.width);
+    q = draw_texture_transfer(
+        q, upload, upload_width, upload_height, GS_PSM_16, g_tex.address, g_tex.width
+    );
     q = draw_texture_flush(q);
     dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
     dma_wait_fast();
@@ -272,4 +266,88 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
 
     dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
     draw_wait_finish();
+}
+
+void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
+{
+    const uint8_t *src = (const uint8_t *)data;
+    int wait_vsync;
+
+    if (!g_video_ready || !data || width == 0 || height == 0)
+        return;
+
+    if (width > PS2_VIDEO_TEX_WIDTH)
+        width = PS2_VIDEO_TEX_WIDTH;
+
+    if (height > PS2_VIDEO_TEX_HEIGHT)
+        height = PS2_VIDEO_TEX_HEIGHT;
+
+    if (width == PS2_VIDEO_TEX_WIDTH && pitch == (PS2_VIDEO_TEX_WIDTH * sizeof(uint16_t)))
+        ps2_video_convert_rgb565_linear((const uint16_t *)src, g_upload, width * height);
+    else
+        ps2_video_convert_rgb565_pitched(src, width, height, pitch, g_upload);
+
+    dbg_overlay();
+    wait_vsync = select_menu_actions_game_vsync_enabled();
+
+    if (width <= PS2_VIDEO_UPLOAD_256_WIDTH) {
+        ps2_video_pack_256_from_staging(width, height);
+        ps2_video_upload_and_draw_source(
+            g_upload_256,
+            PS2_VIDEO_UPLOAD_256_WIDTH,
+            height,
+            width,
+            height,
+            wait_vsync
+        );
+        return;
+    }
+
+    ps2_video_upload_and_draw_source(
+        g_upload,
+        PS2_VIDEO_TEX_WIDTH,
+        height,
+        width,
+        height,
+        wait_vsync
+    );
+}
+
+void ps2_video_present_ui_fixed_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
+{
+    const uint8_t *src = (const uint8_t *)data;
+
+    if (!g_video_ready || !data || width == 0 || height == 0)
+        return;
+
+    if (width > PS2_VIDEO_UPLOAD_256_WIDTH)
+        width = PS2_VIDEO_UPLOAD_256_WIDTH;
+
+    if (height > PS2_VIDEO_TEX_HEIGHT)
+        height = PS2_VIDEO_TEX_HEIGHT;
+
+    ps2_video_convert_rgb565_pitched_stride(
+        src, width, height, pitch, g_upload_256, PS2_VIDEO_UPLOAD_256_WIDTH
+    );
+
+    ps2_video_upload_and_draw_source(
+        g_upload_256,
+        PS2_VIDEO_UPLOAD_256_WIDTH,
+        height,
+        width,
+        height,
+        0
+    );
+}
+
+void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync)
+{
+    ps2_video_upload_and_draw_source(
+        g_upload,
+        PS2_VIDEO_TEX_WIDTH,
+        PS2_VIDEO_TEX_HEIGHT,
+        width,
+        height,
+        wait_vsync
+    );
 }
