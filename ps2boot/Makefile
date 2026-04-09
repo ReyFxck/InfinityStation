@@ -172,6 +172,13 @@ HOT_CORE_OBJS = \
 
 $(HOT_CORE_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
+HOT_FRONTEND_OBJS = \
+	platform/ps2/ps2_video_core.o \
+	app/app_callbacks.o \
+	app/app_overlay.o
+
+$(HOT_FRONTEND_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
+
 EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lmc -lpatches -liopreboot -laudsrv -lcdvd
 
 EXTRA_TARGETS = $(EE_BIN)

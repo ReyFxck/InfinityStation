@@ -1,6 +1,52 @@
 #include "ps2_video_internal.h"
 #include <kernel.h>
 
+static inline void ps2_video_convert_rgb565_linear(
+    const uint16_t *src, uint16_t *dst, unsigned count
+)
+{
+    const uint16_t *lut = g_rgb565_lut;
+    unsigned i = 0;
+
+    for (; i + 4u <= count; i += 4u) {
+        dst[0] = lut[src[0]];
+        dst[1] = lut[src[1]];
+        dst[2] = lut[src[2]];
+        dst[3] = lut[src[3]];
+        src += 4;
+        dst += 4;
+    }
+
+    for (; i < count; i++)
+        *dst++ = lut[*src++];
+}
+
+static inline void ps2_video_convert_rgb565_pitched(
+    const uint8_t *src_bytes, unsigned width, unsigned height, size_t pitch, uint16_t *dst_base
+)
+{
+    const uint16_t *lut = g_rgb565_lut;
+    unsigned y;
+
+    for (y = 0; y < height; y++) {
+        const uint16_t *src = (const uint16_t *)(src_bytes + (y * pitch));
+        uint16_t *dst = dst_base + (y * 256u);
+        unsigned x = 0;
+
+        for (; x + 4u <= width; x += 4u) {
+            dst[0] = lut[src[0]];
+            dst[1] = lut[src[1]];
+            dst[2] = lut[src[2]];
+            dst[3] = lut[src[3]];
+            src += 4;
+            dst += 4;
+        }
+
+        for (; x < width; x++)
+            *dst++ = lut[*src++];
+    }
+}
+
 void ps2_video_apply_display_offset(void)
 {
     graph_set_screen(g_video_off_x, g_video_off_y, g_frame.width, g_frame.height);
@@ -97,7 +143,6 @@ int ps2_video_init_once(void)
 void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
 {
     const uint8_t *src = (const uint8_t *)data;
-    unsigned y;
 
     if (!g_video_ready || !data || width == 0 || height == 0)
         return;
@@ -110,15 +155,10 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
     if (width < 256 || height < 224)
         memset(g_upload, 0, sizeof(g_upload));
 
-    for (y = 0; y < height; y++) {
-        const uint16_t *line = (const uint16_t *)(src + (y * pitch));
-        uint16_t *dst = &g_upload[y * 256];
-        unsigned x;
-
-        for (x = 0; x < width; x++) {
-            dst[x] = g_rgb565_lut[line[x]];
-        }
-    }
+    if (width == 256u && pitch == (256u * sizeof(uint16_t)))
+        ps2_video_convert_rgb565_linear((const uint16_t *)src, g_upload, width * height);
+    else
+        ps2_video_convert_rgb565_pitched(src, width, height, pitch, g_upload);
 
     /* PERF TEST: memcpy extra removido */
 
