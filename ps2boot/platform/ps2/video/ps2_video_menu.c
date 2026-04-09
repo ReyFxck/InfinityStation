@@ -5,7 +5,7 @@ void ps2_video_menu_put_pixel_store(unsigned x, unsigned y, uint16_t color)
     if (x >= 256 || y >= 224)
         return;
 
-    g_upload[y * 256 + x] = ps2_video_convert_rgb565(color);
+    g_upload[y * PS2_VIDEO_TEX_WIDTH + x] = ps2_video_convert_rgb565(color);
 }
 
 void ps2_video_menu_put_pixel_raw(unsigned x, unsigned y, uint16_t color)
@@ -13,7 +13,7 @@ void ps2_video_menu_put_pixel_raw(unsigned x, unsigned y, uint16_t color)
     if (x >= 256 || y >= 224)
         return;
 
-    g_upload[y * 256 + x] = color;
+    g_upload[y * PS2_VIDEO_TEX_WIDTH + x] = color;
 }
 
 void ps2_video_menu_put_pixel(unsigned x, unsigned y, uint16_t color)
@@ -121,5 +121,5 @@ uint16_t ps2_video_menu_get_pixel(unsigned x, unsigned y)
     if (x >= 256 || y >= 224)
         return 0;
 
-    return g_upload[y * 256 + x];
+    return g_upload[y * PS2_VIDEO_TEX_WIDTH + x];
 }

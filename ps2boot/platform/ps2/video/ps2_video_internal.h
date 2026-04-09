@@ -17,6 +17,10 @@
 
 #define VIDEO_WAIT_VSYNC 1
 
+#define PS2_VIDEO_TEX_WIDTH   512u
+#define PS2_VIDEO_TEX_HEIGHT  256u
+#define PS2_VIDEO_TEX_PIXELS  (PS2_VIDEO_TEX_WIDTH * PS2_VIDEO_TEX_HEIGHT)
+
 static inline int clamp_int(int v, int lo, int hi)
 {
     if (v < lo) return lo;
@@ -36,8 +40,8 @@ extern texbuffer_t g_tex;
 extern packet_t *g_tex_packet;
 extern packet_t *g_draw_packet;
 
-extern uint16_t g_upload[256 * 224];
-extern uint16_t g_frame_base[256 * 224];
+extern uint16_t g_upload[PS2_VIDEO_TEX_PIXELS];
+extern uint16_t g_frame_base[PS2_VIDEO_TEX_PIXELS];
 extern uint16_t g_rgb565_lut[65536];
 
 extern char g_dbg1[48];
@@ -52,6 +56,7 @@ int select_menu_actions_game_vsync_enabled(void);
 
 void ps2_video_build_lut(void);
 void ps2_video_apply_display_offset(void);
+void ps2_video_present_ui_fixed_rgb565(const void *data, unsigned width, unsigned height, size_t pitch);
 void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync);
 
 void dbg_overlay(void);

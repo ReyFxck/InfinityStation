@@ -12,8 +12,8 @@ texbuffer_t g_tex;
 packet_t *g_tex_packet = 0;
 packet_t *g_draw_packet = 0;
 
-uint16_t g_upload[256 * 224] __attribute__((aligned(64)));
-uint16_t g_frame_base[256 * 224] __attribute__((aligned(64)));
+uint16_t g_upload[PS2_VIDEO_TEX_PIXELS] __attribute__((aligned(64)));
+uint16_t g_frame_base[PS2_VIDEO_TEX_PIXELS] __attribute__((aligned(64)));
 uint16_t g_rgb565_lut[65536] __attribute__((aligned(64)));
 
 char g_dbg1[48] = "";

@@ -25,7 +25,7 @@ void menu_tint_blue(void)
 {
     unsigned i;
 
-    for (i = 0; i < 256u * 224u; i++) {
+    for (i = 0; i < PS2_VIDEO_TEX_PIXELS; i++) {
         uint16_t c = g_upload[i];
         uint16_t r =  c        & 0x1f;
         uint16_t g = (c >> 5)  & 0x1f;

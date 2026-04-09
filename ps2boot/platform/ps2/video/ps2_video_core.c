@@ -40,7 +40,7 @@ static inline void ps2_video_convert_rgb565_pitched(
 
     for (y = 0; y < height; y++) {
         const uint16_t *src = (const uint16_t *)(src_bytes + (y * pitch));
-        uint16_t *dst = dst_base + (y * 256u);
+        uint16_t *dst = dst_base + (y * PS2_VIDEO_TEX_WIDTH);
         unsigned x = 0;
 
         for (; x + 4u <= width; x += 4u) {
@@ -120,11 +120,11 @@ int ps2_video_init_once(void)
     memset(&g_z, 0, sizeof(g_z));
     g_z.enable = DRAW_DISABLE;
 
-    g_tex.width = 256;
+    g_tex.width = PS2_VIDEO_TEX_WIDTH;
     g_tex.psm = GS_PSM_16;
-    g_tex.address = graph_vram_allocate(256, 256, GS_PSM_16, GRAPH_ALIGN_BLOCK);
-    g_tex.info.width = draw_log2(256);
-    g_tex.info.height = draw_log2(256);
+    g_tex.address = graph_vram_allocate(PS2_VIDEO_TEX_WIDTH, PS2_VIDEO_TEX_HEIGHT, GS_PSM_16, GRAPH_ALIGN_BLOCK);
+    g_tex.info.width = draw_log2(PS2_VIDEO_TEX_WIDTH);
+    g_tex.info.height = draw_log2(PS2_VIDEO_TEX_HEIGHT);
     g_tex.info.components = TEXTURE_COMPONENTS_RGB;
     g_tex.info.function = TEXTURE_FUNCTION_DECAL;
 
@@ -172,7 +172,7 @@ int ps2_video_init_once(void)
     dma_wait_fast();
     packet_free(packet);
 
-    g_tex_packet = packet_init((((256u * 224u * 2u) + 15u) / 16u) + 256u, PACKET_NORMAL);
+    g_tex_packet = packet_init(((((PS2_VIDEO_TEX_WIDTH * PS2_VIDEO_TEX_HEIGHT * 2u) + 15u) / 16u) + 256u), PACKET_NORMAL);
     g_draw_packet = packet_init(1024, PACKET_NORMAL);
 
     if (!g_tex_packet || !g_draw_packet)
@@ -189,21 +189,36 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
     if (!g_video_ready || !data || width == 0 || height == 0)
         return;
 
-    if (width > 256)
-        width = 256;
-    if (height > 224)
-        height = 224;
+    if (width > PS2_VIDEO_TEX_WIDTH) width = PS2_VIDEO_TEX_WIDTH;
+    if (height > PS2_VIDEO_TEX_HEIGHT) height = PS2_VIDEO_TEX_HEIGHT;
 
-    if (width < 256 || height < 224)
-        memset(g_upload, 0, sizeof(g_upload));
+    memset(g_upload, 0, sizeof(g_upload));
 
-    if (width == 256u && pitch == (256u * sizeof(uint16_t)))
+    if (width == PS2_VIDEO_TEX_WIDTH && pitch == (PS2_VIDEO_TEX_WIDTH * sizeof(uint16_t)))
         ps2_video_convert_rgb565_linear((const uint16_t *)src, g_upload, width * height);
     else
         ps2_video_convert_rgb565_pitched(src, width, height, pitch, g_upload);
 
     dbg_overlay();
     ps2_video_upload_and_draw_bound(width, height, select_menu_actions_game_vsync_enabled());
+}
+
+void ps2_video_present_ui_fixed_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
+{
+    const uint8_t *src = (const uint8_t *)data;
+
+    if (!g_video_ready || !data || width == 0 || height == 0)
+        return;
+
+    if (width > PS2_LAUNCHER_WIDTH)
+        width = PS2_LAUNCHER_WIDTH;
+
+    if (height > PS2_LAUNCHER_HEIGHT)
+        height = PS2_LAUNCHER_HEIGHT;
+
+    memset(g_upload, 0, sizeof(g_upload));
+    ps2_video_convert_rgb565_pitched(src, width, height, pitch, g_upload);
+    ps2_video_upload_and_draw_bound(width, height, 0);
 }
 
 void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync)
@@ -218,7 +233,7 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
     SyncDCache(g_upload, (void *)((unsigned char *)g_upload + sizeof(g_upload)));
 
     q = g_tex_packet->data;
-    q = draw_texture_transfer(q, g_upload, 256, 224, GS_PSM_16, g_tex.address, g_tex.width);
+    q = draw_texture_transfer(q, g_upload, PS2_VIDEO_TEX_WIDTH, PS2_VIDEO_TEX_HEIGHT, GS_PSM_16, g_tex.address, g_tex.width);
     q = draw_texture_flush(q);
     dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
     dma_wait_fast();
