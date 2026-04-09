@@ -1,6 +1,16 @@
 #include "ps2_video_internal.h"
 #include <kernel.h>
 
+static lod_t g_lod_nearest;
+static clutbuffer_t g_clut_none;
+
+static const float g_aspect_rects[][4] = {
+    { 64.0f,  0.0f, 576.0f, 448.0f }, /* PS2_ASPECT_4_3  */
+    {  0.0f, 44.0f, 640.0f, 404.0f }, /* PS2_ASPECT_16_9 */
+    {  0.0f,  0.0f, 640.0f, 448.0f }, /* PS2_ASPECT_FULL */
+    { 96.0f, 28.0f, 544.0f, 420.0f }  /* PS2_ASPECT_PIXEL */
+};
+
 static inline void ps2_video_convert_rgb565_linear(
     const uint16_t *src, uint16_t *dst, unsigned count
 )
@@ -47,6 +57,40 @@ static inline void ps2_video_convert_rgb565_pitched(
     }
 }
 
+static inline void ps2_video_get_target_rect(float *x0, float *y0, float *x1, float *y1)
+{
+    unsigned mode = (unsigned)g_aspect_mode;
+
+    if (mode > PS2_ASPECT_PIXEL)
+        mode = PS2_ASPECT_4_3;
+
+    *x0 = g_aspect_rects[mode][0];
+    *y0 = g_aspect_rects[mode][1];
+    *x1 = g_aspect_rects[mode][2];
+    *y1 = g_aspect_rects[mode][3];
+}
+
+static inline qword_t *ps2_video_clear_bands(
+    qword_t *q, float x0, float y0, float x1, float y1
+)
+{
+    if (x0 > 0.0f)
+        q = draw_clear(q, 0, 0.0f, 0.0f, x0, (float)g_frame.height, 0, 0, 0);
+
+    if (x1 < (float)g_frame.width)
+        q = draw_clear(
+            q, 0, x1, 0.0f, (float)g_frame.width, (float)g_frame.height, 0, 0, 0
+        );
+
+    if (y0 > 0.0f)
+        q = draw_clear(q, 0, x0, 0.0f, x1, y0, 0, 0, 0);
+
+    if (y1 < (float)g_frame.height)
+        q = draw_clear(q, 0, x0, y1, x1, (float)g_frame.height, 0, 0, 0);
+
+    return q;
+}
+
 void ps2_video_apply_display_offset(void)
 {
     graph_set_screen(g_video_off_x, g_video_off_y, g_frame.width, g_frame.height);
@@ -56,8 +100,6 @@ int ps2_video_init_once(void)
 {
     packet_t *packet;
     qword_t *q;
-    lod_t lod;
-    clutbuffer_t clut;
 
     if (g_video_ready)
         return 1;
@@ -86,6 +128,18 @@ int ps2_video_init_once(void)
     g_tex.info.components = TEXTURE_COMPONENTS_RGB;
     g_tex.info.function = TEXTURE_FUNCTION_DECAL;
 
+    memset(&g_lod_nearest, 0, sizeof(g_lod_nearest));
+    g_lod_nearest.calculation = LOD_USE_K;
+    g_lod_nearest.max_level = 0;
+    g_lod_nearest.mag_filter = LOD_MAG_NEAREST;
+    g_lod_nearest.min_filter = LOD_MIN_NEAREST;
+    g_lod_nearest.l = 0;
+    g_lod_nearest.k = 0.0f;
+
+    memset(&g_clut_none, 0, sizeof(g_clut_none));
+    g_clut_none.storage_mode = CLUT_STORAGE_MODE1;
+    g_clut_none.load_method = CLUT_NO_LOAD;
+
     graph_initialize(
         g_frame.address, g_frame.width, g_frame.height, g_frame.psm, 0, 0
     );
@@ -105,25 +159,13 @@ int ps2_video_init_once(void)
     dma_wait_fast();
     packet_free(packet);
 
-    memset(&lod, 0, sizeof(lod));
-    lod.calculation = LOD_USE_K;
-    lod.max_level = 0;
-    lod.mag_filter = LOD_MAG_NEAREST;
-    lod.min_filter = LOD_MIN_NEAREST;
-    lod.l = 0;
-    lod.k = 0.0f;
-
-    memset(&clut, 0, sizeof(clut));
-    clut.storage_mode = CLUT_STORAGE_MODE1;
-    clut.load_method = CLUT_NO_LOAD;
-
     packet = packet_init(16, PACKET_NORMAL);
     if (!packet)
         return 0;
 
     q = packet->data;
-    q = draw_texture_sampling(q, 0, &lod);
-    q = draw_texturebuffer(q, 0, &g_tex, &clut);
+    q = draw_texture_sampling(q, 0, &g_lod_nearest);
+    q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
     q = draw_finish(q);
 
     dma_channel_send_normal(DMA_CHANNEL_GIF, packet->data, q - packet->data, 0, 0);
@@ -131,7 +173,7 @@ int ps2_video_init_once(void)
     packet_free(packet);
 
     g_tex_packet = packet_init((((256u * 224u * 2u) + 15u) / 16u) + 256u, PACKET_NORMAL);
-    g_draw_packet = packet_init(512, PACKET_NORMAL);
+    g_draw_packet = packet_init(1024, PACKET_NORMAL);
 
     if (!g_tex_packet || !g_draw_packet)
         return 0;
@@ -160,8 +202,6 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
     else
         ps2_video_convert_rgb565_pitched(src, width, height, pitch, g_upload);
 
-    /* PERF TEST: memcpy extra removido */
-
     dbg_overlay();
     ps2_video_upload_and_draw_bound(width, height, select_menu_actions_game_vsync_enabled());
 }
@@ -171,8 +211,8 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
     qword_t *q;
     texrect_t rect;
     float x0, y0, x1, y1;
-    lod_t lod;
-    clutbuffer_t clut;
+
+    ps2_video_get_target_rect(&x0, &y0, &x1, &y1);
 
     dma_wait_fast();
     SyncDCache(g_upload, (void *)((unsigned char *)g_upload + sizeof(g_upload)));
@@ -182,37 +222,6 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
     q = draw_texture_flush(q);
     dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
     dma_wait_fast();
-
-    switch (g_aspect_mode) {
-        case PS2_ASPECT_16_9:
-            x0 = 0.0f;
-            y0 = 44.0f;
-            x1 = 640.0f;
-            y1 = 404.0f;
-            break;
-
-        case PS2_ASPECT_FULL:
-            x0 = 0.0f;
-            y0 = 0.0f;
-            x1 = 640.0f;
-            y1 = 448.0f;
-            break;
-
-        case PS2_ASPECT_PIXEL:
-            x0 = 96.0f;
-            y0 = 28.0f;
-            x1 = 544.0f;
-            y1 = 420.0f;
-            break;
-
-        case PS2_ASPECT_4_3:
-        default:
-            x0 = 64.0f;
-            y0 = 0.0f;
-            x1 = 576.0f;
-            y1 = 448.0f;
-            break;
-    }
 
     memset(&rect, 0, sizeof(rect));
 
@@ -235,23 +244,11 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
     rect.color.a = 0x80;
     rect.color.q = 1.0f;
 
-    memset(&lod, 0, sizeof(lod));
-    lod.calculation = LOD_USE_K;
-    lod.max_level = 0;
-    lod.mag_filter = LOD_MAG_NEAREST;
-    lod.min_filter = LOD_MIN_NEAREST;
-    lod.l = 0;
-    lod.k = 0.0f;
-
-    memset(&clut, 0, sizeof(clut));
-    clut.storage_mode = CLUT_STORAGE_MODE1;
-    clut.load_method = CLUT_NO_LOAD;
-
     q = g_draw_packet->data;
     q = draw_setup_environment(q, 0, &g_frame, &g_z);
-    q = draw_texture_sampling(q, 0, &lod);
-    q = draw_texturebuffer(q, 0, &g_tex, &clut);
-    q = draw_clear(q, 0, 0.0f, 0.0f, (float)g_frame.width, (float)g_frame.height, 0, 0, 0);
+    q = draw_texture_sampling(q, 0, &g_lod_nearest);
+    q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
+    q = ps2_video_clear_bands(q, x0, y0, x1, y1);
     q = draw_rect_textured(q, 0, &rect);
     q = draw_finish(q);
 
