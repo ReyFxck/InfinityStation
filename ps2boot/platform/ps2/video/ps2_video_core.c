@@ -5,6 +5,10 @@ static lod_t g_lod_nearest;
 static clutbuffer_t g_clut_none;
 static qword_t g_draw_base_packet[64];
 static unsigned g_draw_base_qwc;
+#define PS2_VIDEO_TEX_SLOTS 3u
+static texbuffer_t g_tex_slots[PS2_VIDEO_TEX_SLOTS];
+static unsigned g_tex_slot_next;
+static unsigned g_tex_slots_in_flight;
 
 
 static const float g_aspect_rects[][4] = {
@@ -138,6 +142,7 @@ int ps2_video_init_once(void)
 {
     packet_t *packet;
     qword_t *q;
+    unsigned i;
 
     if (g_video_ready)
         return 1;
@@ -152,19 +157,33 @@ int ps2_video_init_once(void)
     g_frame.mask = 0;
     g_frame.psm = GS_PSM_32;
     g_frame.address = graph_vram_allocate(
-        g_frame.width, g_frame.height, g_frame.psm, GRAPH_ALIGN_PAGE
+        g_frame.width,
+        g_frame.height,
+        g_frame.psm,
+        GRAPH_ALIGN_PAGE
     );
 
     memset(&g_z, 0, sizeof(g_z));
     g_z.enable = DRAW_DISABLE;
 
-    g_tex.width = PS2_VIDEO_TEX_WIDTH;
-    g_tex.psm = GS_PSM_16;
-    g_tex.address = graph_vram_allocate(PS2_VIDEO_TEX_WIDTH, PS2_VIDEO_TEX_HEIGHT, GS_PSM_16, GRAPH_ALIGN_BLOCK);
-    g_tex.info.width = draw_log2(PS2_VIDEO_TEX_WIDTH);
-    g_tex.info.height = draw_log2(PS2_VIDEO_TEX_HEIGHT);
-    g_tex.info.components = TEXTURE_COMPONENTS_RGB;
-    g_tex.info.function = TEXTURE_FUNCTION_DECAL;
+    for (i = 0; i < PS2_VIDEO_TEX_SLOTS; i++) {
+        g_tex_slots[i].width = PS2_VIDEO_TEX_WIDTH;
+        g_tex_slots[i].psm = GS_PSM_16;
+        g_tex_slots[i].address = graph_vram_allocate(
+            PS2_VIDEO_TEX_WIDTH,
+            PS2_VIDEO_TEX_HEIGHT,
+            GS_PSM_16,
+            GRAPH_ALIGN_BLOCK
+        );
+        g_tex_slots[i].info.width = draw_log2(PS2_VIDEO_TEX_WIDTH);
+        g_tex_slots[i].info.height = draw_log2(PS2_VIDEO_TEX_HEIGHT);
+        g_tex_slots[i].info.components = TEXTURE_COMPONENTS_RGB;
+        g_tex_slots[i].info.function = TEXTURE_FUNCTION_DECAL;
+    }
+
+    g_tex = g_tex_slots[0];
+    g_tex_slot_next = 0;
+    g_tex_slots_in_flight = 0;
 
     memset(&g_lod_nearest, 0, sizeof(g_lod_nearest));
     g_lod_nearest.calculation = LOD_USE_K;
@@ -179,9 +198,13 @@ int ps2_video_init_once(void)
     g_clut_none.load_method = CLUT_NO_LOAD;
 
     graph_initialize(
-        g_frame.address, g_frame.width, g_frame.height, g_frame.psm, 0, 0
+        g_frame.address,
+        g_frame.width,
+        g_frame.height,
+        g_frame.psm,
+        0,
+        0
     );
-
     ps2_video_apply_display_offset();
 
     packet = packet_init(32, PACKET_NORMAL);
@@ -192,7 +215,6 @@ int ps2_video_init_once(void)
     q = draw_setup_environment(q, 0, &g_frame, &g_z);
     q = draw_clear(q, 0, 0.0f, 0.0f, (float)g_frame.width, (float)g_frame.height, 0, 0, 0);
     q = draw_finish(q);
-
     dma_channel_send_normal(DMA_CHANNEL_GIF, packet->data, q - packet->data, 0, 0);
     dma_wait_fast();
     packet_free(packet);
@@ -205,14 +227,12 @@ int ps2_video_init_once(void)
     q = draw_texture_sampling(q, 0, &g_lod_nearest);
     q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
     q = draw_finish(q);
-
     dma_channel_send_normal(DMA_CHANNEL_GIF, packet->data, q - packet->data, 0, 0);
     dma_wait_fast();
     packet_free(packet);
 
     g_tex_packet = packet_init(((((PS2_VIDEO_TEX_WIDTH * PS2_VIDEO_TEX_HEIGHT * 2u) + 15u) / 16u) + 256u), PACKET_NORMAL);
     g_draw_packet = packet_init(1024, PACKET_NORMAL);
-
     if (!g_tex_packet || !g_draw_packet)
         return 0;
 
@@ -235,6 +255,15 @@ static void ps2_video_upload_and_draw_source(
     texrect_t rect;
     float x0, y0, x1, y1;
     unsigned upload_bytes = upload_width * upload_height * sizeof(uint16_t);
+
+    if (g_tex_slots_in_flight >= PS2_VIDEO_TEX_SLOTS) {
+        draw_wait_finish();
+        g_tex_slots_in_flight = 0;
+    }
+
+    g_tex = g_tex_slots[g_tex_slot_next];
+    g_tex_slot_next = (g_tex_slot_next + 1u) % PS2_VIDEO_TEX_SLOTS;
+    ps2_video_build_draw_base_packet();
 
     ps2_video_get_target_rect(&x0, &y0, &x1, &y1);
 
@@ -271,17 +300,14 @@ static void ps2_video_upload_and_draw_source(
     rect.color.a = 0x80;
     rect.color.q = 1.0f;
 
-    if (g_draw_base_qwc != 0)
-    {
+    if (g_draw_base_qwc != 0) {
         memcpy(
             g_draw_packet->data,
             g_draw_base_packet,
             g_draw_base_qwc * sizeof(qword_t)
         );
         q = g_draw_packet->data + g_draw_base_qwc;
-    }
-    else
-    {
+    } else {
         q = g_draw_packet->data;
         q = draw_setup_environment(q, 0, &g_frame, &g_z);
         q = draw_texture_sampling(q, 0, &g_lod_nearest);
@@ -296,7 +322,9 @@ static void ps2_video_upload_and_draw_source(
         graph_wait_vsync();
 
     dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
-    draw_wait_finish();
+
+    if (g_tex_slots_in_flight < PS2_VIDEO_TEX_SLOTS)
+        g_tex_slots_in_flight++;
 }
 
 void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
@@ -430,7 +458,7 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
     ps2_video_upload_and_draw_source(
         g_upload,
         PS2_VIDEO_TEX_WIDTH,
-        PS2_VIDEO_TEX_HEIGHT,
+        height,
         width,
         height,
         wait_vsync
