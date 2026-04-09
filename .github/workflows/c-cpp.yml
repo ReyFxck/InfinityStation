@@ -1,0 +1,23 @@
+name: C CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest/debian-latest/others
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Clear compilation
+      run: make clean
+    - name: make
+      run: make
+    - name: Help for make
+      run: make help
+    - name: make run compilation
+      run: make V=1
