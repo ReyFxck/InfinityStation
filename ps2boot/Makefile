@@ -60,19 +60,19 @@ COMM_OBJS = $(COMM_SRCS:.c=.o)
 
 BASE_OBJS = \
         app/main.o \
-        platform/ps2/ps2_video.o \
-        platform/ps2/ps2_video_core.o \
-        platform/ps2/ps2_video_menu.o \
-        platform/ps2/ps2_video_debug.o \
- platform/ps2/ps2_debug_font.o \
-        platform/ps2/ps2_video_color.o \
-        platform/ps2/ps2_launcher_video.o \
-        platform/ps2/ps2_input.o \
-        platform/ps2/ps2_menu.o \
-    platform/ps2/ps2_audio.o \
-platform/ps2/ps2_audio_backend_audsrv.o \
-platform/ps2/ps2_audio_resampler.o \
- platform/ps2/ps2_disc.o \
+        platform/ps2/video/ps2_video.o \
+        platform/ps2/video/ps2_video_core.o \
+        platform/ps2/video/ps2_video_menu.o \
+        platform/ps2/video/ps2_video_debug.o \
+ platform/ps2/debug/ps2_debug_font.o \
+        platform/ps2/video/ps2_video_color.o \
+        platform/ps2/video/ps2_launcher_video.o \
+        platform/ps2/input/ps2_input.o \
+        platform/ps2/menu/ps2_menu.o \
+    platform/ps2/audio/ps2_audio.o \
+platform/ps2/audio/ps2_audio_backend_audsrv.o \
+platform/ps2/audio/ps2_audio_resampler.o \
+ platform/ps2/storage/ps2_disc.o \
         ui/select_menu/select_menu.o \
         ui/select_menu/select_menu_actions.o \
         ui/select_menu/select_menu_render.o \
@@ -142,8 +142,8 @@ LAUNCHER_OBJS = \
         ui/launcher/launcher_bg_pal_data.o
 
 VIDEO_EXTRA_OBJS = \
-        platform/ps2/ps2_video_ui.o \
-        platform/ps2/ps2_video_launcher_target.o
+        platform/ps2/video/ps2_video_ui.o \
+        platform/ps2/video/ps2_video_launcher_target.o
 
 EXTRA_OBJS = \
         $(ROM_LOADER_OBJS) \
@@ -159,7 +159,7 @@ EE_OBJS = \
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
 EE_CFLAGS += -O3 -G0 -DLAGFIX
 EE_CFLAGS += -I. -Irom_loader -Irom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
-EE_CFLAGS += -Iapp -Iplatform/ps2 -Iassets
+EE_CFLAGS += -Iapp -Iplatform/ps2 -Iplatform/ps2/audio -Iplatform/ps2/video -Iplatform/ps2/input -Iplatform/ps2/menu -Iplatform/ps2/storage -Iplatform/ps2/debug -Iassets
 
 HOT_CORE_OBJS = \
 	$(SRC_DIR)/ppu.o \
@@ -173,7 +173,7 @@ HOT_CORE_OBJS = \
 $(HOT_CORE_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
 HOT_FRONTEND_OBJS = \
-	platform/ps2/ps2_video_core.o \
+	platform/ps2/video/ps2_video_core.o \
 	app/app_callbacks.o \
 	app/app_overlay.o
 

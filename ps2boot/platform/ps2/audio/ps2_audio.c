@@ -1,14 +1,9 @@
 #include "ps2_audio_internal.h"
+#include "ps2_audio_backend.h"
 
 #include <tamtypes.h>
 #include <kernel.h>
 #include <delaythread.h>
-#include <sifrpc.h>
-#include <sifcmd.h>
-#include <loadfile.h>
-#include <iopcontrol.h>
-#include <iopheap.h>
-#include <sbv_patches.h>
 
 #include <string.h>
 
@@ -29,7 +24,6 @@ static volatile int g_sound_thread_running = 0;
 static volatile int g_sound_thread_exit = 0;
 
 
-static int g_iop_ready = 0;
 /* stack real da thread de audio */
 static uint8_t g_sound_thread_stack[SOUND_THREAD_STACK] __attribute__((aligned(64)));
 
@@ -141,38 +135,6 @@ void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underr
         *underrun_likely = (buffered < (BACKEND_FEED_FRAMES * 2));
 }
 
-
-static void ps2_audio_reset_iop(void)
-{
-    PS2AUDIO_LOG("[PS2AUDIO] reset IOP begin\n");
-
-    while (!SifIopReset(NULL, 0)) {
-    }
-    while (!SifIopSync()) {
-    }
-
-    SifExitIopHeap();
-    SifLoadFileExit();
-    SifExitRpc();
-    SifExitCmd();
-
-    SifInitRpc(0);
-    SifLoadFileInit();
-
-    FlushCache(0);
-    FlushCache(2);
-
-    {
-        int patch_lmb_ret = sbv_patch_enable_lmb();
-        int patch_prefix_ret = sbv_patch_disable_prefix_check();
-        (void)patch_lmb_ret;
-        (void)patch_prefix_ret;
-        PS2AUDIO_LOG("[PS2AUDIO] sbv_patch_enable_lmb -> %d\n", patch_lmb_ret);
-        PS2AUDIO_LOG("[PS2AUDIO] sbv_patch_disable_prefix_check -> %d\n", patch_prefix_ret);
-    }
-
-    PS2AUDIO_LOG("[PS2AUDIO] reset IOP done\n");
-}
 
 static unsigned int ps2_audio_copy_from_ring(int16_t *dst, unsigned int frames)
 {
@@ -370,7 +332,7 @@ static void ps2_audio_stop_thread(void)
 
 void ps2_audio_set_iop_ready(int ready)
 {
-    g_iop_ready = ready ? 1 : 0;
+    ps2_audio_backend_set_iop_ready(ready);
 }
 
 int ps2_audio_init_once(void)
@@ -384,9 +346,12 @@ int ps2_audio_init_once(void)
 
     PS2AUDIO_LOG("[PS2AUDIO] init enter (phase 1 split)\n");
 
-    if (!g_iop_ready) {
-        ps2_audio_reset_iop();
-        g_iop_ready = 1;
+    if (!ps2_audio_backend_iop_ready()) {
+        if (!ps2_audio_backend_reset_iop()) {
+            g_audio_state = -1;
+            PS2AUDIO_LOG("[PS2AUDIO] FAIL: backend_reset_iop\n");
+            return 0;
+        }
     }
 
     if (g_audio_ring_sema < 0) {
@@ -503,7 +468,7 @@ void ps2_audio_shutdown(void)
     }
 
     g_audio_state = 0;
-    g_iop_ready = 0;
+    ps2_audio_backend_set_iop_ready(0);
     g_warned_not_ready = 0;
     g_warned_overrun = 0;
     g_warned_underrun = 0;

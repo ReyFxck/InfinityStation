@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
+#include "ps2_audio_backend.h"
 
 #define QUIET_PS2AUDIO_LOGS 1
 #if QUIET_PS2AUDIO_LOGS
@@ -32,7 +33,6 @@
 #define SOUND_THREAD_PRIO           96
 #define SOUND_THREAD_STACK          0x2000
 
-extern int g_audsrv_loaded;
 
 extern int16_t g_resample_out[RESAMPLE_OUT_MAX_FRAMES * PS2_AUDIO_CHANNELS];
 extern unsigned int g_resample_phase;
@@ -40,13 +40,6 @@ extern int16_t g_resample_prev_l;
 extern int16_t g_resample_prev_r;
 extern int g_resample_have_prev;
 
-int ps2_backend_init(int rate, int channels, int bits);
-int ps2_backend_queued_bytes(void);
-void ps2_backend_wait_audio(int bytes);
-int ps2_backend_queue_audio(const int16_t *data, int bytes);
-int ps2_backend_set_volume(int vol);
-void ps2_backend_shutdown(void);
-void ps2_backend_stop_audio(void);
 
 size_t ps2_audio_resample_chunk(const int16_t *data, size_t in_frames);
 
