@@ -3,6 +3,9 @@
 
 static lod_t g_lod_nearest;
 static clutbuffer_t g_clut_none;
+static qword_t g_draw_base_packet[64];
+static unsigned g_draw_base_qwc;
+
 
 static const float g_aspect_rects[][4] = {
     { 64.0f,  0.0f, 576.0f, 448.0f }, /* PS2_ASPECT_4_3  */
@@ -114,6 +117,18 @@ static inline qword_t *ps2_video_clear_bands(
     return q;
 }
 
+
+static void ps2_video_build_draw_base_packet(void)
+{
+    qword_t *q = g_draw_base_packet;
+
+    q = draw_setup_environment(q, 0, &g_frame, &g_z);
+    q = draw_texture_sampling(q, 0, &g_lod_nearest);
+    q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
+
+    g_draw_base_qwc = (unsigned)(q - g_draw_base_packet);
+}
+
 void ps2_video_apply_display_offset(void)
 {
     graph_set_screen(g_video_off_x, g_video_off_y, g_frame.width, g_frame.height);
@@ -201,6 +216,8 @@ int ps2_video_init_once(void)
     if (!g_tex_packet || !g_draw_packet)
         return 0;
 
+    ps2_video_build_draw_base_packet();
+
     g_video_ready = 1;
     return 1;
 }
@@ -226,37 +243,51 @@ static void ps2_video_upload_and_draw_source(
 
     q = g_tex_packet->data;
     q = draw_texture_transfer(
-        q, upload, upload_width, upload_height, GS_PSM_16, g_tex.address, g_tex.width
+        q,
+        upload,
+        upload_width,
+        upload_height,
+        GS_PSM_16,
+        g_tex.address,
+        g_tex.width
     );
     q = draw_texture_flush(q);
     dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
     dma_wait_fast();
 
-    memset(&rect, 0, sizeof(rect));
-
     rect.v0.x = x0;
     rect.v0.y = y0;
     rect.v0.z = 0;
-
     rect.v1.x = x1;
     rect.v1.y = y1;
     rect.v1.z = 0;
-
     rect.t0.u = 0.0f;
     rect.t0.v = 0.0f;
     rect.t1.u = (float)width - 1.0f;
     rect.t1.v = (float)height - 1.0f;
-
     rect.color.r = 0x80;
     rect.color.g = 0x80;
     rect.color.b = 0x80;
     rect.color.a = 0x80;
     rect.color.q = 1.0f;
 
-    q = g_draw_packet->data;
-    q = draw_setup_environment(q, 0, &g_frame, &g_z);
-    q = draw_texture_sampling(q, 0, &g_lod_nearest);
-    q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
+    if (g_draw_base_qwc != 0)
+    {
+        memcpy(
+            g_draw_packet->data,
+            g_draw_base_packet,
+            g_draw_base_qwc * sizeof(qword_t)
+        );
+        q = g_draw_packet->data + g_draw_base_qwc;
+    }
+    else
+    {
+        q = g_draw_packet->data;
+        q = draw_setup_environment(q, 0, &g_frame, &g_z);
+        q = draw_texture_sampling(q, 0, &g_lod_nearest);
+        q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
+    }
+
     q = ps2_video_clear_bands(q, x0, y0, x1, y1);
     q = draw_rect_textured(q, 0, &rect);
     q = draw_finish(q);
