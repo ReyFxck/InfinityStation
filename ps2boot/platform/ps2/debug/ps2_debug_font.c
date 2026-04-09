@@ -1,6 +1,11 @@
 #include "ps2_video_internal.h"
 #include "ps2_debug_font.h"
 
+static uint16_t *g_dbg_target = NULL;
+static unsigned g_dbg_target_stride = 0;
+static unsigned g_dbg_target_width = 0;
+static unsigned g_dbg_target_height = 0;
+
 static uint8_t dbg_glyph_row(char c, int row)
 {
     switch (c) {
@@ -44,12 +49,59 @@ static uint8_t dbg_glyph_row(char c, int row)
     }
 }
 
+void dbg_set_target(uint16_t *buffer, unsigned stride, unsigned width, unsigned height)
+{
+    if (!buffer || stride == 0 || width == 0 || height == 0) {
+        g_dbg_target = NULL;
+        g_dbg_target_stride = 0;
+        g_dbg_target_width = 0;
+        g_dbg_target_height = 0;
+        return;
+    }
+
+    g_dbg_target = buffer;
+    g_dbg_target_stride = stride;
+    g_dbg_target_width = width;
+    g_dbg_target_height = height;
+}
+
+void dbg_reset_target(void)
+{
+    g_dbg_target = NULL;
+    g_dbg_target_stride = 0;
+    g_dbg_target_width = 0;
+    g_dbg_target_height = 0;
+}
+
+static uint16_t *dbg_target_buffer(void)
+{
+    return g_dbg_target ? g_dbg_target : g_upload;
+}
+
+static unsigned dbg_target_stride(void)
+{
+    return g_dbg_target ? g_dbg_target_stride : PS2_VIDEO_TEX_WIDTH;
+}
+
+static unsigned dbg_target_width(void)
+{
+    return g_dbg_target ? g_dbg_target_width : 256u;
+}
+
+static unsigned dbg_target_height(void)
+{
+    return g_dbg_target ? g_dbg_target_height : 224u;
+}
+
 static void dbg_put_pixel(unsigned x, unsigned y, uint16_t color)
 {
-    if (x >= 256 || y >= 224)
+    uint16_t *dst = dbg_target_buffer();
+    unsigned stride = dbg_target_stride();
+
+    if (x >= dbg_target_width() || y >= dbg_target_height())
         return;
 
-    g_upload[y * 256 + x] = color;
+    dst[y * stride + x] = color;
 }
 
 static void dbg_draw_char(unsigned x, unsigned y, char c, uint16_t color)

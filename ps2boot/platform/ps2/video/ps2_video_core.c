@@ -316,7 +316,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
     wait_vsync = select_menu_actions_game_vsync_enabled();
     overlay_active = (g_dbg1[0] || g_dbg2[0] || g_dbg3[0] || g_dbg4[0]);
 
-    if (width <= PS2_VIDEO_UPLOAD_256_WIDTH && !overlay_active)
+    if (width <= PS2_VIDEO_UPLOAD_256_WIDTH)
     {
         if (width == PS2_VIDEO_UPLOAD_256_WIDTH &&
             pitch == (PS2_VIDEO_UPLOAD_256_WIDTH * sizeof(uint16_t)))
@@ -337,6 +337,17 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
                 g_upload_256,
                 PS2_VIDEO_UPLOAD_256_WIDTH
             );
+        }
+
+        if (overlay_active) {
+            dbg_set_target(
+                g_upload_256,
+                PS2_VIDEO_UPLOAD_256_WIDTH,
+                width,
+                height
+            );
+            dbg_overlay();
+            dbg_reset_target();
         }
 
         ps2_video_upload_and_draw_source(
@@ -370,20 +381,10 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         );
     }
 
-    dbg_overlay();
-
-    if (width <= PS2_VIDEO_UPLOAD_256_WIDTH)
-    {
-        ps2_video_pack_256_from_staging(width, height);
-        ps2_video_upload_and_draw_source(
-            g_upload_256,
-            PS2_VIDEO_UPLOAD_256_WIDTH,
-            height,
-            width,
-            height,
-            wait_vsync
-        );
-        return;
+    if (overlay_active) {
+        dbg_set_target(g_upload, PS2_VIDEO_TEX_WIDTH, width, height);
+        dbg_overlay();
+        dbg_reset_target();
     }
 
     ps2_video_upload_and_draw_source(
