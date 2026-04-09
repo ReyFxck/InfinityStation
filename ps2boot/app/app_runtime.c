@@ -1,7 +1,7 @@
 #include "app_runtime.h"
 
 #include "app_state.h"
-#include "platform/ps2/ps2_audio.h"
+#include "ps2_audio.h"
 
 #include <libpad.h>
 

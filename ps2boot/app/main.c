@@ -10,7 +10,7 @@
 
 #include "libretro.h"
 #include "ps2_input.h"
-#include "platform/ps2/ps2_audio.h"
+#include "ps2_audio.h"
 
 #define QUIET_RUNTIME_LOGS 1
 #if QUIET_RUNTIME_LOGS

@@ -9,7 +9,7 @@
 #include "ps2_video.h"
 #include "ps2_input.h"
 #include "app_overlay.h"
-#include "platform/ps2/ps2_audio.h"
+#include "ps2_audio.h"
 
 /* QUIET_RUNTIME_LOGS_BEGIN */
 #define QUIET_RUNTIME_LOGS 1

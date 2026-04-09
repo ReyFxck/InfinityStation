@@ -11,7 +11,7 @@
 
 #include "libretro.h"
 #include "ps2_video.h"
-#include "platform/ps2/ps2_audio.h"
+#include "ps2_audio.h"
 
 #include <debug.h>
 
