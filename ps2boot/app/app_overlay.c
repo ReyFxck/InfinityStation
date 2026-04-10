@@ -1,6 +1,7 @@
 #include "app_overlay.h"
 
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <delaythread.h>
 
@@ -13,6 +14,9 @@ static unsigned g_fps_accum = 0;
 static clock_t g_fps_last_clock = 0;
 static double g_core_nominal_fps = 60.0;
 static clock_t g_throttle_last_clock = 0;
+static int g_overlay_visible = -1;
+static unsigned g_overlay_last_sent_fps = (unsigned)-1;
+static char g_overlay_last_limit[16] = "";
 
 static double app_overlay_target_fps(void)
 {
@@ -51,6 +55,9 @@ void app_overlay_reset_timing(void)
     g_fps_last_clock = 0;
     g_core_nominal_fps = 60.0;
     g_throttle_last_clock = 0;
+    g_overlay_visible = -1;
+    g_overlay_last_sent_fps = (unsigned)-1;
+    g_overlay_last_limit[0] = '\0';
 }
 
 void app_overlay_set_core_nominal_fps(double fps)
@@ -67,84 +74,58 @@ double app_overlay_get_core_nominal_fps(void)
 }
 
 void app_overlay_throttle_if_needed(void)
-
 {
+    double target_fps = app_overlay_target_fps();
+    clock_t now;
+    clock_t frame_ticks;
+    clock_t spin_ticks;
 
- double target_fps = app_overlay_target_fps();
+    if (target_fps <= 1.0) {
+        g_throttle_last_clock = 0;
+        return;
+    }
 
- clock_t now;
+    frame_ticks = (clock_t)(((double)CLOCKS_PER_SEC / target_fps) + 0.5);
+    if (frame_ticks < 1)
+        frame_ticks = 1;
 
- clock_t frame_ticks;
+    spin_ticks = CLOCKS_PER_SEC / 1000;
+    if (spin_ticks < 1)
+        spin_ticks = 1;
 
- clock_t spin_ticks;
+    now = clock();
 
- if (target_fps <= 1.0) {
-  g_throttle_last_clock = 0;
+    if (g_throttle_last_clock == 0) {
+        g_throttle_last_clock = now;
+        return;
+    }
 
-  return;
+    while ((now - g_throttle_last_clock) < frame_ticks) {
+        clock_t remaining = frame_ticks - (now - g_throttle_last_clock);
 
- }
+        if (remaining > spin_ticks) {
+            int sleep_us = (int)(((double)(remaining - spin_ticks) * 1000000.0) /
+                                 (double)CLOCKS_PER_SEC);
+            if (sleep_us > 0)
+                DelayThread(sleep_us);
+        }
 
- frame_ticks = (clock_t)(((double)CLOCKS_PER_SEC / target_fps) + 0.5);
+        now = clock();
+    }
 
- if (frame_ticks < 1)
+    g_throttle_last_clock += frame_ticks;
 
- frame_ticks = 1;
-
- spin_ticks = CLOCKS_PER_SEC / 1000;
-
- if (spin_ticks < 1)
-
- spin_ticks = 1;
-
- now = clock();
-
- if (g_throttle_last_clock == 0) {
-
-  g_throttle_last_clock = now;
-
-  return;
-
- }
-
- while ((now - g_throttle_last_clock) < frame_ticks) {
-
-  clock_t remaining = frame_ticks - (now - g_throttle_last_clock);
-
-  if (remaining > spin_ticks) {
-
-   int sleep_us = (int)(((double)(remaining - spin_ticks) * 1000000.0) /
-
-   (double)CLOCKS_PER_SEC);
-
-   if (sleep_us > 0)
-
-   DelayThread(sleep_us);
-
-  }
-
-  now = clock();
-
- }
-
- /* avanca em passos fixos para evitar jitter/drift */
-
- g_throttle_last_clock += frame_ticks;
-
- /* se atrasou demais, resincroniza */
-
- if ((now - g_throttle_last_clock) > (frame_ticks * 4))
-
- g_throttle_last_clock = now;
-
+    if ((now - g_throttle_last_clock) > (frame_ticks * 4))
+        g_throttle_last_clock = now;
 }
-
 
 void app_overlay_update_fps(void)
 {
     clock_t now = clock();
     char l1[32];
     char l2[32];
+    int show_fps;
+    const char *limit_label;
 
     g_fps_accum++;
 
@@ -158,11 +139,29 @@ void app_overlay_update_fps(void)
         g_fps_last_clock = now;
     }
 
-    if (ps2_menu_show_fps_enabled()) {
+    show_fps = ps2_menu_show_fps_enabled();
+    limit_label = app_overlay_frame_limit_label();
+
+    if (show_fps) {
+        if (g_overlay_visible == 1 &&
+            g_overlay_last_sent_fps == g_fps_display &&
+            strcmp(g_overlay_last_limit, limit_label) == 0)
+            return;
+
         snprintf(l1, sizeof(l1), "FPS: %u", g_fps_display);
-        snprintf(l2, sizeof(l2), "LIMIT: %s", app_overlay_frame_limit_label());
+        snprintf(l2, sizeof(l2), "LIMIT: %s", limit_label);
         ps2_video_set_debug(l1, l2, "", "");
+
+        g_overlay_visible = 1;
+        g_overlay_last_sent_fps = g_fps_display;
+        snprintf(g_overlay_last_limit, sizeof(g_overlay_last_limit), "%s", limit_label);
     } else {
+        if (g_overlay_visible == 0)
+            return;
+
         ps2_video_set_debug("", "", "", "");
+        g_overlay_visible = 0;
+        g_overlay_last_sent_fps = (unsigned)-1;
+        g_overlay_last_limit[0] = '\0';
     }
 }

@@ -26,6 +26,7 @@ static int g_logged_video_cb = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
 static int g_logged_audio_cb = 0;
 static int g_logged_audio_batch_cb = 0;
+static int g_logged_unsupported_pixel_format = 0;
 static void (*g_audio_buffer_status_cb)(bool, unsigned, bool) = NULL;
 
 static int app_audio_accepts_core_audio(void)
@@ -55,7 +56,19 @@ static bool environ_cb(unsigned cmd, void *data)
 {
     switch (cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
+        if (!data)
+            return false;
+
         g_pixel_format = *(const enum retro_pixel_format *)data;
+        if (g_pixel_format != RETRO_PIXEL_FORMAT_RGB565) {
+            if (!g_logged_unsupported_pixel_format) {
+                printf("[APPCB] unsupported pixel format %d requested by core\n",
+                       (int)g_pixel_format);
+                g_logged_unsupported_pixel_format = 1;
+            }
+            g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
+            return false;
+        }
         return true;
 
     case RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK:
@@ -72,12 +85,16 @@ static bool environ_cb(unsigned cmd, void *data)
 
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char **)data;
+        if (!dir)
+            return false;
         *dir = "";
         return true;
     }
 
     case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: {
         const char **dir = (const char **)data;
+        if (!dir)
+            return false;
         *dir = "";
         return true;
     }
@@ -90,7 +107,19 @@ static bool environ_cb(unsigned cmd, void *data)
     case RETRO_ENVIRONMENT_SET_VARIABLES:
         return true;
 
+    case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
+        if (!data)
+            return false;
+        *(bool *)data = false;
+        return true;
+
     case RETRO_ENVIRONMENT_GET_VARIABLE:
+        if (data) {
+            struct retro_variable *var = (struct retro_variable *)data;
+            var->value = NULL;
+        }
+        return false;
+
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
         return false;
 
@@ -123,6 +152,9 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
 #endif
 
     app_overlay_update_fps();
+
+    if (!data)
+        return;
 
     if (g_pixel_format == RETRO_PIXEL_FORMAT_RGB565)
         ps2_video_present_rgb565(data, width, height, pitch);
@@ -185,4 +217,14 @@ void app_callbacks_register(void)
 
     retro_set_input_poll(input_poll_cb);
     retro_set_input_state(input_state_cb);
+}
+
+unsigned app_callbacks_video_count(void)
+{
+    return g_frame_count;
+}
+
+void app_callbacks_reset_video_count(void)
+{
+    g_frame_count = 0;
 }

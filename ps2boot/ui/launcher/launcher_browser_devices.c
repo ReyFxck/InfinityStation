@@ -30,6 +30,15 @@ static int launcher_browser_probe_device(const char *path)
     return 1;
 }
 
+static int launcher_browser_probe_device_any(const char *primary, const char *fallback)
+{
+    if (primary && launcher_browser_probe_device(primary))
+        return 1;
+    if (fallback && launcher_browser_probe_device(fallback))
+        return 1;
+    return 0;
+}
+
 static int launcher_browser_mc_port_from_path(const char *path)
 {
     if (!path) return -1;
@@ -147,9 +156,8 @@ void launcher_browser_refresh_root_device_statuses(void)
     g_mc0_ready = launcher_browser_mc_probe_port(0);
     g_mc1_ready = launcher_browser_mc_probe_port(1);
 
-    /* USB continua sem probe agressivo aqui */
-    g_mass0_ready = 0;
-    g_mass1_ready = 0;
+    g_mass0_ready = launcher_browser_probe_device_any("mass0:", "mass0:/");
+    g_mass1_ready = launcher_browser_probe_device_any("mass1:", "mass1:/");
 
     ps2_disc_init_once();
     g_disc_ready = ps2_disc_refresh();
@@ -175,6 +183,8 @@ int launcher_browser_scan_root_devices(void)
 
     launcher_browser_close_scan_dir();
     launcher_browser_clear_entries();
+    g_host_probe_backoff = 0;
+    launcher_browser_refresh_root_device_statuses();
 
     state->current_path[0] = '\0';
     state->selected = 0;
