@@ -9,6 +9,33 @@
 
 #define DISC_READ_CHUNK (128 * 1024)
 
+static unsigned char *g_rom_loader_buffer = NULL;
+static size_t g_rom_loader_buffer_size = 0;
+
+static void *rom_loader_acquire_buffer(size_t size)
+{
+    unsigned char *new_buf;
+
+    if (size == 0)
+        return NULL;
+
+    if (g_rom_loader_buffer && g_rom_loader_buffer_size >= size)
+        return g_rom_loader_buffer;
+
+    new_buf = (unsigned char *)realloc(g_rom_loader_buffer, size);
+    if (!new_buf)
+        return NULL;
+
+    g_rom_loader_buffer = new_buf;
+    g_rom_loader_buffer_size = size;
+    return g_rom_loader_buffer;
+}
+
+static int rom_loader_uses_persistent_buffer(const void *ptr)
+{
+    return ptr && ptr == g_rom_loader_buffer;
+}
+
 static char to_lower_ascii(char c)
 {
     if (c >= 'A' && c <= 'Z')
@@ -85,7 +112,9 @@ static int read_disc_file_once(const char *path, void **out_data, size_t *out_si
     int fd;
     int file_size;
     unsigned char *buf;
-    int total = 0;
+    int total;
+
+    total = 0;
 
     printf("[DBG] read_disc_file_once: open('%s')\n", path ? path : "");
     fflush(stdout);
@@ -112,18 +141,19 @@ static int read_disc_file_once(const char *path, void **out_data, size_t *out_si
         return 0;
     }
 
-    buf = (unsigned char *)malloc((size_t)file_size);
+    buf = (unsigned char *)rom_loader_acquire_buffer((size_t)file_size);
     if (!buf) {
-        printf("[DBG] malloc(%d) falhou para '%s'\n", file_size, path ? path : "");
+        printf("[DBG] rom_loader_acquire_buffer(%d) falhou para '%s'\n", file_size, path ? path : "");
         fflush(stdout);
         close(fd);
         return 0;
     }
 
     while (total < file_size) {
-        int want = file_size - total;
+        int want;
         int got;
 
+        want = file_size - total;
         if (want > DISC_READ_CHUNK)
             want = DISC_READ_CHUNK;
 
@@ -132,7 +162,6 @@ static int read_disc_file_once(const char *path, void **out_data, size_t *out_si
             printf("[DBG] read() falhou/encerrou em %d de %d para '%s' got=%d\n",
                    total, file_size, path ? path : "", got);
             fflush(stdout);
-            free(buf);
             close(fd);
             return 0;
         }
@@ -190,9 +219,9 @@ static int load_plain_file_stdio(const char *path, void **out_data, size_t *out_
         return 0;
     }
 
-    buf = malloc((size_t)file_size);
+    buf = rom_loader_acquire_buffer((size_t)file_size);
     if (!buf) {
-        printf("[DBG] malloc(%ld) falhou para '%s'\n", file_size, path ? path : "");
+        printf("[DBG] rom_loader_acquire_buffer(%ld) falhou para '%s'\n", file_size, path ? path : "");
         fflush(stdout);
         fclose(fp);
         return 0;
@@ -205,7 +234,6 @@ static int load_plain_file_stdio(const char *path, void **out_data, size_t *out_
         printf("[DBG] fread curto: leu=%u esperado=%u path='%s'\n",
                (unsigned)read_bytes, (unsigned)file_size, path ? path : "");
         fflush(stdout);
-        free(buf);
         return 0;
     }
 
@@ -241,8 +269,9 @@ static int load_host_file_with_fallbacks(const char *path, void **out_data, size
     char rel[512];
     char base[256];
     char c1[576], c2[576], c3[576], c4[576], c5[576], c6[576];
-    const char *rp = host_rel_path(path);
+    const char *rp;
 
+    rp = host_rel_path(path);
     if (!rp[0])
         return 0;
 
@@ -331,7 +360,13 @@ int rom_loader_load(const char *path, void **out_data, size_t *out_size,
 void rom_loader_free(void **data, size_t *size)
 {
     if (data && *data) {
-        free(*data);
+        if (rom_loader_uses_persistent_buffer(*data)) {
+            free(g_rom_loader_buffer);
+            g_rom_loader_buffer = NULL;
+            g_rom_loader_buffer_size = 0;
+        } else {
+            free(*data);
+        }
         *data = NULL;
     }
 

@@ -13,10 +13,13 @@
 #include "ps2_audio.h"
 
 #define QUIET_RUNTIME_LOGS 1
+
 #if QUIET_RUNTIME_LOGS
 #undef printf
 #define printf(...) ((void)0)
 #endif
+
+__attribute__((weak)) int select_menu_actions_game_vsync_enabled(void);
 
 static uint32_t g_prev_buttons = 0;
 
@@ -26,6 +29,26 @@ static void die(const char *msg)
     scr_printf("\n[ERRO] %s\n", msg);
     SleepThread();
     while (1) {}
+}
+
+static int app_game_vsync_enabled(void)
+{
+    if (select_menu_actions_game_vsync_enabled)
+        return select_menu_actions_game_vsync_enabled();
+    return 1;
+}
+
+static void app_runtime_finish_frame(void)
+{
+    ps2_audio_pump();
+
+    /*
+     * O caminho de vídeo já pode bloquear em graph_wait_vsync()
+     * quando a opção de VSync do jogo estiver ativa.
+     * Evita throttle em duplicidade.
+     */
+    if (!app_game_vsync_enabled())
+        app_overlay_throttle_if_needed();
 }
 
 int main(int argc, char *argv[])
@@ -46,6 +69,7 @@ int main(int argc, char *argv[])
     app_transition_load_selected_game(&av, die);
     app_overlay_reset_timing();
     app_boot_refresh_av_info(&av);
+
     if (av.timing.fps > 1.0)
         app_overlay_set_core_nominal_fps(av.timing.fps);
 
@@ -69,8 +93,13 @@ int main(int argc, char *argv[])
             app_transition_restart_game(&av, &g_prev_buttons, die);
             continue;
         } else if (req == APP_REQUEST_OPEN_LAUNCHER) {
-            app_transition_open_launcher_and_reload(&av, &g_prev_buttons,
-                                                    &saved_launcher_x, &saved_launcher_y, die);
+            app_transition_open_launcher_and_reload(
+                &av,
+                &g_prev_buttons,
+                &saved_launcher_x,
+                &saved_launcher_y,
+                die
+            );
             continue;
         }
 
@@ -78,8 +107,7 @@ int main(int argc, char *argv[])
             continue;
 
         retro_run();
-        ps2_audio_pump();
-        app_overlay_throttle_if_needed();
+        app_runtime_finish_frame();
         g_prev_buttons = buttons;
     }
 

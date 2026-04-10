@@ -2,22 +2,6 @@
 
 int launcher_browser_scan_disc_path(const char *path);
 
-static int launcher_browser_finish_scan(void)
-{
-    while (!launcher_browser_state_get()->scan_done) {
-        int before = launcher_browser_state_get()->entry_count;
-
-        if (!launcher_browser_load_more_entries(LAUNCHER_BROWSER_LOAD_CHUNK))
-            return 0;
-
-        if (!launcher_browser_state_get()->scan_done &&
-            launcher_browser_state_get()->entry_count == before)
-            break;
-    }
-
-    return 1;
-}
-
 static int launcher_browser_is_device_root_path(const char *path)
 {
     size_t len;
@@ -26,6 +10,7 @@ static int launcher_browser_is_device_root_path(const char *path)
         return 0;
 
     len = strlen(path);
+
     if (len >= 2 && path[len - 2] == ':' && path[len - 1] == '/')
         return 1;
     if (len >= 1 && path[len - 1] == ':')
@@ -42,7 +27,6 @@ static int launcher_browser_is_memory_card_path(const char *path)
     return !strncmp(path, "mc0:", 4) || !strncmp(path, "mc1:", 4);
 }
 
-
 static int launcher_browser_is_disc_path(const char *path)
 {
     return path && !strncmp(path, "disc:", 5);
@@ -50,13 +34,22 @@ static int launcher_browser_is_disc_path(const char *path)
 
 static int launcher_browser_root_index_for_device_path(const char *path)
 {
-    if (!path || !path[0]) return -1;
-    if (!strncmp(path, "cdfs",  4)) return 0;
-    if (!strncmp(path, "mc0",   3)) return 1;
-    if (!strncmp(path, "mc1",   3)) return 2;
-    if (!strncmp(path, "mass0", 5)) return 3;
-    if (!strncmp(path, "mass1", 5)) return 4;
-    if (!strncmp(path, "host",  4)) return 5;
+    if (!path || !path[0])
+        return -1;
+
+    if (!strncmp(path, "cdfs", 4))
+        return 0;
+    if (!strncmp(path, "mc0", 3))
+        return 1;
+    if (!strncmp(path, "mc1", 3))
+        return 2;
+    if (!strncmp(path, "mass0", 5))
+        return 3;
+    if (!strncmp(path, "mass1", 5))
+        return 4;
+    if (!strncmp(path, "host", 4))
+        return 5;
+
     return -1;
 }
 
@@ -75,12 +68,25 @@ static int launcher_browser_open_root_with_selection(int index)
     return 1;
 }
 
+static int launcher_browser_prime_scan(void)
+{
+    const launcher_browser_state_t *state = launcher_browser_state_get();
+
+    if (state->scan_done)
+        return 1;
+
+    return launcher_browser_load_more_entries(LAUNCHER_BROWSER_LOAD_CHUNK);
+}
+
 int launcher_browser_reset_to_path(const char *path)
 {
     launcher_browser_state_t *state = launcher_browser_state_mut();
 
     snprintf(state->current_path, sizeof(state->current_path), "%s", path ? path : "");
     launcher_browser_clear_entries();
+    state->selected = 0;
+    state->scroll = 0;
+    state->last_error = 0;
 
     if (launcher_browser_is_root_path(state->current_path))
         return launcher_browser_scan_root_devices();
@@ -88,14 +94,17 @@ int launcher_browser_reset_to_path(const char *path)
     if (launcher_browser_is_memory_card_path(state->current_path))
         return launcher_browser_scan_memory_card_path(state->current_path);
 
-    
     if (launcher_browser_is_disc_path(state->current_path))
         return launcher_browser_scan_disc_path(state->current_path);
 
-if (!launcher_browser_open_scan_dir(state->current_path))
+    if (!launcher_browser_open_scan_dir(state->current_path))
         return 0;
 
-    if (!launcher_browser_finish_scan())
+    /*
+     * Não bloqueia mais até terminar o diretório inteiro.
+     * Só carrega o primeiro chunk para a UI ficar imediata.
+     */
+    if (!launcher_browser_prime_scan())
         return 0;
 
     return 1;
@@ -137,7 +146,6 @@ int launcher_browser_go_parent(void)
             *slash = '\0';
             continue;
         }
-
         *slash = '\0';
         break;
     }

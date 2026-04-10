@@ -48,5 +48,6 @@ void ps2_video_launcher_end_frame(void);
 
 void ps2_video_draw_menu(int page, int main_sel, int video_sel, int aspect_sel);
 void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height, size_t pitch);
+void ps2_video_hard_reset(void);
 
 #endif

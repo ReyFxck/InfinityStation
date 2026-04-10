@@ -1,9 +1,10 @@
 #include "app_callbacks.h"
 #include "app_state.h"
 
+#include <stdbool.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include "libretro.h"
 #include "ps2_video.h"
@@ -20,14 +21,25 @@
 /* QUIET_RUNTIME_LOGS_END */
 
 #define DEBUG_OVERLAY 0
+#define APP_MAX_CORE_VARS 32
+#define APP_CORE_KEY_MAX 64
+#define APP_CORE_VALUE_MAX 64
+
+typedef struct app_core_var {
+    char key[APP_CORE_KEY_MAX];
+    char value[APP_CORE_VALUE_MAX];
+} app_core_var_t;
 
 static unsigned g_frame_count = 0;
 static int g_logged_video_cb = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
 static int g_logged_audio_cb = 0;
 static int g_logged_audio_batch_cb = 0;
-static int g_logged_unsupported_pixel_format = 0;
 static void (*g_audio_buffer_status_cb)(bool, unsigned, bool) = NULL;
+
+static app_core_var_t g_core_vars[APP_MAX_CORE_VARS];
+static unsigned g_core_var_count = 0;
+static bool g_core_vars_dirty = false;
 
 static int app_audio_accepts_core_audio(void)
 {
@@ -52,23 +64,140 @@ static void app_audio_report_buffer_status(void)
     g_audio_buffer_status_cb(active, occupancy, underrun_likely);
 }
 
+static void app_retro_log(enum retro_log_level level, const char *fmt, ...)
+{
+    (void)level;
+#if !QUIET_RUNTIME_LOGS
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+#else
+    (void)fmt;
+#endif
+}
+
+static void app_core_vars_clear(void)
+{
+    memset(g_core_vars, 0, sizeof(g_core_vars));
+    g_core_var_count = 0;
+}
+
+static void app_copy_core_token(char *dst, size_t dst_size, const char *src)
+{
+    size_t i = 0;
+
+    if (!dst || dst_size == 0) {
+        return;
+    }
+
+    if (!src) {
+        dst[0] = '\0';
+        return;
+    }
+
+    while (src[i] && src[i] != '|' && src[i] != ';' && i + 1 < dst_size) {
+        dst[i] = src[i];
+        i++;
+    }
+
+    dst[i] = '\0';
+}
+
+static void app_parse_default_value(const char *value_str, char *dst, size_t dst_size)
+{
+    const char *p;
+
+    if (!dst || dst_size == 0) {
+        return;
+    }
+
+    dst[0] = '\0';
+
+    if (!value_str) {
+        return;
+    }
+
+    p = strchr(value_str, ';');
+    if (p) {
+        p++;
+        while (*p == ' ')
+            p++;
+        app_copy_core_token(dst, dst_size, p);
+        return;
+    }
+
+    app_copy_core_token(dst, dst_size, value_str);
+}
+
+static const char *app_core_override_value(const char *key, const char *parsed_default)
+{
+    if (!key || !parsed_default) {
+        return parsed_default;
+    }
+
+    /* Defaults mais amigáveis ao PS2 */
+    if (!strcmp(key, "snes9x_2005_frameskip"))
+        return "auto";
+    if (!strcmp(key, "snes9x_2005_frameskip_threshold"))
+        return "33";
+    if (!strcmp(key, "snes9x_2005_overclock_cycles"))
+        return "compatible";
+
+    return parsed_default;
+}
+
+static void app_store_core_variables(const struct retro_variable *vars)
+{
+    unsigned i = 0;
+
+    app_core_vars_clear();
+
+    if (!vars)
+        return;
+
+    while (vars[i].key && g_core_var_count < APP_MAX_CORE_VARS) {
+        char parsed_default[APP_CORE_VALUE_MAX];
+        const char *final_value;
+        app_core_var_t *dst = &g_core_vars[g_core_var_count];
+
+        snprintf(dst->key, sizeof(dst->key), "%s", vars[i].key);
+        app_parse_default_value(vars[i].value, parsed_default, sizeof(parsed_default));
+        final_value = app_core_override_value(dst->key, parsed_default);
+        snprintf(dst->value, sizeof(dst->value), "%s", final_value ? final_value : "");
+
+        g_core_var_count++;
+        i++;
+    }
+
+    g_core_vars_dirty = true;
+}
+
+static bool app_get_core_variable(struct retro_variable *var)
+{
+    unsigned i;
+
+    if (!var || !var->key)
+        return false;
+
+    for (i = 0; i < g_core_var_count; i++) {
+        if (!strcmp(g_core_vars[i].key, var->key)) {
+            var->value = g_core_vars[i].value;
+            return true;
+        }
+    }
+
+    var->value = NULL;
+    return false;
+}
+
 static bool environ_cb(unsigned cmd, void *data)
 {
     switch (cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
         if (!data)
             return false;
-
         g_pixel_format = *(const enum retro_pixel_format *)data;
-        if (g_pixel_format != RETRO_PIXEL_FORMAT_RGB565) {
-            if (!g_logged_unsupported_pixel_format) {
-                printf("[APPCB] unsupported pixel format %d requested by core\n",
-                       (int)g_pixel_format);
-                g_logged_unsupported_pixel_format = 1;
-            }
-            g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
-            return false;
-        }
         return true;
 
     case RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK:
@@ -83,45 +212,62 @@ static bool environ_cb(unsigned cmd, void *data)
     case RETRO_ENVIRONMENT_SET_MINIMUM_AUDIO_LATENCY:
         return true;
 
+    case RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION:
+        if (data) {
+            *(unsigned *)data = 0;
+            return true;
+        }
+        return false;
+
+    case RETRO_ENVIRONMENT_GET_LANGUAGE:
+        if (data) {
+            *(unsigned *)data = RETRO_LANGUAGE_ENGLISH;
+            return true;
+        }
+        return false;
+
+    case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
+        if (data) {
+            *(bool *)data = g_core_vars_dirty;
+            g_core_vars_dirty = false;
+            return true;
+        }
+        return false;
+
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY: {
         const char **dir = (const char **)data;
-        if (!dir)
-            return false;
         *dir = "";
         return true;
     }
 
     case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: {
         const char **dir = (const char **)data;
-        if (!dir)
-            return false;
         *dir = "";
         return true;
     }
+
+    case RETRO_ENVIRONMENT_SET_VARIABLES:
+        app_store_core_variables((const struct retro_variable *)data);
+        return true;
+
+    case RETRO_ENVIRONMENT_GET_VARIABLE:
+        return app_get_core_variable((struct retro_variable *)data);
+
+    case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
+        if (data) {
+            struct retro_log_callback *cb = (struct retro_log_callback *)data;
+            cb->log = app_retro_log;
+            return true;
+        }
+        return false;
 
     case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
     case RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME:
     case RETRO_ENVIRONMENT_SET_CONTROLLER_INFO:
     case RETRO_ENVIRONMENT_SET_GEOMETRY:
     case RETRO_ENVIRONMENT_SET_SUBSYSTEM_INFO:
-    case RETRO_ENVIRONMENT_SET_VARIABLES:
+    case RETRO_ENVIRONMENT_SET_MESSAGE:
         return true;
-
-    case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
-        if (!data)
-            return false;
-        *(bool *)data = false;
-        return true;
-
-    case RETRO_ENVIRONMENT_GET_VARIABLE:
-        if (data) {
-            struct retro_variable *var = (struct retro_variable *)data;
-            var->value = NULL;
-        }
-        return false;
-
-    case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
-        return false;
 
     default:
         return false;
@@ -152,9 +298,6 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
 #endif
 
     app_overlay_update_fps();
-
-    if (!data)
-        return;
 
     if (g_pixel_format == RETRO_PIXEL_FORMAT_RGB565)
         ps2_video_present_rgb565(data, width, height, pitch);
@@ -209,22 +352,10 @@ void app_callbacks_register(void)
 {
     retro_set_environment(environ_cb);
     retro_set_video_refresh(video_cb);
-
     printf("[APPCB] registering audio callbacks\n");
     retro_set_audio_sample(audio_cb);
     retro_set_audio_sample_batch(audio_batch_cb);
     printf("[APPCB] audio callbacks registered\n");
-
     retro_set_input_poll(input_poll_cb);
     retro_set_input_state(input_state_cb);
-}
-
-unsigned app_callbacks_video_count(void)
-{
-    return g_frame_count;
-}
-
-void app_callbacks_reset_video_count(void)
-{
-    g_frame_count = 0;
 }

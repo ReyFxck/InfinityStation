@@ -464,3 +464,56 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
         wait_vsync
     );
 }
+
+void ps2_video_hard_reset(void)
+{
+    packet_t *packet;
+    qword_t *q;
+    unsigned i;
+
+    if (!g_video_ready)
+        return;
+
+    draw_wait_finish();
+    dma_wait_fast();
+
+    memset(g_upload, 0, sizeof(g_upload));
+    memset(g_frame_base, 0, sizeof(g_frame_base));
+    memset(g_upload_256, 0, sizeof(g_upload_256));
+    memset(g_launcher_upload, 0, sizeof(g_launcher_upload));
+
+    g_tex = g_tex_slots[0];
+    g_tex_slot_next = 0;
+    g_tex_slots_in_flight = 0;
+
+    SyncDCache((void *)g_upload,
+               (void *)((unsigned char *)g_upload + sizeof(g_upload)));
+
+    for (i = 0; i < PS2_VIDEO_TEX_SLOTS; i++) {
+        q = g_tex_packet->data;
+        q = draw_texture_transfer(
+            q,
+            g_upload,
+            PS2_VIDEO_TEX_WIDTH,
+            PS2_VIDEO_TEX_HEIGHT,
+            GS_PSM_16,
+            g_tex_slots[i].address,
+            g_tex_slots[i].width
+        );
+        q = draw_texture_flush(q);
+        dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
+        dma_wait_fast();
+    }
+
+    packet = packet_init(32, PACKET_NORMAL);
+    if (!packet)
+        return;
+
+    q = packet->data;
+    q = draw_setup_environment(q, 0, &g_frame, &g_z);
+    q = draw_clear(q, 0, 0.0f, 0.0f, (float)g_frame.width, (float)g_frame.height, 0, 0, 0);
+    q = draw_finish(q);
+    dma_channel_send_normal(DMA_CHANNEL_GIF, packet->data, q - packet->data, 0, 0);
+    dma_wait_fast();
+    packet_free(packet);
+}
