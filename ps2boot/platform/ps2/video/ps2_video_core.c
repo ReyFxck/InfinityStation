@@ -282,7 +282,6 @@ static void ps2_video_upload_and_draw_source(
     );
     q = draw_texture_flush(q);
     dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
-    dma_wait_fast();
 
     rect.v0.x = x0;
     rect.v0.y = y0;
@@ -317,6 +316,8 @@ static void ps2_video_upload_and_draw_source(
     q = ps2_video_clear_bands(q, x0, y0, x1, y1);
     q = draw_rect_textured(q, 0, &rect);
     q = draw_finish(q);
+
+    dma_wait_fast();
 
     if (wait_vsync)
         graph_wait_vsync();
