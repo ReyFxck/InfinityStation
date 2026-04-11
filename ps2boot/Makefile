@@ -193,16 +193,47 @@ EE_DBGINFOFLAGS :=
 include $(PS2SDK)/samples/Makefile.eeglobal
 EE_CFLAGS := $(filter-out -g -gdwarf-2 -gz,$(EE_CFLAGS))
 
-V ?= 0
 
+V ?= 0
 ifeq ($(V),0)
 REAL_EE_CC := $(EE_CC)
 REAL_EE_CXX := $(EE_CXX)
 REAL_EE_AS := $(EE_AS)
 
-EE_CC = ./tools/build_step.sh CC "$(REAL_EE_CC)"
-EE_CXX = ./tools/build_step.sh CXX "$(REAL_EE_CXX)"
-EE_AS = ./tools/build_step.sh AS "$(REAL_EE_AS)"
+BUILD_STEP = $(SHELL) -ec 'kind="$$STEP_KIND"; tool="$$REAL_TOOL"; src=""; out=""; prev=""; \
+for arg in "$$@"; do \
+  if [ "$$prev" = "-o" ]; then out="$$arg"; prev=""; continue; fi; \
+  case "$$arg" in \
+    -o) prev="-o" ;; \
+    *.c|*.cc|*.cpp|*.cxx|*.s|*.S) src="$$arg" ;; \
+  esac; \
+done; \
+label="$$src"; \
+[ -n "$$label" ] || label="$$out"; \
+[ -n "$$label" ] || label="$$kind"; \
+log=$$(mktemp); \
+start_ns=$$(date +%s%N); \
+if "$$tool" "$$@" > /dev/null 2>"$$log"; then rc=0; else rc=$$?; fi; \
+end_ns=$$(date +%s%N); \
+elapsed=$$(awk "BEGIN { printf \"%.2fs\", ($$end_ns-$$start_ns)/1000000000 }"); \
+first=$$(sed -n "1{s/[[:space:]]\\+/ /g;s/^ //;s/ $$//;p;}" "$$log"); \
+if [ $$rc -eq 0 ]; then \
+  if [ -s "$$log" ]; then \
+    printf "%s %s -> [ WARN - %s%s%s ]\n" "$$kind" "$$label" "$$elapsed" "$${first:+ - }" "$$first"; \
+  else \
+    printf "%s %s -> [ OK - %s ]\n" "$$kind" "$$label" "$$elapsed"; \
+  fi; \
+else \
+  printf "%s %s -> [ ERROR - %s%s%s ]\n" "$$kind" "$$label" "$$elapsed" "$${first:+ - }" "$$first" >&2; \
+  cat "$$log" >&2; \
+  rm -f "$$log"; \
+  exit $$rc; \
+fi; \
+rm -f "$$log"' _
+
+EE_CC  = env STEP_KIND=CC  REAL_TOOL="$(REAL_EE_CC)"  $(BUILD_STEP)
+EE_CXX = env STEP_KIND=CXX REAL_TOOL="$(REAL_EE_CXX)" $(BUILD_STEP)
+EE_AS  = env STEP_KIND=AS  REAL_TOOL="$(REAL_EE_AS)"  $(BUILD_STEP)
 
 .SILENT:
 endif
@@ -249,4 +280,4 @@ clean:
 	@echo "[clean] ok"
 
 rebuild: clean
-	@$(MAKE) $(EE_BIN)
+	@$(MAKE) V=$(V) $(EE_BIN)
