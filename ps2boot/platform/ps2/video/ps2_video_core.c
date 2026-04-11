@@ -1,4 +1,5 @@
 #include "ps2_video_internal.h"
+#include "../../../app/app_overlay.h"
 #include <stdio.h>
 #include <kernel.h>
 
@@ -303,7 +304,7 @@ static void ps2_video_upload_and_draw_source(
     unsigned upload_height,
     unsigned width,
     unsigned height,
-    int wait_vsync
+    unsigned wait_vblanks
 )
 {
     qword_t *q;
@@ -374,8 +375,10 @@ static void ps2_video_upload_and_draw_source(
 
     dma_wait_fast();
 
-    if (wait_vsync)
+    while (wait_vblanks != 0) {
         graph_wait_vsync();
+        wait_vblanks--;
+    }
 
     dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
 
@@ -387,6 +390,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 {
     const uint8_t *src = (const uint8_t *)data;
     int wait_vsync;
+    unsigned wait_vblanks;
     int overlay_active;
     unsigned t0, t1, t2, t_ovl;
 
@@ -399,6 +403,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         height = PS2_VIDEO_TEX_HEIGHT;
 
     wait_vsync = select_menu_actions_game_vsync_enabled();
+    wait_vblanks = app_overlay_video_wait_vblanks(wait_vsync);
     overlay_active = (g_dbg1[0] || g_dbg2[0] || g_dbg3[0] || g_dbg4[0]);
     t0 = ps2_video_prof_read_count();
 
@@ -489,7 +494,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         height,
         width,
         height,
-        wait_vsync
+        wait_vblanks
     );
     t2 = ps2_video_prof_read_count();
     ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
@@ -525,13 +530,15 @@ void ps2_video_present_ui_fixed_rgb565(const void *data, unsigned width, unsigne
 
 void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync)
 {
+    unsigned wait_vblanks = app_overlay_video_wait_vblanks(wait_vsync);
+
     ps2_video_upload_and_draw_source(
         g_upload,
         PS2_VIDEO_TEX_WIDTH,
         height,
         width,
         height,
-        wait_vsync
+        wait_vblanks
     );
 }
 

@@ -102,27 +102,27 @@ double app_overlay_get_core_nominal_fps(void)
     return g_core_nominal_fps;
 }
 
-void app_overlay_throttle_if_needed(void)
+unsigned app_overlay_video_wait_vblanks(int game_vsync_enabled)
 {
-    double target_fps = app_overlay_target_fps();
+    double target_fps;
     unsigned display_hz;
     unsigned target_hz;
     unsigned waits;
-    unsigned i;
 
+    if (game_vsync_enabled) {
+        app_overlay_reset_vblank_cadence();
+        return 1;
+    }
+
+    target_fps = app_overlay_target_fps();
     if (target_fps <= 1.0) {
         app_overlay_reset_vblank_cadence();
-        return;
+        return 0;
     }
 
     display_hz = app_overlay_display_hz();
     target_hz = app_overlay_target_hz(target_fps);
 
-    /*
-     * Primeiro passo: pacing guiado por VBlank.
-     * Se o alvo for maior que o refresh efetivo, prendemos no refresh real
-     * para privilegiar estabilidade de frame pacing.
-     */
     if (target_hz > display_hz)
         target_hz = display_hz;
 
@@ -133,16 +133,9 @@ void app_overlay_throttle_if_needed(void)
         g_throttle_last_display_hz = display_hz;
     }
 
-    if (target_hz >= display_hz) {
-        graph_wait_vsync();
-        return;
-    }
+    if (target_hz >= display_hz)
+        return 1;
 
-    /*
-     * Cadência fracionária:
-     * 60->50 = 1,1,1,1,2
-     * 60->30 = 2,2,2...
-     */
     g_throttle_vblank_accum += display_hz;
     waits = g_throttle_vblank_accum / target_hz;
     g_throttle_vblank_accum %= target_hz;
@@ -150,8 +143,11 @@ void app_overlay_throttle_if_needed(void)
     if (waits < 1)
         waits = 1;
 
-    for (i = 0; i < waits; ++i)
-        graph_wait_vsync();
+    return waits;
+}
+
+void app_overlay_throttle_if_needed(void)
+{
 }
 
 void app_overlay_update_fps(void)

@@ -100,24 +100,9 @@ static void die(const char *msg)
     while (1) {}
 }
 
-static int app_game_vsync_enabled(void)
-{
-    if (select_menu_actions_game_vsync_enabled)
-        return select_menu_actions_game_vsync_enabled();
-    return 1;
-}
-
 static void app_runtime_finish_frame(void)
 {
     ps2_audio_pump();
-
-    /*
-     * O caminho de vídeo já pode bloquear em graph_wait_vsync()
-     * quando a opção de VSync do jogo estiver ativa.
-     * Evita throttle em duplicidade.
-     */
-    if (!app_game_vsync_enabled())
-        app_overlay_throttle_if_needed();
 }
 
 int main(int argc, char *argv[])
