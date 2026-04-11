@@ -258,6 +258,11 @@ help:
 	@printf "  %-20s %s\n" "WIN_OUT_DIR" "$(if $(WIN_OUT_DIR),$(WIN_OUT_DIR),<nao definido>)"
 	@printf "  %-20s %s\n" "EE_BIN" "$(EE_BIN)"
 
+	@printf " %-32s %s\n" "make iso" "Gera uma ISO de teste com o ELF atual"
+	@printf " %-32s %s\n" "make iso ISO_ROMS_DIR=/pasta" "Gera ISO e inclui ROMs da pasta"
+	@printf " %-32s %s\n" "make iso-push ISO_ROMS_DIR=/pasta" "Gera ISO e copia para ANDROID_OUT_DIR"
+	@printf " %-32s %s\n" "ISO_OUT" "../dist/InfinityStation-roms-test.iso"
+	@printf " %-32s %s\n" "ISO_ROMS_DIR" "<vazio = sem ROMs>"
 push: push-android
 
 push-android: $(EE_BIN)
@@ -281,3 +286,58 @@ clean:
 
 rebuild: clean
 	@$(MAKE) V=$(V) $(EE_BIN)
+
+
+# ---- ISO helpers ----
+ISO_ROOT_DIR ?= ../dist/iso_root
+ISO_OUT ?= ../dist/InfinityStation-roms-test.iso
+ISO_LABEL ?= INFSTATION
+ISO_BOOT ?= SNESBOOT.ELF
+ISO_VMODE ?= NTSC
+ISO_ROMS_DIR ?=
+
+.PHONY: iso-check iso-root iso iso-push
+
+iso-check:
+	@command -v xorriso >/dev/null 2>&1 || { \
+		echo "ERRO: xorriso nao encontrado."; \
+		echo "Instale com: apt install xorriso"; \
+		exit 1; \
+	}
+
+iso-root: $(EE_BIN) iso-check
+	@rm -rf "$(ISO_ROOT_DIR)"
+	@mkdir -p "$(ISO_ROOT_DIR)/ROMS"
+	@cp "$(EE_BIN)" "$(ISO_ROOT_DIR)/$(ISO_BOOT)"
+	@printf '%s\n' \
+		"BOOT2 = cdrom0:\\$(ISO_BOOT);1" \
+		"VER = 1.00" \
+		"VMODE = $(ISO_VMODE)" > "$(ISO_ROOT_DIR)/SYSTEM.CNF"
+	@if [ -n "$(ISO_ROMS_DIR)" ]; then \
+		if [ ! -d "$(ISO_ROMS_DIR)" ]; then \
+			echo "ERRO: ISO_ROMS_DIR nao existe: $(ISO_ROMS_DIR)"; \
+			exit 1; \
+		fi; \
+		find "$(ISO_ROMS_DIR)" -maxdepth 1 -type f \
+			\( -iname '*.smc' -o -iname '*.sfc' -o -iname '*.swc' -o -iname '*.fig' -o -iname '*.zip' \) \
+			-exec cp -f {} "$(ISO_ROOT_DIR)/ROMS/" \; ; \
+	else \
+		echo "[iso-root] ISO_ROMS_DIR vazio; ISO sera criada sem ROMs"; \
+	fi
+
+iso: iso-root
+	@mkdir -p "$$(dirname "$(ISO_OUT)")"
+	@xorriso -as mkisofs \
+		-V "$(ISO_LABEL)" \
+		-sysid PLAYSTATION \
+		-iso-level 2 \
+		-full-iso9660-filenames \
+		-o "$(ISO_OUT)" \
+		"$(ISO_ROOT_DIR)"
+	@echo "[iso] $(ISO_OUT)"
+
+iso-push: iso
+	@mkdir -p "$(ANDROID_OUT_DIR)"
+	@cp -f "$(ISO_OUT)" "$(ANDROID_OUT_DIR)/"
+	@echo "[iso-push] copiada para $(ANDROID_OUT_DIR)/"
+
