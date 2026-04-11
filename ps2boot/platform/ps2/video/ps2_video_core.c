@@ -1,4 +1,5 @@
 #include "ps2_video_internal.h"
+#include <stdio.h>
 #include <kernel.h>
 
 static lod_t g_lod_nearest;
@@ -9,6 +10,60 @@ static unsigned g_draw_base_qwc;
 static texbuffer_t g_tex_slots[PS2_VIDEO_TEX_SLOTS];
 static unsigned g_tex_slot_next;
 static unsigned g_tex_slots_in_flight;
+
+static unsigned g_prof_frames;
+static unsigned long long g_prof_convert_cycles;
+static unsigned long long g_prof_overlay_cycles;
+static unsigned long long g_prof_backend_cycles;
+static unsigned long long g_prof_total_cycles;
+
+static inline unsigned ps2_video_prof_read_count(void)
+{
+    unsigned value;
+    __asm__ __volatile__("mfc0 %0, $9" : "=r"(value));
+    return value;
+}
+
+static inline float ps2_video_prof_cycles_to_ms(unsigned long long cycles, unsigned frames)
+{
+    if (!frames)
+        return 0.0f;
+
+    return (float)((double)cycles / (double)frames / 294912.0);
+}
+
+static void ps2_video_prof_commit_split(
+    unsigned cvt_cycles,
+    unsigned ovl_cycles,
+    unsigned backend_cycles,
+    unsigned total_cycles,
+    unsigned width,
+    unsigned height
+)
+{
+    g_prof_convert_cycles += cvt_cycles;
+    g_prof_overlay_cycles += ovl_cycles;
+    g_prof_backend_cycles += backend_cycles;
+    g_prof_total_cycles += total_cycles;
+    g_prof_frames++;
+
+    if (g_prof_frames >= 30u) {
+        snprintf(g_dbg3, 96, "VID cvt %.2f | ovl %.2f | be %.2f",
+                 ps2_video_prof_cycles_to_ms(g_prof_convert_cycles, g_prof_frames),
+                 ps2_video_prof_cycles_to_ms(g_prof_overlay_cycles, g_prof_frames),
+                 ps2_video_prof_cycles_to_ms(g_prof_backend_cycles, g_prof_frames));
+
+        snprintf(g_dbg4, 96, "VID total %.2fms | %ux%u",
+                 ps2_video_prof_cycles_to_ms(g_prof_total_cycles, g_prof_frames),
+                 width, height);
+
+        g_prof_frames = 0;
+        g_prof_convert_cycles = 0;
+        g_prof_overlay_cycles = 0;
+        g_prof_backend_cycles = 0;
+        g_prof_total_cycles = 0;
+    }
+}
 
 
 static const float g_aspect_rects[][4] = {
@@ -333,6 +388,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
     const uint8_t *src = (const uint8_t *)data;
     int wait_vsync;
     int overlay_active;
+    unsigned t0, t1, t2, t_ovl;
 
     if (!g_video_ready || !data || width == 0 || height == 0)
         return;
@@ -344,6 +400,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 
     wait_vsync = select_menu_actions_game_vsync_enabled();
     overlay_active = (g_dbg1[0] || g_dbg2[0] || g_dbg3[0] || g_dbg4[0]);
+    t0 = ps2_video_prof_read_count();
 
     if (width <= PS2_VIDEO_UPLOAD_256_WIDTH)
     {
@@ -368,7 +425,9 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
             );
         }
 
+        t_ovl = 0;
         if (overlay_active) {
+            t_ovl = ps2_video_prof_read_count();
             dbg_set_target(
                 g_upload_256,
                 PS2_VIDEO_UPLOAD_256_WIDTH,
@@ -377,8 +436,10 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
             );
             dbg_overlay();
             dbg_reset_target();
+            t_ovl = ps2_video_prof_read_count() - t_ovl;
         }
 
+        t1 = ps2_video_prof_read_count();
         ps2_video_upload_and_draw_source(
             g_upload_256,
             PS2_VIDEO_UPLOAD_256_WIDTH,
@@ -387,6 +448,8 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
             height,
             wait_vsync
         );
+        t2 = ps2_video_prof_read_count();
+        ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
         return;
     }
 
@@ -410,12 +473,16 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         );
     }
 
+    t_ovl = 0;
     if (overlay_active) {
+        t_ovl = ps2_video_prof_read_count();
         dbg_set_target(g_upload, PS2_VIDEO_TEX_WIDTH, width, height);
         dbg_overlay();
         dbg_reset_target();
+        t_ovl = ps2_video_prof_read_count() - t_ovl;
     }
 
+    t1 = ps2_video_prof_read_count();
     ps2_video_upload_and_draw_source(
         g_upload,
         PS2_VIDEO_TEX_WIDTH,
@@ -424,6 +491,8 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         height,
         wait_vsync
     );
+    t2 = ps2_video_prof_read_count();
+    ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
 }
 
 

@@ -27,6 +27,12 @@
 #include "libretro_core_options.h"
 #include "app_core_options.h"
 
+#include <stdio.h>
+
+extern void app_gfx_prof_reset_frame(void);
+extern void app_gfx_prof_get_frame(unsigned long long *obj_cycles, unsigned *obj_calls);
+extern void app_clip_prof_reset_frame(void);
+extern void app_clip_prof_get_frame(unsigned long long *clip_cycles, unsigned *clip_calls);
 #ifdef _3DS
 void* linearMemAlign(size_t size, size_t alignment);
 void linearFree(void* mem);
@@ -81,6 +87,131 @@ static bool retro_audio_buff_underrun      = false;
 
 static unsigned retro_audio_latency        = 0;
 static bool update_audio_latency           = false;
+
+
+static unsigned g_app_core_prof_frames = 0;
+static unsigned long long g_app_core_prof_mainloop_cycles = 0;
+static unsigned long long g_app_core_prof_audio_cycles = 0;
+static unsigned long long g_app_core_prof_total_cycles = 0;
+static unsigned long long g_app_core_prof_obj_cycles = 0;
+static unsigned long long g_app_core_prof_clip_cycles = 0;
+static unsigned long long g_app_core_prof_audio_cb_cycles = 0;
+static unsigned long long g_app_core_prof_audio_out_cycles = 0;
+static unsigned g_app_core_prof_obj_calls = 0;
+static unsigned g_app_core_prof_clip_calls = 0;
+static unsigned g_app_core_prof_audio_out_calls = 0;
+static unsigned long long g_app_audio_prof_callback_cycles_frame = 0;
+static unsigned long long g_app_audio_prof_batch_cycles_frame = 0;
+static unsigned g_app_audio_prof_batch_calls_frame = 0;
+static char g_app_core_prof_line1[48];
+static char g_app_core_prof_line2[48];
+static char g_app_core_prof_line3[48];
+static char g_app_core_prof_line4[48];
+
+static inline unsigned app_core_prof_read_count(void)
+{
+    unsigned value;
+    __asm__ __volatile__("mfc0 %0, $9" : "=r"(value));
+    return value;
+}
+
+static inline float app_core_prof_cycles_to_ms(unsigned long long cycles, unsigned frames)
+{
+    if (!frames)
+        return 0.0f;
+
+    return (float)((double)cycles / (double)frames / 294912.0);
+}
+
+static void app_core_prof_commit(unsigned mainloop_cycles, unsigned audio_cycles, unsigned total_cycles)
+{
+    unsigned long long obj_cycles = 0;
+    unsigned long long clip_cycles = 0;
+    unsigned obj_calls = 0;
+    unsigned clip_calls = 0;
+
+    g_app_core_prof_mainloop_cycles += mainloop_cycles;
+    g_app_core_prof_audio_cycles += audio_cycles;
+    g_app_core_prof_total_cycles += total_cycles;
+
+    app_gfx_prof_get_frame(&obj_cycles, &obj_calls);
+    app_clip_prof_get_frame(&clip_cycles, &clip_calls);
+
+    g_app_core_prof_obj_cycles += obj_cycles;
+    g_app_core_prof_clip_cycles += clip_cycles;
+    g_app_core_prof_obj_calls += obj_calls;
+    g_app_core_prof_clip_calls += clip_calls;
+    g_app_core_prof_audio_cb_cycles += g_app_audio_prof_callback_cycles_frame;
+    g_app_core_prof_audio_out_cycles += g_app_audio_prof_batch_cycles_frame;
+    g_app_core_prof_audio_out_calls += g_app_audio_prof_batch_calls_frame;
+    g_app_core_prof_frames++;
+
+    if (g_app_core_prof_frames >= 30u) {
+        unsigned long long rest_cycles = 0;
+        unsigned long long known_cycles = g_app_core_prof_mainloop_cycles + g_app_core_prof_audio_cycles;
+        unsigned obj_avg_calls = g_app_core_prof_obj_calls / g_app_core_prof_frames;
+        unsigned clip_avg_calls = g_app_core_prof_clip_calls / g_app_core_prof_frames;
+        unsigned aout_avg_calls = g_app_core_prof_audio_out_calls / g_app_core_prof_frames;
+
+        if (g_app_core_prof_total_cycles > known_cycles)
+            rest_cycles = g_app_core_prof_total_cycles - known_cycles;
+
+        snprintf(g_app_core_prof_line1, sizeof(g_app_core_prof_line1),
+                 "LOOP %.2f | AUD %.2f",
+                 app_core_prof_cycles_to_ms(g_app_core_prof_mainloop_cycles, g_app_core_prof_frames),
+                 app_core_prof_cycles_to_ms(g_app_core_prof_audio_cycles, g_app_core_prof_frames));
+
+        snprintf(g_app_core_prof_line2, sizeof(g_app_core_prof_line2),
+                 "REST %.2f | TOT %.2f",
+                 app_core_prof_cycles_to_ms(rest_cycles, g_app_core_prof_frames),
+                 app_core_prof_cycles_to_ms(g_app_core_prof_total_cycles, g_app_core_prof_frames));
+
+        snprintf(g_app_core_prof_line3, sizeof(g_app_core_prof_line3),
+                 "OBJ %.2f c%u | CL %.2f c%u",
+                 app_core_prof_cycles_to_ms(g_app_core_prof_obj_cycles, g_app_core_prof_frames),
+                 obj_avg_calls,
+                 app_core_prof_cycles_to_ms(g_app_core_prof_clip_cycles, g_app_core_prof_frames),
+                 clip_avg_calls);
+
+        snprintf(g_app_core_prof_line4, sizeof(g_app_core_prof_line4),
+                 "ACB %.2f | AOUT %.2f x%u",
+                 app_core_prof_cycles_to_ms(g_app_core_prof_audio_cb_cycles, g_app_core_prof_frames),
+                 app_core_prof_cycles_to_ms(g_app_core_prof_audio_out_cycles, g_app_core_prof_frames),
+                 aout_avg_calls);
+
+        g_app_core_prof_frames = 0;
+        g_app_core_prof_mainloop_cycles = 0;
+        g_app_core_prof_audio_cycles = 0;
+        g_app_core_prof_total_cycles = 0;
+        g_app_core_prof_obj_cycles = 0;
+        g_app_core_prof_clip_cycles = 0;
+        g_app_core_prof_audio_cb_cycles = 0;
+        g_app_core_prof_audio_out_cycles = 0;
+        g_app_core_prof_obj_calls = 0;
+        g_app_core_prof_clip_calls = 0;
+        g_app_core_prof_audio_out_calls = 0;
+    }
+}
+
+const char *app_core_prof_get_line1(void)
+{
+    return g_app_core_prof_line1;
+}
+
+const char *app_core_prof_get_line2(void)
+{
+    return g_app_core_prof_line2;
+}
+
+const char *app_core_prof_get_line3(void)
+{
+    return g_app_core_prof_line3;
+}
+
+const char *app_core_prof_get_line4(void)
+{
+    return g_app_core_prof_line4;
+}
 
 #ifdef PERF_TEST
 #define RETRO_PERFORMANCE_INIT(name) \
@@ -433,7 +564,11 @@ static void audio_upload_samples(void)
 #ifdef USE_BLARGG_APU
    int16_t *audio_out_buffer_ptr;
 
-   S9xAudioCallback();
+   {
+      unsigned cb_t0 = app_core_prof_read_count();
+      S9xAudioCallback();
+      g_app_audio_prof_callback_cycles_frame += (unsigned long long)(app_core_prof_read_count() - cb_t0);
+   }
 
    audio_out_buffer_ptr = audio_out_buffer;
    available_frames     = audio_out_buffer_pos >> 1;
@@ -451,8 +586,14 @@ static void audio_upload_samples(void)
             audio_batch_frames_max) ?
                   audio_batch_frames_max :
                   available_frames;
-      size_t frames_written = audio_batch_cb(
+      size_t frames_written;
+      unsigned batch_t0;
+
+      batch_t0 = app_core_prof_read_count();
+      frames_written = audio_batch_cb(
             audio_out_buffer_ptr, frames_to_write);
+      g_app_audio_prof_batch_cycles_frame += (unsigned long long)(app_core_prof_read_count() - batch_t0);
+      g_app_audio_prof_batch_calls_frame++;
 
       if ((frames_written < frames_to_write) &&
           (frames_written > 0))
@@ -690,6 +831,14 @@ static void check_variables(bool first_run)
 
 void retro_run(void)
 {
+    unsigned prof_t0, prof_t_loop0, prof_t_loop1, prof_t_audio0, prof_t_audio1;
+
+    prof_t0 = app_core_prof_read_count();
+    app_gfx_prof_reset_frame();
+    app_clip_prof_reset_frame();
+    g_app_audio_prof_callback_cycles_frame = 0;
+    g_app_audio_prof_batch_cycles_frame = 0;
+    g_app_audio_prof_batch_calls_frame = 0;
    bool updated = false;
    int result;
    bool okay;
@@ -775,11 +924,18 @@ void retro_run(void)
 
    RETRO_PERFORMANCE_INIT(S9xMainLoop_func);
    RETRO_PERFORMANCE_START(S9xMainLoop_func);
+   prof_t_loop0 = app_core_prof_read_count();
    S9xMainLoop();
+   prof_t_loop1 = app_core_prof_read_count();
    RETRO_PERFORMANCE_STOP(S9xMainLoop_func);
 
 #ifdef NO_VIDEO_OUTPUT
+   prof_t_audio0 = app_core_prof_read_count();
    audio_upload_samples();
+   prof_t_audio1 = app_core_prof_read_count();
+   app_core_prof_commit(prof_t_loop1 - prof_t_loop0,
+                        prof_t_audio1 - prof_t_audio0,
+                        prof_t_audio1 - prof_t0);
    return;
 #endif
 
@@ -805,7 +961,12 @@ void retro_run(void)
    else
       video_cb(NULL, IPPU.RenderedScreenWidth, IPPU.RenderedScreenHeight, GFX.Pitch);
 
+   prof_t_audio0 = app_core_prof_read_count();
    audio_upload_samples();
+   prof_t_audio1 = app_core_prof_read_count();
+   app_core_prof_commit(prof_t_loop1 - prof_t_loop0,
+                        prof_t_audio1 - prof_t_audio0,
+                        prof_t_audio1 - prof_t0);
 }
 
 bool S9xReadMousePosition(int32_t which1, int32_t* x, int32_t* y, uint32_t* buttons)
