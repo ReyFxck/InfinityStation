@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <delaythread.h>
+#include <graph.h>
 
 #include "ps2_menu.h"
 #include "ps2_video.h"
@@ -13,7 +13,9 @@ static unsigned g_fps_display = 0;
 static unsigned g_fps_accum = 0;
 static clock_t g_fps_last_clock = 0;
 static double g_core_nominal_fps = 60.0;
-static clock_t g_throttle_last_clock = 0;
+static unsigned g_throttle_vblank_accum = 0;
+static unsigned g_throttle_last_target_hz = 0;
+static unsigned g_throttle_last_display_hz = 0;
 static int g_overlay_visible = -1;
 static unsigned g_overlay_last_sent_fps = (unsigned)-1;
 static char g_overlay_last_limit[16] = "";
@@ -23,15 +25,15 @@ static double app_overlay_target_fps(void)
     int mode = ps2_menu_frame_limit_mode();
 
     switch (mode) {
-        case SELECT_MENU_FRAME_LIMIT_AUTO:
-            return (g_core_nominal_fps > 1.0) ? g_core_nominal_fps : 60.0;
-        case SELECT_MENU_FRAME_LIMIT_50:
-            return 50.0;
-        case SELECT_MENU_FRAME_LIMIT_60:
-            return 60.0;
-        case SELECT_MENU_FRAME_LIMIT_OFF:
-        default:
-            return 0.0;
+    case SELECT_MENU_FRAME_LIMIT_AUTO:
+        return (g_core_nominal_fps > 1.0) ? g_core_nominal_fps : 60.0;
+    case SELECT_MENU_FRAME_LIMIT_50:
+        return 50.0;
+    case SELECT_MENU_FRAME_LIMIT_60:
+        return 60.0;
+    case SELECT_MENU_FRAME_LIMIT_OFF:
+    default:
+        return 0.0;
     }
 }
 
@@ -40,12 +42,39 @@ static const char *app_overlay_frame_limit_label(void)
     int mode = ps2_menu_frame_limit_mode();
 
     switch (mode) {
-        case SELECT_MENU_FRAME_LIMIT_AUTO: return "AUTO";
-        case SELECT_MENU_FRAME_LIMIT_50:   return "50";
-        case SELECT_MENU_FRAME_LIMIT_60:   return "60";
-        case SELECT_MENU_FRAME_LIMIT_OFF:
-        default:                           return "OFF";
+    case SELECT_MENU_FRAME_LIMIT_AUTO: return "AUTO";
+    case SELECT_MENU_FRAME_LIMIT_50:   return "50";
+    case SELECT_MENU_FRAME_LIMIT_60:   return "60";
+    case SELECT_MENU_FRAME_LIMIT_OFF:
+    default:                           return "OFF";
     }
+}
+
+static unsigned app_overlay_display_hz(void)
+{
+    int region = graph_get_region();
+    return (region == GRAPH_MODE_PAL) ? 50u : 60u;
+}
+
+static unsigned app_overlay_target_hz(double fps)
+{
+    unsigned hz;
+
+    if (fps <= 1.0)
+        return 0;
+
+    hz = (unsigned)(fps + 0.5);
+    if (hz < 1)
+        hz = 1;
+
+    return hz;
+}
+
+static void app_overlay_reset_vblank_cadence(void)
+{
+    g_throttle_vblank_accum = 0;
+    g_throttle_last_target_hz = 0;
+    g_throttle_last_display_hz = 0;
 }
 
 void app_overlay_reset_timing(void)
@@ -54,7 +83,7 @@ void app_overlay_reset_timing(void)
     g_fps_accum = 0;
     g_fps_last_clock = 0;
     g_core_nominal_fps = 60.0;
-    g_throttle_last_clock = 0;
+    app_overlay_reset_vblank_cadence();
     g_overlay_visible = -1;
     g_overlay_last_sent_fps = (unsigned)-1;
     g_overlay_last_limit[0] = '\0';
@@ -76,47 +105,53 @@ double app_overlay_get_core_nominal_fps(void)
 void app_overlay_throttle_if_needed(void)
 {
     double target_fps = app_overlay_target_fps();
-    clock_t now;
-    clock_t frame_ticks;
-    clock_t spin_ticks;
+    unsigned display_hz;
+    unsigned target_hz;
+    unsigned waits;
+    unsigned i;
 
     if (target_fps <= 1.0) {
-        g_throttle_last_clock = 0;
+        app_overlay_reset_vblank_cadence();
         return;
     }
 
-    frame_ticks = (clock_t)(((double)CLOCKS_PER_SEC / target_fps) + 0.5);
-    if (frame_ticks < 1)
-        frame_ticks = 1;
+    display_hz = app_overlay_display_hz();
+    target_hz = app_overlay_target_hz(target_fps);
 
-    spin_ticks = CLOCKS_PER_SEC / 1000;
-    if (spin_ticks < 1)
-        spin_ticks = 1;
+    /*
+     * Primeiro passo: pacing guiado por VBlank.
+     * Se o alvo for maior que o refresh efetivo, prendemos no refresh real
+     * para privilegiar estabilidade de frame pacing.
+     */
+    if (target_hz > display_hz)
+        target_hz = display_hz;
 
-    now = clock();
+    if (g_throttle_last_target_hz != target_hz ||
+        g_throttle_last_display_hz != display_hz) {
+        app_overlay_reset_vblank_cadence();
+        g_throttle_last_target_hz = target_hz;
+        g_throttle_last_display_hz = display_hz;
+    }
 
-    if (g_throttle_last_clock == 0) {
-        g_throttle_last_clock = now;
+    if (target_hz >= display_hz) {
+        graph_wait_vsync();
         return;
     }
 
-    while ((now - g_throttle_last_clock) < frame_ticks) {
-        clock_t remaining = frame_ticks - (now - g_throttle_last_clock);
+    /*
+     * Cadência fracionária:
+     * 60->50 = 1,1,1,1,2
+     * 60->30 = 2,2,2...
+     */
+    g_throttle_vblank_accum += display_hz;
+    waits = g_throttle_vblank_accum / target_hz;
+    g_throttle_vblank_accum %= target_hz;
 
-        if (remaining > spin_ticks) {
-            int sleep_us = (int)(((double)(remaining - spin_ticks) * 1000000.0) /
-                                 (double)CLOCKS_PER_SEC);
-            if (sleep_us > 0)
-                DelayThread(sleep_us);
-        }
+    if (waits < 1)
+        waits = 1;
 
-        now = clock();
-    }
-
-    g_throttle_last_clock += frame_ticks;
-
-    if ((now - g_throttle_last_clock) > (frame_ticks * 4))
-        g_throttle_last_clock = now;
+    for (i = 0; i < waits; ++i)
+        graph_wait_vsync();
 }
 
 void app_overlay_update_fps(void)
@@ -151,7 +186,6 @@ void app_overlay_update_fps(void)
         snprintf(l1, sizeof(l1), "FPS: %u", g_fps_display);
         snprintf(l2, sizeof(l2), "LIMIT: %s", limit_label);
         ps2_video_set_debug(l1, l2, "", "");
-
         g_overlay_visible = 1;
         g_overlay_last_sent_fps = g_fps_display;
         snprintf(g_overlay_last_limit, sizeof(g_overlay_last_limit), "%s", limit_label);
