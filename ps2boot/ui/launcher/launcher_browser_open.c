@@ -157,7 +157,15 @@ int launcher_browser_go_parent(void)
 
     if (launcher_browser_is_device_root_path(temp)) {
         if (temp[strlen(temp) - 1] == ':')
-            snprintf(root_path, sizeof(root_path), "%s/", temp);
+            do {
+                size_t root_len__is = strlen(temp);
+                if (root_len__is >= sizeof(root_path))
+                    root_len__is = sizeof(root_path) - 1;
+                memcpy(root_path, temp, root_len__is);
+                if (root_len__is > 0 && root_len__is < sizeof(root_path) - 1)
+                    root_path[root_len__is++] = '/';
+                root_path[root_len__is] = '\0';
+            } while (0);
         else
             snprintf(root_path, sizeof(root_path), "%s", temp);
 

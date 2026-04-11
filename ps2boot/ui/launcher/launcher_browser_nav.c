@@ -1,16 +1,6 @@
 #include "launcher_browser_internal.h"
 #include "rom_loader/rom_loader.h"
 
-static int launcher_browser_is_soft_root_device(const char *path)
-{
-    if (!path) return 0;
-    return !strcmp(path, "disc:/")  || !strcmp(path, "disc:")  ||
-           !strcmp(path, "mc0:/")   || !strcmp(path, "mc0:")   ||
-           !strcmp(path, "mc1:/")   || !strcmp(path, "mc1:")   ||
-           !strcmp(path, "mass0:/") || !strcmp(path, "mass0:") ||
-           !strcmp(path, "mass1:/") || !strcmp(path, "mass1:") ||
-           !strcmp(path, "host:/")  || !strcmp(path, "host:");
-}
 
 static int launcher_browser_is_host_path(const char *path)
 {

@@ -329,7 +329,7 @@ static void ps2_video_upload_and_draw_source(
     q = g_tex_packet->data;
     q = draw_texture_transfer(
         q,
-        upload,
+        (void *)upload,
         upload_width,
         upload_height,
         GS_PSM_16,

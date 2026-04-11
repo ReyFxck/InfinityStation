@@ -100,10 +100,6 @@ static void ps2_audio_clear_ring(void)
     ps2_audio_ring_unlock();
 }
 
-static unsigned int ps2_audio_ring_free_frames(void)
-{
-    return SOUND_TOTAL_FRAMES - g_buffered_frames;
-}
 
 static unsigned int ps2_audio_ring_buffered_frames(void)
 {

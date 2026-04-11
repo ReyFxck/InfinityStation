@@ -98,7 +98,7 @@ void ps2_input_shutdown(void)
     /* log removido */
 
     if (g_pad_opened) {
-        int ret_pc = padPortClose(0, 0);
+        (void)padPortClose(0, 0);
         /* log removido */
         g_pad_opened = 0;
     }

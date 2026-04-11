@@ -63,11 +63,6 @@ static const char *launcher_browser_disc_rel_base(const char *path)
     return path;
 }
 
-static int launcher_browser_disc_is_root_path(const char *path)
-{
-    const char *rel = launcher_browser_disc_rel_base(path);
-    return rel && !rel[0];
-}
 
 static void launcher_browser_host_join(char *out, size_t out_size,
                                        const char *base,

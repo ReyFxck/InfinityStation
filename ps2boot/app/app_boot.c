@@ -19,7 +19,6 @@
 
 static void app_boot_reset_iop_minimal(void)
 {
-    int r;
 
     /* log removido */
 
@@ -37,10 +36,10 @@ static void app_boot_reset_iop_minimal(void)
     SifLoadFileInit();
     /* log removido */
 
-    r = sbv_patch_enable_lmb();
+    (void)sbv_patch_enable_lmb();
     /* log removido */
 
-    r = sbv_patch_disable_prefix_check();
+    (void)sbv_patch_disable_prefix_check();
     /* log removido */
 }
 
