@@ -5,12 +5,15 @@
 #include "frontend_config.h"
 #include "app_core_options.h"
 #include "rom_loader/rom_loader.h"
+#include "rom_loader/rom_zip.h"
+
 #include "libretro.h"
 #include "ui/launcher/launcher.h"
 
 static void *g_loaded_rom_data = NULL;
 static size_t g_loaded_rom_size = 0;
 static char g_loaded_rom_name[256];
+static char g_loaded_rom_temp_path[512];
 
 static int app_game_ext_equals(const char *path, const char *ext)
 {
@@ -48,13 +51,34 @@ static int app_game_should_preload(const char *path)
     if (!path || !path[0])
         return 0;
 
-    if (app_game_ext_equals(path, ".zip"))
-        return 1;
-
     if (!strncmp(path, "host:", 5))
         return 1;
 
     return 0;
+}
+
+static int app_game_try_load_zip_as_temp_path(const char *path,
+                                              struct retro_game_info *game)
+{
+    if (!path || !game)
+        return 0;
+
+    if (!app_game_ext_equals(path, ".zip"))
+        return 0;
+
+    if (!rom_zip_extract_to_temp_file(path,
+                                      g_loaded_rom_temp_path,
+                                      sizeof(g_loaded_rom_temp_path),
+                                      g_loaded_rom_name,
+                                      sizeof(g_loaded_rom_name))) {
+        g_loaded_rom_temp_path[0] = '\0';
+        return 0;
+    }
+
+    game->path = g_loaded_rom_temp_path;
+    game->data = NULL;
+    game->size = 0;
+    return 1;
 }
 
 void app_game_unload_loaded(void)
@@ -63,6 +87,11 @@ void app_game_unload_loaded(void)
         rom_loader_free(&g_loaded_rom_data, &g_loaded_rom_size);
         g_loaded_rom_data = NULL;
         g_loaded_rom_size = 0;
+    }
+
+    if (g_loaded_rom_temp_path[0]) {
+        remove(g_loaded_rom_temp_path);
+        g_loaded_rom_temp_path[0] = '\0';
     }
 
     g_loaded_rom_name[0] = '\0';
@@ -74,6 +103,7 @@ int app_game_load_selected(void)
     const frontend_config_t *cfg = frontend_config_get();
     const char *path = launcher_selected_path();
     int preload = 0;
+    const char *load_mode = "path";
 
     memset(&game, 0, sizeof(game));
 
@@ -87,30 +117,46 @@ int app_game_load_selected(void)
         return 0;
     }
 
-    preload = app_game_should_preload(path);
     app_game_unload_loaded();
 
-    if (preload) {
-        if (!rom_loader_load(path, &g_loaded_rom_data, &g_loaded_rom_size,
-                             g_loaded_rom_name, sizeof(g_loaded_rom_name))) {
-            printf("[DBG] rom_loader_load() FALHOU: path='%s'\n", path);
+    if (app_game_try_load_zip_as_temp_path(path, &game)) {
+        load_mode = "zip-temp";
+    } else {
+        if (app_game_ext_equals(path, ".zip")) {
+            preload = 1;
+            printf("[DBG] zip-temp falhou, fallback para preload: '%s'\n", path);
             fflush(stdout);
-            return 0;
+        } else {
+            preload = app_game_should_preload(path);
         }
 
-        game.path = g_loaded_rom_name[0] ? g_loaded_rom_name : path;
-        game.data = g_loaded_rom_data;
-        game.size = g_loaded_rom_size;
-    } else {
-        game.path = path;
-        game.data = NULL;
-        game.size = 0;
+        if (preload) {
+            if (!rom_loader_load(path,
+                                 &g_loaded_rom_data,
+                                 &g_loaded_rom_size,
+                                 g_loaded_rom_name,
+                                 sizeof(g_loaded_rom_name))) {
+                printf("[DBG] rom_loader_load() FALHOU: path='%s'\n", path);
+                fflush(stdout);
+                return 0;
+            }
+
+            game.path = g_loaded_rom_name[0] ? g_loaded_rom_name : path;
+            game.data = g_loaded_rom_data;
+            game.size = g_loaded_rom_size;
+            load_mode = "preload";
+        } else {
+            game.path = path;
+            game.data = NULL;
+            game.size = 0;
+            load_mode = "path";
+        }
     }
 
     game.meta = NULL;
 
     printf("[DBG] app_game_load_selected mode=%s raw_path='%s'\n",
-           preload ? "preload" : "path",
+           load_mode,
            path);
     printf("[DBG] retro_game_info.path='%s'\n",
            game.path ? game.path : "");
