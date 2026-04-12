@@ -219,20 +219,62 @@ static unsigned int ps2_audio_make_room_for_frames(unsigned int wanted_frames)
     return dropped;
 }
 
+
+static int ps2_audio_backend_queue_all(const int16_t *data, unsigned int frames)
+{
+    const uint8_t *ptr = (const uint8_t *)data;
+    int remaining = (int)(frames * PS2_AUDIO_FRAME_BYTES);
+    int total_sent = 0;
+
+    while (remaining > 0) {
+        int sent;
+
+        ps2_backend_wait_audio(remaining);
+        FlushCache(0);
+
+        sent = ps2_backend_queue_audio((const int16_t *)ptr, remaining);
+        if (sent <= 0)
+            return (total_sent > 0) ? total_sent : -1;
+
+        ptr += sent;
+        remaining -= sent;
+        total_sent += sent;
+    }
+
+    return total_sent;
+}
+
+static void ps2_audio_fill_backend_silence_to_target(void)
+{
+    int queued_bytes;
+
+    while (!g_sound_thread_exit) {
+        queued_bytes = ps2_backend_queued_bytes();
+        if (queued_bytes >= BACKEND_QUEUE_TARGET_BYTES)
+            break;
+
+        ps2_backend_wait_audio(BACKEND_FEED_BYTES);
+        FlushCache(0);
+
+        if (ps2_backend_queue_audio(g_menu_silence_block, BACKEND_FEED_BYTES) < 0)
+            break;
+    }
+}
+
 static void ps2_audio_sound_thread(void *arg)
 {
+    int queued_bytes;
+    unsigned int buffered_frames;
+    unsigned int request_frames;
+    unsigned int got_frames;
+    int sent_bytes;
+
     (void)arg;
 
     g_sound_thread_running = 1;
-    PS2AUDIO_LOG("[PS2AUDIO] sound thread start\n");
+    PS2AUDIO_LOG("[PS2AUDIO] sound thread start\\n");
 
     while (!g_sound_thread_exit) {
-        int queued_bytes;
-        unsigned int buffered_frames;
-        unsigned int want_frames;
-        unsigned int got_frames;
-        int sent_bytes;
-
         if (g_audio_state != 1) {
             ps2_audio_wait_loops(1);
             continue;
@@ -241,58 +283,72 @@ static void ps2_audio_sound_thread(void *arg)
         queued_bytes = ps2_backend_queued_bytes();
         buffered_frames = ps2_audio_ring_buffered_frames();
 
-        if (queued_bytes > (BACKEND_FEED_BYTES * 4)) {
+        if (queued_bytes >= BACKEND_QUEUE_TARGET_BYTES) {
             ps2_audio_wait_loops(1);
             continue;
         }
 
         if (g_audio_paused || buffered_frames == 0) {
-            if (queued_bytes <= BACKEND_FEED_BYTES) {
-                if (!g_audio_paused && !g_warned_underrun) {
-                    PS2AUDIO_LOG("[PS2AUDIO] underrun: feeding silence\n");
-                    g_warned_underrun = 1;
-                }
-                ps2_backend_wait_audio(BACKEND_FEED_BYTES);
-                FlushCache(0);
-                (void)ps2_backend_queue_audio(g_menu_silence_block, BACKEND_FEED_BYTES);
+            if (!g_audio_paused && !g_warned_underrun) {
+                PS2AUDIO_LOG("[PS2AUDIO] underrun: topping up silence\\n");
+                g_warned_underrun = 1;
             }
+
+            ps2_audio_fill_backend_silence_to_target();
             ps2_audio_wait_loops(1);
             continue;
         }
 
-        g_warned_underrun = 0;
+        if (buffered_frames < BACKEND_FEED_FRAMES &&
+            queued_bytes >= BACKEND_REAL_TARGET_BYTES) {
+            ps2_audio_wait_loops(1);
+            continue;
+        }
 
-        want_frames = BACKEND_FEED_FRAMES;
-        if (want_frames > buffered_frames)
-            want_frames = buffered_frames;
+        request_frames = buffered_frames;
+        if (request_frames > BACKEND_FEED_FRAMES)
+            request_frames = BACKEND_FEED_FRAMES;
 
-        got_frames = ps2_audio_copy_from_ring(g_backend_block, want_frames);
+        got_frames = ps2_audio_copy_from_ring(g_backend_block, request_frames);
         if (got_frames == 0) {
             ps2_audio_wait_loops(1);
             continue;
         }
 
-        ps2_backend_wait_audio((int)(got_frames * PS2_AUDIO_FRAME_BYTES));
+        if (got_frames < BACKEND_FEED_FRAMES) {
+            memset(&g_backend_block[got_frames * PS2_AUDIO_CHANNELS],
+                   0,
+                   (BACKEND_FEED_FRAMES - got_frames) * PS2_AUDIO_FRAME_BYTES);
+
+            if (!g_warned_underrun) {
+                PS2AUDIO_LOG("[PS2AUDIO] short block padded: real=%u target=%u\\n",
+                             got_frames,
+                             (unsigned int)BACKEND_FEED_FRAMES);
+                g_warned_underrun = 1;
+            }
+        } else {
+            g_warned_underrun = 0;
+        }
+
+        ps2_backend_wait_audio(BACKEND_FEED_BYTES);
         FlushCache(0);
 
-        sent_bytes = ps2_backend_queue_audio(
-            g_backend_block,
-            (int)(got_frames * PS2_AUDIO_FRAME_BYTES)
-        );
+        sent_bytes = ps2_backend_queue_audio(g_backend_block, BACKEND_FEED_BYTES);
         if (sent_bytes < 0) {
-            PS2AUDIO_LOG("[PS2AUDIO] backend_queue_audio FAIL\n");
+            PS2AUDIO_LOG("[PS2AUDIO] backend_queue_audio FAIL\\n");
             ps2_audio_wait_loops(4);
             continue;
         }
 
-        if ((unsigned int)sent_bytes != got_frames * PS2_AUDIO_FRAME_BYTES) {
-            PS2AUDIO_LOG("[PS2AUDIO] backend accepted partial=%d expected=%u\n",
-                   sent_bytes, got_frames * PS2_AUDIO_FRAME_BYTES);
+        if (sent_bytes != BACKEND_FEED_BYTES) {
+            PS2AUDIO_LOG("[PS2AUDIO] backend accepted partial=%d expected=%u\\n",
+                         sent_bytes,
+                         (unsigned int)BACKEND_FEED_BYTES);
         }
     }
 
     g_sound_thread_running = 0;
-    PS2AUDIO_LOG("[PS2AUDIO] sound thread end\n");
+    PS2AUDIO_LOG("[PS2AUDIO] sound thread end\\n");
     ExitDeleteThread();
 }
 
@@ -526,8 +582,8 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
         size_t out_frames;
         unsigned int written;
 
-        if (chunk > BACKEND_FEED_FRAMES)
-            chunk = BACKEND_FEED_FRAMES;
+        if (chunk > RESAMPLE_IN_CHUNK_MAX)
+            chunk = RESAMPLE_IN_CHUNK_MAX;
 
         out_frames = ps2_audio_resample_chunk(&data[done * 2], chunk);
         if (out_frames == 0) {
@@ -563,11 +619,6 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
             }
         } else {
             g_warned_overrun = 0;
-        }
-
-        if (g_audio_resume_armed && ps2_audio_ring_buffered_frames() >= (BACKEND_FEED_FRAMES * 2)) {
-            ps2_backend_set_volume(0x3fff);
-            g_audio_resume_armed = 0;
         }
 
         done += chunk;
