@@ -72,14 +72,17 @@ static void ps2_audio_wait_loops(int loops)
 }
 
 
+
 static void ps2_audio_reset_stream_state(void)
 {
     g_resample_phase = 0;
     g_resample_step_q16 = RESAMPLE_BASE_STEP_Q16;
+    g_resample_target_step_q16 = RESAMPLE_BASE_STEP_Q16;
     g_resample_prev_l = 0;
     g_resample_prev_r = 0;
     g_resample_have_prev = 0;
 }
+
 
 
 static void ps2_audio_log_state(const char *tag)
@@ -104,40 +107,59 @@ static void ps2_audio_clear_ring(void)
 
 
 
+
 static void ps2_audio_update_resample_step(unsigned int buffered_frames)
 {
     int error = (int)buffered_frames - (int)AUDIO_SYNC_TARGET_FRAMES;
-    unsigned int step = RESAMPLE_BASE_STEP_Q16;
+    unsigned int current = g_resample_step_q16;
+    unsigned int target = RESAMPLE_BASE_STEP_Q16;
     unsigned int delta = 0;
     unsigned int abs_error;
+    unsigned int slew = RESAMPLE_STEP_SLEW_MAX_Q16;
 
     if (error > -(int)AUDIO_SYNC_DEADZONE_FRAMES &&
         error < (int)AUDIO_SYNC_DEADZONE_FRAMES) {
-        g_resample_step_q16 = step;
-        return;
-    }
-
-    if (error > 0)
-        error -= (int)AUDIO_SYNC_DEADZONE_FRAMES;
-    else
-        error += (int)AUDIO_SYNC_DEADZONE_FRAMES;
-
-    abs_error = (error < 0) ? (unsigned int)(-error) : (unsigned int)error;
-    delta = abs_error << 12;
-
-    if (delta > RESAMPLE_STEP_MAX_DELTA_Q16)
-        delta = RESAMPLE_STEP_MAX_DELTA_Q16;
-
-    if (error > 0) {
-        step += delta;
-    } else if (step > delta) {
-        step -= delta;
+        g_resample_target_step_q16 = target;
     } else {
-        step = 1;
+        if (error > 0)
+            error -= (int)AUDIO_SYNC_DEADZONE_FRAMES;
+        else
+            error += (int)AUDIO_SYNC_DEADZONE_FRAMES;
+
+        abs_error = (error < 0) ? (unsigned int)(-error) : (unsigned int)error;
+        delta = abs_error << 11;
+
+        if (delta > RESAMPLE_STEP_MAX_DELTA_Q16)
+            delta = RESAMPLE_STEP_MAX_DELTA_Q16;
+
+        if (error > 0) {
+            target += delta;
+        } else if (target > delta) {
+            target -= delta;
+        } else {
+            target = 1;
+        }
+
+        g_resample_target_step_q16 = target;
     }
 
-    g_resample_step_q16 = step;
+    target = g_resample_target_step_q16;
+
+    if (current < target) {
+        unsigned int inc = target - current;
+        if (inc > slew)
+            inc = slew;
+        current += inc;
+    } else if (current > target) {
+        unsigned int dec = current - target;
+        if (dec > slew)
+            dec = slew;
+        current -= dec;
+    }
+
+    g_resample_step_q16 = current;
 }
+
 
 static unsigned int ps2_audio_ring_buffered_frames(void)
 {

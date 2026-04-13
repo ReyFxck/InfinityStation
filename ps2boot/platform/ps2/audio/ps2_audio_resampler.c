@@ -3,6 +3,7 @@
 int16_t g_resample_out[RESAMPLE_OUT_MAX_FRAMES * PS2_AUDIO_CHANNELS] __attribute__((aligned(64)));
 unsigned int g_resample_phase = 0;
 unsigned int g_resample_step_q16 = RESAMPLE_BASE_STEP_Q16;
+unsigned int g_resample_target_step_q16 = RESAMPLE_BASE_STEP_Q16;
 int16_t g_resample_prev_l = 0;
 int16_t g_resample_prev_r = 0;
 int g_resample_have_prev = 0;
