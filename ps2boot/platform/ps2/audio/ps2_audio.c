@@ -18,6 +18,7 @@ static int g_warned_underrun = 0;
 static int g_logged_first_push = 0;
 static int g_audio_paused = 0;
 static int g_audio_resume_armed = 0;
+static int g_backend_reprime_cooldown = 0;
 
 static int g_sound_tid = -1;
 static volatile int g_sound_thread_running = 0;
@@ -344,6 +345,38 @@ static void ps2_audio_fill_backend_silence_to_target(void)
     }
 }
 
+
+static int ps2_audio_reprime_backend_with_silence(void)
+{
+    int ret;
+
+    ret = ps2_backend_reprime_audio(PS2_AUDIO_RATE,
+                                    PS2_AUDIO_BYTES_PER_SAMPLE * 8,
+                                    PS2_AUDIO_CHANNELS);
+    if (ret < 0) {
+        PS2AUDIO_LOG("[PS2AUDIO] backend reprime failed -> %d\n", ret);
+        return ret;
+    }
+
+    memset(g_menu_silence_block, 0, sizeof(g_menu_silence_block));
+    ps2_audio_fill_backend_silence_to_target();
+    return 0;
+}
+
+static void ps2_audio_recover_backend_underrun(void)
+{
+    if (g_audio_state != 1 || g_audio_paused)
+        return;
+
+    g_audio_resume_armed = 1;
+    g_warned_underrun = 0;
+    ps2_backend_set_volume(0);
+
+    if (ps2_audio_reprime_backend_with_silence() >= 0) {
+        PS2AUDIO_LOG("[PS2AUDIO] backend reprime recovery after underrun\n");
+    }
+}
+
 static void ps2_audio_sound_thread(void *arg)
 {
     int queued_bytes;
@@ -365,6 +398,19 @@ static void ps2_audio_sound_thread(void *arg)
 
         queued_bytes = ps2_backend_queued_bytes();
         buffered_frames = ps2_audio_ring_buffered_frames();
+
+        if (g_backend_reprime_cooldown > 0)
+            g_backend_reprime_cooldown--;
+
+        if (!g_audio_paused &&
+            g_backend_reprime_cooldown == 0 &&
+            buffered_frames == 0 &&
+            queued_bytes <= BACKEND_FEED_BYTES) {
+            ps2_audio_recover_backend_underrun();
+            g_backend_reprime_cooldown = 16;
+            ps2_audio_wait_loops(1);
+            continue;
+        }
 
         if (g_audio_resume_armed) {
             if (buffered_frames < BACKEND_RESUME_UNMUTE_FRAMES) {
@@ -580,6 +626,7 @@ void ps2_audio_pump(void)
 
 
 
+
 void ps2_audio_pause(void)
 {
     if (g_audio_state != 1)
@@ -587,19 +634,23 @@ void ps2_audio_pause(void)
 
     g_audio_paused = 1;
     g_audio_resume_armed = 0;
+    g_backend_reprime_cooldown = 0;
 
-    /* pause suave estilo PGEN: backend continua vivo, mas mutado */
+    /* pause suave: muta e re-prime o backend com silencio */
     ps2_backend_set_volume(0);
 
     ps2_audio_clear_ring();
     ps2_audio_reset_stream_state();
     memset(g_menu_silence_block, 0, sizeof(g_menu_silence_block));
+    (void)ps2_audio_reprime_backend_with_silence();
 
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_logged_first_push = 0;
     ps2_audio_log_state("paused");
 }
+
+
 
 
 
@@ -611,44 +662,44 @@ void ps2_audio_resume(void)
     /* continua mutado ate o primeiro audio real do jogo chegar */
     g_audio_paused = 0;
     g_audio_resume_armed = 1;
+    g_backend_reprime_cooldown = 0;
     ps2_audio_clear_ring();
     ps2_audio_reset_stream_state();
     g_warned_not_ready = 0;
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_logged_first_push = 0;
+
+    ps2_backend_set_volume(0);
+    (void)ps2_audio_reprime_backend_with_silence();
+
     ps2_audio_log_state("resumed-armed");
 }
+
+
 
 
 void ps2_audio_shutdown(void)
 {
     if (g_audio_state == 1) {
-        PS2AUDIO_LOG("[PS2AUDIO] shutdown begin\n");
+        g_sound_thread_exit = 1;
+        if (g_sound_tid >= 0) {
+            WakeupThread(g_sound_tid);
+            DelayThread(1000);
+            DeleteThread(g_sound_tid);
+            g_sound_tid = -1;
+        }
     }
 
-    g_audio_paused = 1;
+    g_sound_thread_running = 0;
+    g_sound_thread_exit = 0;
+    g_audio_paused = 0;
     g_audio_resume_armed = 0;
-    ps2_backend_set_volume(0);
-    ps2_audio_stop_thread();
-    ps2_backend_shutdown();
-    ps2_audio_clear_ring();
-    ps2_audio_reset_stream_state();
-
-    if (g_audio_ring_sema >= 0) {
-        DeleteSema(g_audio_ring_sema);
-        g_audio_ring_sema = -1;
-    }
-
+    g_backend_reprime_cooldown = 0;
     g_audio_state = 0;
-    ps2_audio_backend_set_iop_ready(0);
-    g_warned_not_ready = 0;
-    g_warned_overrun = 0;
-    g_warned_underrun = 0;
-    g_logged_first_push = 0;
-
-    PS2AUDIO_LOG("[PS2AUDIO] shutdown done\n");
+    ps2_backend_shutdown();
 }
+
 
 size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 {

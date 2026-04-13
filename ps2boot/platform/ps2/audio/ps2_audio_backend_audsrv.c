@@ -155,6 +155,29 @@ int ps2_backend_queue_audio(const int16_t *data, int bytes)
 }
 
 
+
+int ps2_backend_reprime_audio(int rate, int bits, int channels)
+{
+    audsrv_fmt_t fmt;
+    int ret;
+
+    if (!g_audsrv_loaded)
+        return -1;
+
+    audsrv_stop_audio();
+    (void)audsrv_set_volume(0);
+
+    memset(&fmt, 0, sizeof(fmt));
+    fmt.freq = rate;
+    fmt.bits = bits;
+    fmt.channels = channels;
+
+    ret = audsrv_set_format(&fmt);
+    PS2AUDIO_LOG("[PS2AUDIO] audsrv_reprime set_format -> %d\n", ret);
+
+    return ret;
+}
+
 void ps2_backend_stop_audio(void)
 {
     if (!g_audsrv_loaded)
