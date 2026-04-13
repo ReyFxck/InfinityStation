@@ -18,7 +18,7 @@ static unsigned g_throttle_last_target_hz = 0;
 static unsigned g_throttle_last_display_hz = 0;
 static int g_overlay_visible = -1;
 static unsigned g_overlay_last_sent_fps = (unsigned)-1;
-static char g_overlay_last_limit[16] = "";
+
 
 static double app_overlay_target_fps(void)
 {
@@ -86,7 +86,7 @@ void app_overlay_reset_timing(void)
     app_overlay_reset_vblank_cadence();
     g_overlay_visible = -1;
     g_overlay_last_sent_fps = (unsigned)-1;
-    g_overlay_last_limit[0] = '\0';
+
 }
 
 void app_overlay_set_core_nominal_fps(double fps)
@@ -154,9 +154,7 @@ void app_overlay_update_fps(void)
 {
     clock_t now = clock();
     char l1[32];
-    char l2[32];
     int show_fps;
-    const char *limit_label;
 
     g_fps_accum++;
 
@@ -171,20 +169,16 @@ void app_overlay_update_fps(void)
     }
 
     show_fps = ps2_menu_show_fps_enabled();
-    limit_label = app_overlay_frame_limit_label();
 
     if (show_fps) {
         if (g_overlay_visible == 1 &&
-            g_overlay_last_sent_fps == g_fps_display &&
-            strcmp(g_overlay_last_limit, limit_label) == 0)
+            g_overlay_last_sent_fps == g_fps_display)
             return;
 
-        snprintf(l1, sizeof(l1), "FPS: %u", g_fps_display);
-        snprintf(l2, sizeof(l2), "LIMIT: %s", limit_label);
-        ps2_video_set_debug(l1, l2, "", "");
+        snprintf(l1, sizeof(l1), "FPS %u", g_fps_display);
+        ps2_video_set_debug(l1, "", "", "");
         g_overlay_visible = 1;
         g_overlay_last_sent_fps = g_fps_display;
-        snprintf(g_overlay_last_limit, sizeof(g_overlay_last_limit), "%s", limit_label);
     } else {
         if (g_overlay_visible == 0)
             return;
@@ -192,6 +186,5 @@ void app_overlay_update_fps(void)
         ps2_video_set_debug("", "", "", "");
         g_overlay_visible = 0;
         g_overlay_last_sent_fps = (unsigned)-1;
-        g_overlay_last_limit[0] = '\0';
     }
 }

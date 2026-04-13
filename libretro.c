@@ -29,10 +29,22 @@
 
 #include <stdio.h>
 
-extern void app_gfx_prof_reset_frame(void);
-extern void app_gfx_prof_get_frame(unsigned long long *obj_cycles, unsigned *obj_calls);
-extern void app_clip_prof_reset_frame(void);
-extern void app_clip_prof_get_frame(unsigned long long *clip_cycles, unsigned *clip_calls);
+static void app_gfx_prof_reset_frame(void) {}
+static void app_gfx_prof_get_frame(unsigned long long *obj_cycles, unsigned *obj_calls)
+{
+   if (obj_cycles)
+      *obj_cycles = 0;
+   if (obj_calls)
+      *obj_calls = 0;
+}
+static void app_clip_prof_reset_frame(void) {}
+static void app_clip_prof_get_frame(unsigned long long *clip_cycles, unsigned *clip_calls)
+{
+   if (clip_cycles)
+      *clip_cycles = 0;
+   if (clip_calls)
+      *clip_calls = 0;
+}
 #ifdef _3DS
 void* linearMemAlign(size_t size, size_t alignment);
 void linearFree(void* mem);
@@ -110,9 +122,7 @@ static char g_app_core_prof_line4[48];
 
 static inline unsigned app_core_prof_read_count(void)
 {
-    unsigned value;
-    __asm__ __volatile__("mfc0 %0, $9" : "=r"(value));
-    return value;
+    return 0;
 }
 
 static inline float app_core_prof_cycles_to_ms(unsigned long long cycles, unsigned frames)

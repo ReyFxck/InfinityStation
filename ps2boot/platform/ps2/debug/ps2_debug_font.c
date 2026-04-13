@@ -83,14 +83,38 @@ static unsigned dbg_target_stride(void)
     return g_dbg_target ? g_dbg_target_stride : PS2_VIDEO_TEX_WIDTH;
 }
 
-static unsigned dbg_target_width(void)
+unsigned dbg_target_width(void)
 {
     return g_dbg_target ? g_dbg_target_width : 256u;
 }
 
-static unsigned dbg_target_height(void)
+unsigned dbg_target_height(void)
 {
     return g_dbg_target ? g_dbg_target_height : 224u;
+}
+
+static unsigned dbg_scale_x(void)
+{
+    unsigned w = dbg_target_width();
+    unsigned sx = (w + 255u) / 256u;
+
+    if (sx < 1u)
+        sx = 1u;
+    if (sx > 2u)
+        sx = 2u;
+    return sx;
+}
+
+static unsigned dbg_scale_y(void)
+{
+    unsigned h = dbg_target_height();
+    unsigned sy = (h + 223u) / 224u;
+
+    if (sy < 1u)
+        sy = 1u;
+    if (sy > 2u)
+        sy = 2u;
+    return sy;
 }
 
 static void dbg_put_pixel(unsigned x, unsigned y, uint16_t color)
@@ -106,13 +130,25 @@ static void dbg_put_pixel(unsigned x, unsigned y, uint16_t color)
 
 static void dbg_draw_char(unsigned x, unsigned y, char c, uint16_t color)
 {
+    unsigned sx = dbg_scale_x();
+    unsigned sy = dbg_scale_y();
     int row, col;
 
     for (row = 0; row < 7; row++) {
         uint8_t bits = dbg_glyph_row(c, row);
         for (col = 0; col < 5; col++) {
-            if (bits & (1 << (4 - col)))
-                dbg_put_pixel(x + (unsigned)col, y + (unsigned)row, color);
+            if (bits & (1 << (4 - col))) {
+                unsigned dx, dy;
+                for (dy = 0; dy < sy; dy++) {
+                    for (dx = 0; dx < sx; dx++) {
+                        dbg_put_pixel(
+                            x + (unsigned)col * sx + dx,
+                            y + (unsigned)row * sy + dy,
+                            color
+                        );
+                    }
+                }
+            }
         }
     }
 }
@@ -120,10 +156,9 @@ static void dbg_draw_char(unsigned x, unsigned y, char c, uint16_t color)
 void dbg_draw_string_color(unsigned x, unsigned y, const char *s, uint16_t color)
 {
     unsigned i;
-    uint16_t shadow = 0x8000;
+    unsigned adv = 5u * dbg_scale_x();
 
     for (i = 0; s[i]; i++) {
-        dbg_draw_char(x + i * 6 + 1, y + 1, s[i], shadow);
-        dbg_draw_char(x + i * 6,     y,     s[i], color);
+        dbg_draw_char(x + i * adv, y, s[i], color);
     }
 }

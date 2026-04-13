@@ -36,35 +36,8 @@ static int BandCompare(const void* d1, const void* d2)
    return ((Band*) d1)->Left  - ((Band*) d2)->Left;
 }
 
-
-static unsigned long long g_app_clip_cycles_frame = 0;
-static unsigned g_app_clip_calls_frame = 0;
-
-static inline unsigned app_clip_prof_read_count(void)
-{
-   unsigned value;
-   __asm__ __volatile__("mfc0 %0, $9" : "=r"(value));
-   return value;
-}
-
-void app_clip_prof_reset_frame(void)
-{
-   g_app_clip_cycles_frame = 0;
-   g_app_clip_calls_frame = 0;
-}
-
-void app_clip_prof_get_frame(unsigned long long *clip_cycles, unsigned *clip_calls)
-{
-   if (clip_cycles)
-      *clip_cycles = g_app_clip_cycles_frame;
-   if (clip_calls)
-      *clip_calls = g_app_clip_calls_frame;
-}
-
 void ComputeClipWindows()
 {
-   unsigned prof_t0 = app_clip_prof_read_count();
-
    ClipData* pClip = &IPPU.Clip [0];
    int32_t c, w, i;
 
@@ -657,7 +630,4 @@ Clip_ok:;
          } /* if (w == 5 || pClip->Count [5] ... */
       } /* for (w... */
    } /* for (c... */
-
-   g_app_clip_cycles_frame += (unsigned long long)(app_clip_prof_read_count() - prof_t0);
-   g_app_clip_calls_frame++;
 }

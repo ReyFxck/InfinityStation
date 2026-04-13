@@ -16,31 +16,6 @@
 
 void ComputeClipWindows(void);
 
-static unsigned long long g_app_gfx_obj_cycles_frame = 0;
-static unsigned g_app_gfx_obj_calls_frame = 0;
-
-static inline unsigned app_gfx_prof_read_count(void)
-{
-   unsigned value;
-   __asm__ __volatile__("mfc0 %0, $9" : "=r"(value));
-   return value;
-}
-
-void app_gfx_prof_reset_frame(void)
-{
-   g_app_gfx_obj_cycles_frame = 0;
-   g_app_gfx_obj_calls_frame = 0;
-}
-
-void app_gfx_prof_get_frame(unsigned long long *obj_cycles, unsigned *obj_calls)
-{
-   if (obj_cycles)
-      *obj_cycles = g_app_gfx_obj_cycles_frame;
-   if (obj_calls)
-      *obj_calls = g_app_gfx_obj_calls_frame;
-}
-
-
 extern uint8_t BitShifts    [8][4];
 extern uint8_t TileShifts   [8][4];
 extern uint8_t PaletteShifts[8][4];
@@ -588,8 +563,6 @@ static INLINE void SelectTileRenderer(bool normal)
 
 void S9xSetupOBJ(void)
 {
-   unsigned prof_t0 = app_gfx_prof_read_count();
-
    int32_t Height;
    uint8_t S;
    int32_t SmallWidth, SmallHeight;
@@ -801,9 +774,6 @@ void S9xSetupOBJ(void)
    }
 
    IPPU.OBJChanged = false;
-
-   g_app_gfx_obj_cycles_frame += (unsigned long long)(app_gfx_prof_read_count() - prof_t0);
-   g_app_gfx_obj_calls_frame++;
 }
 
 static void DrawOBJS(bool OnMain, uint8_t D)

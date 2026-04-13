@@ -38,23 +38,38 @@ void dbg_overlay(void)
 {
     static unsigned rainbow_phase = 0;
     uint16_t c = 0xFFFF;
+    const char *lines[4];
+    unsigned count = 0;
+    unsigned i;
+    unsigned h = dbg_target_height();
+    unsigned scale_x = (dbg_target_width()  >= 512u) ? 2u : 1u;
+    unsigned scale_y = (dbg_target_height() >= 448u) ? 2u : 1u;
+    unsigned x = 4u * scale_x;
+    unsigned line_h = 7u * scale_y;
+    unsigned margin_bottom = 4u * scale_y;
+    unsigned y0;
 
-    if (!g_dbg1[0] && !g_dbg2[0] && !g_dbg3[0] && !g_dbg4[0])
+    if (g_dbg1[0]) lines[count++] = g_dbg1;
+    if (g_dbg2[0]) lines[count++] = g_dbg2;
+    if (g_dbg3[0]) lines[count++] = g_dbg3;
+    if (g_dbg4[0]) lines[count++] = g_dbg4;
+
+    if (!count)
         return;
+
+    y0 = (h > (count * line_h + margin_bottom))
+        ? (h - count * line_h - margin_bottom)
+        : 0;
 
     if (ps2_menu_fps_rainbow_enabled()) {
         rainbow_phase = (rainbow_phase + 24) % 1536;
         c = dbg_rainbow_color(rainbow_phase);
 
-        dbg_draw_string_color(2,  2, g_dbg1, c);
-        dbg_draw_string_color(2, 10, g_dbg2, c);
-        dbg_draw_string_color(2, 18, g_dbg3, c);
-        dbg_draw_string_color(2, 26, g_dbg4, c);
+        for (i = 0; i < count; i++)
+            dbg_draw_string_color(x, y0 + line_h * i, lines[i], c);
         return;
     }
 
-    dbg_draw_string(2,  2, g_dbg1);
-    dbg_draw_string(2, 10, g_dbg2);
-    dbg_draw_string(2, 18, g_dbg3);
-    dbg_draw_string(2, 26, g_dbg4);
+    for (i = 0; i < count; i++)
+        dbg_draw_string(x, y0 + line_h * i, lines[i]);
 }

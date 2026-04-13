@@ -31,7 +31,6 @@ static void app_prof_commit(unsigned run_cycles, unsigned post_cycles, unsigned 
     (void)run_cycles;
     (void)post_cycles;
     (void)total_cycles;
-    ps2_video_set_debug("", "", "", "");
 }
 
 static void die(const char *msg)

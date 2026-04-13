@@ -7,4 +7,8 @@ void dbg_set_target(uint16_t *buffer, unsigned stride, unsigned width, unsigned 
 void dbg_reset_target(void);
 void dbg_draw_string_color(unsigned x, unsigned y, const char *s, uint16_t color);
 
+
+unsigned dbg_target_width(void);
+unsigned dbg_target_height(void);
+
 #endif

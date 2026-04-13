@@ -52,28 +52,12 @@ static void ps2_video_prof_commit_split(
     unsigned height
 )
 {
-    g_prof_convert_cycles += cvt_cycles;
-    g_prof_overlay_cycles += ovl_cycles;
-    g_prof_backend_cycles += backend_cycles;
-    g_prof_total_cycles += total_cycles;
-    g_prof_frames++;
-
-    if (g_prof_frames >= 30u) {
-        snprintf(g_dbg3, 96, "VID cvt %.2f | ovl %.2f | be %.2f",
-                 ps2_video_prof_cycles_to_ms(g_prof_convert_cycles, g_prof_frames),
-                 ps2_video_prof_cycles_to_ms(g_prof_overlay_cycles, g_prof_frames),
-                 ps2_video_prof_cycles_to_ms(g_prof_backend_cycles, g_prof_frames));
-
-        snprintf(g_dbg4, 96, "VID total %.2fms | %ux%u",
-                 ps2_video_prof_cycles_to_ms(g_prof_total_cycles, g_prof_frames),
-                 width, height);
-
-        g_prof_frames = 0;
-        g_prof_convert_cycles = 0;
-        g_prof_overlay_cycles = 0;
-        g_prof_backend_cycles = 0;
-        g_prof_total_cycles = 0;
-    }
+    (void)cvt_cycles;
+    (void)ovl_cycles;
+    (void)backend_cycles;
+    (void)total_cycles;
+    (void)width;
+    (void)height;
 }
 
 
