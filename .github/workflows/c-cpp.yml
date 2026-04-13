@@ -1,23 +1,66 @@
-name: C CI
+name: PS2 CI
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
+    runs-on: ubuntu-latest
 
-    runs-on: ubuntu-latest/debian-latest/others
+    env:
+      PS2DEV: /usr/local/ps2dev
+      PS2SDK: /usr/local/ps2dev/ps2sdk
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Clear compilation
-      run: make clean
-    - name: make
-      run: make
-    - name: Help for make
-      run: make help
-    - name: make run compilation
-      run: make V=1
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache PS2DEV toolchain
+        id: cache-ps2dev
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/ps2dev
+          key: ${{ runner.os }}-ps2dev-prebuilt-v1
+
+      - name: Install prebuilt PS2DEV toolchain
+        if: steps.cache-ps2dev.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p "$PS2DEV"
+          sudo chown -R "$USER:$USER" "$PS2DEV"
+          curl -L https://github.com/ps2dev/ps2dev/releases/download/latest/ps2dev-ubuntu-latest.tar.gz -o /tmp/ps2dev.tar.gz
+          tar -xzf /tmp/ps2dev.tar.gz --strip-components=1 -C "$PS2DEV"
+
+      - name: Export PS2DEV environment
+        run: |
+          {
+            echo "PS2DEV=$PS2DEV"
+            echo "PS2SDK=$PS2SDK"
+            echo "GSKIT=$PS2DEV/gsKit"
+            echo "PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin"
+          } >> "$GITHUB_ENV"
+
+      - name: Toolchain info
+        run: |
+          echo "PS2DEV=$PS2DEV"
+          echo "PS2SDK=$PS2SDK"
+          ee-gcc --version
+
+      - name: Make help
+        run: make help
+
+      - name: Clean
+        run: make clean
+
+      - name: Build
+        run: make V=1
+
+      - name: Upload ELF
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: InfinityStation-elf
+          path: ps2snes2005_boot.elf

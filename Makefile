@@ -1,6 +1,6 @@
 EE_BIN = ps2snes2005_boot.elf
 
-CORE_DIR = ..
+CORE_DIR = .
 SRC_DIR  = $(CORE_DIR)/source
 COMM_DIR = $(CORE_DIR)/libretro-common
 
@@ -59,91 +59,91 @@ COMM_SRCS = \
 COMM_OBJS = $(COMM_SRCS:.c=.o)
 
 BASE_OBJS = \
-        app/main.o \
-        platform/ps2/video/ps2_video.o \
-        platform/ps2/video/ps2_video_core.o \
-        platform/ps2/video/ps2_video_menu.o \
-        platform/ps2/video/ps2_video_debug.o \
- platform/ps2/debug/ps2_debug_font.o \
-        platform/ps2/video/ps2_video_color.o \
-        platform/ps2/video/ps2_launcher_video.o \
-        platform/ps2/input/ps2_input.o \
-        platform/ps2/menu/ps2_menu.o \
-    platform/ps2/audio/ps2_audio.o \
-platform/ps2/audio/ps2_audio_backend_audsrv.o \
-platform/ps2/audio/ps2_audio_resampler.o \
- platform/ps2/storage/ps2_disc.o \
-        ui/select_menu/select_menu.o \
-        ui/select_menu/select_menu_actions.o \
-        ui/select_menu/select_menu_render.o \
-        ui/select_menu/select_menu_pages.o \
-        ui/select_menu/font/select_menu_font.o \
-        ui/launcher/launcher.o \
-        ui/launcher/launcher_actions.o \
- ui/launcher/launcher_state.o \
-        ui/launcher/launcher_render.o \
-        ui/launcher/launcher_font.o \
-        ui/launcher/launcher_pages.o \
-        ui/launcher/launcher_logo.o \
-        ui/launcher/launcher_logo_data.o \
-        ui/launcher/launcher_browser.o \
-        ui/launcher/launcher_browser_devices.o \
-        ui/launcher/launcher_browser_scan.o \
-        ui/launcher/launcher_browser_sort.o \
-    assets/audsrv_blob.o \
+        ps2boot/app/main.o \
+        ps2boot/platform/ps2/video/ps2_video.o \
+        ps2boot/platform/ps2/video/ps2_video_core.o \
+        ps2boot/platform/ps2/video/ps2_video_menu.o \
+        ps2boot/platform/ps2/video/ps2_video_debug.o \
+ ps2boot/platform/ps2/debug/ps2_debug_font.o \
+        ps2boot/platform/ps2/video/ps2_video_color.o \
+        ps2boot/platform/ps2/video/ps2_launcher_video.o \
+        ps2boot/platform/ps2/input/ps2_input.o \
+        ps2boot/platform/ps2/menu/ps2_menu.o \
+    ps2boot/platform/ps2/audio/ps2_audio.o \
+ps2boot/platform/ps2/audio/ps2_audio_backend_audsrv.o \
+ps2boot/platform/ps2/audio/ps2_audio_resampler.o \
+ ps2boot/platform/ps2/storage/ps2_disc.o \
+        ps2boot/ui/select_menu/select_menu.o \
+        ps2boot/ui/select_menu/select_menu_actions.o \
+        ps2boot/ui/select_menu/select_menu_render.o \
+        ps2boot/ui/select_menu/select_menu_pages.o \
+        ps2boot/ui/select_menu/font/select_menu_font.o \
+        ps2boot/ui/launcher/launcher.o \
+        ps2boot/ui/launcher/launcher_actions.o \
+ ps2boot/ui/launcher/launcher_state.o \
+        ps2boot/ui/launcher/launcher_render.o \
+        ps2boot/ui/launcher/launcher_font.o \
+        ps2boot/ui/launcher/launcher_pages.o \
+        ps2boot/ui/launcher/launcher_logo.o \
+        ps2boot/ui/launcher/launcher_logo_data.o \
+        ps2boot/ui/launcher/launcher_browser.o \
+        ps2boot/ui/launcher/launcher_browser_devices.o \
+        ps2boot/ui/launcher/launcher_browser_scan.o \
+        ps2boot/ui/launcher/launcher_browser_sort.o \
+    ps2boot/assets/audsrv_blob.o \
         $(CORE_SRCS:.c=.o) \
   $(COMM_OBJS)
 
 ROM_LOADER_OBJS = \
-        rom_loader/rom_loader.o \
-        rom_loader/rom_zip.o \
-        rom_loader/miniz/miniz.o \
-        rom_loader/miniz/miniz_tdef.o \
-        rom_loader/miniz/miniz_tinfl.o \
-        rom_loader/miniz/miniz_zip.o
+        ps2boot/rom_loader/rom_loader.o \
+        ps2boot/rom_loader/rom_zip.o \
+        ps2boot/rom_loader/miniz/miniz.o \
+        ps2boot/rom_loader/miniz/miniz_tdef.o \
+        ps2boot/rom_loader/miniz/miniz_tinfl.o \
+        ps2boot/rom_loader/miniz/miniz_zip.o
 
 APP_OBJS = \
-        app/app_game.o \
- app/app_state.o \
- app/app_transition.o \
- app/frontend_config.o \
-        app/app_launcher.o \
-        app/app_runtime.o \
-        app/app_overlay.o \
-        app/app_boot.o \
-        app/app_callbacks.o
+        ps2boot/app/app_game.o \
+ ps2boot/app/app_state.o \
+ ps2boot/app/app_transition.o \
+ ps2boot/app/frontend_config.o \
+        ps2boot/app/app_launcher.o \
+        ps2boot/app/app_runtime.o \
+        ps2boot/app/app_overlay.o \
+        ps2boot/app/app_boot.o \
+        ps2boot/app/app_callbacks.o
 
 SELECT_MENU_OBJS = \
-        ui/select_menu/select_menu_actions_main.o \
-        ui/select_menu/select_menu_actions_video.o \
- ui/select_menu/select_menu_state.o \
-        ui/select_menu/select_menu_actions_game.o \
-        ui/select_menu/select_menu_pages_main.o \
-        ui/select_menu/select_menu_pages_video.o \
-        ui/select_menu/select_menu_pages_game.o \
-        ui/select_menu/select_menu_pages_common.o \
-        ui/select_menu/select_menu_pages_icons.o \
-        ui/select_menu/select_menu_pages_layout.o
+        ps2boot/ui/select_menu/select_menu_actions_main.o \
+        ps2boot/ui/select_menu/select_menu_actions_video.o \
+ ps2boot/ui/select_menu/select_menu_state.o \
+        ps2boot/ui/select_menu/select_menu_actions_game.o \
+        ps2boot/ui/select_menu/select_menu_pages_main.o \
+        ps2boot/ui/select_menu/select_menu_pages_video.o \
+        ps2boot/ui/select_menu/select_menu_pages_game.o \
+        ps2boot/ui/select_menu/select_menu_pages_common.o \
+        ps2boot/ui/select_menu/select_menu_pages_icons.o \
+        ps2boot/ui/select_menu/select_menu_pages_layout.o
 
 LAUNCHER_OBJS = \
-        ui/launcher/launcher_pages_main.o \
-        ui/launcher/launcher_pages_browser.o \
-        ui/launcher/launcher_pages_options.o \
- ui/launcher/launcher_pages_credits.o \
-        ui/launcher/launcher_actions_main.o \
-        ui/launcher/launcher_actions_browser.o \
-        ui/launcher/launcher_actions_options.o \
-        ui/launcher/launcher_browser_state.o \
-        ui/launcher/launcher_browser_open.o \
-        ui/launcher/launcher_browser_nav.o \
-        ui/launcher/font/browser_font.o \
-        ui/launcher/launcher_background.o \
-        ui/launcher/launcher_bg_ntsc_data.o \
-        ui/launcher/launcher_bg_pal_data.o
+        ps2boot/ui/launcher/launcher_pages_main.o \
+        ps2boot/ui/launcher/launcher_pages_browser.o \
+        ps2boot/ui/launcher/launcher_pages_options.o \
+ ps2boot/ui/launcher/launcher_pages_credits.o \
+        ps2boot/ui/launcher/launcher_actions_main.o \
+        ps2boot/ui/launcher/launcher_actions_browser.o \
+        ps2boot/ui/launcher/launcher_actions_options.o \
+        ps2boot/ui/launcher/launcher_browser_state.o \
+        ps2boot/ui/launcher/launcher_browser_open.o \
+        ps2boot/ui/launcher/launcher_browser_nav.o \
+        ps2boot/ui/launcher/font/browser_font.o \
+        ps2boot/ui/launcher/launcher_background.o \
+        ps2boot/ui/launcher/launcher_bg_ntsc_data.o \
+        ps2boot/ui/launcher/launcher_bg_pal_data.o
 
 VIDEO_EXTRA_OBJS = \
-        platform/ps2/video/ps2_video_ui.o \
-        platform/ps2/video/ps2_video_launcher_target.o
+        ps2boot/platform/ps2/video/ps2_video_ui.o \
+        ps2boot/platform/ps2/video/ps2_video_launcher_target.o
 
 EXTRA_OBJS = \
         $(ROM_LOADER_OBJS) \
@@ -158,8 +158,8 @@ EE_OBJS = \
 
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
 EE_CFLAGS += -O3 -G0 -DLAGFIX
-EE_CFLAGS += -I. -Irom_loader -Irom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
-EE_CFLAGS += -Iapp -Iplatform/ps2 -Iplatform/ps2/audio -Iplatform/ps2/video -Iplatform/ps2/input -Iplatform/ps2/menu -Iplatform/ps2/storage -Iplatform/ps2/debug -Iassets
+EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
+EE_CFLAGS += -Ips2boot/app -Ips2boot/platform/ps2 -Ips2boot/platform/ps2/audio -Ips2boot/platform/ps2/video -Ips2boot/platform/ps2/input -Ips2boot/platform/ps2/menu -Ips2boot/platform/ps2/storage -Ips2boot/platform/ps2/debug -Ips2boot/assets
 
 HOT_CORE_OBJS = \
 	$(SRC_DIR)/ppu.o \
@@ -173,9 +173,9 @@ HOT_CORE_OBJS = \
 $(HOT_CORE_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
 HOT_FRONTEND_OBJS = \
-	platform/ps2/video/ps2_video_core.o \
-	app/app_callbacks.o \
-	app/app_overlay.o
+	ps2boot/platform/ps2/video/ps2_video_core.o \
+	ps2boot/app/app_callbacks.o \
+	ps2boot/app/app_overlay.o
 
 $(HOT_FRONTEND_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
@@ -242,7 +242,7 @@ endif
 
 .PHONY: help push push-android push-win clean rebuild
 help:
-	@echo "InfinityStation / ps2boot"
+	@echo "InfinityStation"
 	@echo
 	@printf "  %-20s %s\n" "make" "Compila o projeto"
 	@printf "  %-20s %s\n" "make clean" "Remove arquivos gerados"
@@ -289,8 +289,8 @@ rebuild: clean
 
 
 # ---- ISO helpers ----
-ISO_ROOT_DIR ?= ../dist/iso_root
-ISO_OUT ?= ../dist/InfinityStation-roms-test.iso
+ISO_ROOT_DIR ?= dist/iso_root
+ISO_OUT ?= dist/InfinityStation-roms-test.iso
 ISO_LABEL ?= INFSTATION
 ISO_BOOT ?= SNESBOOT.ELF
 ISO_VMODE ?= NTSC
