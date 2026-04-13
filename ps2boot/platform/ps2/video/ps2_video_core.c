@@ -13,6 +13,7 @@ static unsigned g_draw_base_qwcs[PS2_VIDEO_TEX_SLOTS];
 static texbuffer_t g_tex_slots[PS2_VIDEO_TEX_SLOTS];
 static unsigned g_tex_slot_next;
 static unsigned g_tex_slots_in_flight;
+static unsigned g_last_band_clear_mode = 0xffffffffu;
 
 static unsigned g_prof_frames;
 static unsigned long long g_prof_convert_cycles;
@@ -157,6 +158,17 @@ static inline void ps2_video_get_target_rect(float *x0, float *y0, float *x1, fl
     *x1 = g_aspect_rects[mode][2];
     *y1 = g_aspect_rects[mode][3];
 }
+
+static inline unsigned ps2_video_get_effective_aspect_mode(void)
+{
+    unsigned mode = (unsigned)g_aspect_mode;
+
+    if (mode > PS2_ASPECT_PIXEL)
+        mode = PS2_ASPECT_4_3;
+
+    return mode;
+}
+
 
 static inline qword_t *ps2_video_clear_bands(
     qword_t *q, float x0, float y0, float x1, float y1
@@ -312,6 +324,7 @@ int ps2_video_init_once(void)
         return 0;
 
     ps2_video_build_all_draw_base_packets();
+    g_last_band_clear_mode = 0xffffffffu;
 
     g_video_ready = 1;
     return 1;
@@ -389,7 +402,18 @@ static void ps2_video_upload_and_draw_source(
         q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
     }
 
-    q = ps2_video_clear_bands(q, x0, y0, x1, y1);
+    {
+        unsigned aspect_mode = ps2_video_get_effective_aspect_mode();
+
+        if (aspect_mode != PS2_ASPECT_FULL &&
+            aspect_mode != g_last_band_clear_mode) {
+            q = ps2_video_clear_bands(q, x0, y0, x1, y1);
+            g_last_band_clear_mode = aspect_mode;
+        } else if (aspect_mode == PS2_ASPECT_FULL) {
+            g_last_band_clear_mode = aspect_mode;
+        }
+    }
+
     q = draw_rect_textured(q, 0, &rect);
     q = draw_finish(q);
 
@@ -582,6 +606,7 @@ void ps2_video_hard_reset(void)
     g_tex = g_tex_slots[0];
     g_tex_slot_next = 0;
     g_tex_slots_in_flight = 0;
+    g_last_band_clear_mode = 0xffffffffu;
     ps2_video_build_all_draw_base_packets();
 
     SyncDCache((void *)g_upload,
