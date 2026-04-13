@@ -15,6 +15,11 @@ static unsigned g_draw_base_qwcs[PS2_VIDEO_TEX_SLOTS];
 static texbuffer_t g_tex_slots[PS2_VIDEO_TEX_SLOTS];
 static unsigned g_tex_slot_next;
 static unsigned g_tex_slots_in_flight;
+static unsigned g_last_uploaded_tex_slot = 0;
+static int g_last_uploaded_tex_valid = 0;
+static int g_last_frame_256_valid = 0;
+static unsigned g_last_frame_256_height = 0;
+static uint16_t g_last_frame_256[PS2_VIDEO_UPLOAD_256_WIDTH * PS2_VIDEO_TEX_HEIGHT] __attribute__((aligned(64)));
 static unsigned g_last_band_clear_mode = 0xffffffffu;
 
 static unsigned g_prof_frames;
@@ -464,9 +469,109 @@ static void ps2_video_upload_and_draw_source(
 
     dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
 
+    g_last_uploaded_tex_slot = tex_slot;
+    g_last_uploaded_tex_valid = 1;
+
     if (g_tex_slots_in_flight < PS2_VIDEO_TEX_SLOTS)
         g_tex_slots_in_flight++;
 }
+
+
+static void ps2_video_draw_cached_source(unsigned tex_slot, unsigned width, unsigned height, unsigned wait_vblanks)
+{
+    qword_t *q;
+    const texrect_t *base_rect;
+    texrect_t rect;
+
+    if (!g_video_ready || !g_last_uploaded_tex_valid || tex_slot >= PS2_VIDEO_TEX_SLOTS)
+        return;
+
+    g_tex = g_tex_slots[tex_slot];
+    base_rect = ps2_video_get_rect_template();
+    rect = *base_rect;
+    rect.t1.u = (float)width - 1.0f;
+    rect.t1.v = (float)height - 1.0f;
+
+    dma_wait_fast();
+
+    if (g_draw_base_qwcs[tex_slot] != 0) {
+        memcpy(
+            g_draw_packet->data,
+            g_draw_base_packets[tex_slot],
+            g_draw_base_qwcs[tex_slot] * sizeof(qword_t)
+        );
+        q = g_draw_packet->data + g_draw_base_qwcs[tex_slot];
+    } else {
+        q = g_draw_packet->data;
+        q = draw_setup_environment(q, 0, &g_frame, &g_z);
+        q = draw_texture_sampling(q, 0, &g_lod_nearest);
+        q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
+    }
+
+    {
+        unsigned aspect_mode = ps2_video_get_effective_aspect_mode();
+
+        if (aspect_mode != PS2_ASPECT_FULL &&
+            aspect_mode != g_last_band_clear_mode) {
+            q = ps2_video_clear_bands(
+                q,
+                base_rect->v0.x,
+                base_rect->v0.y,
+                base_rect->v1.x,
+                base_rect->v1.y
+            );
+            g_last_band_clear_mode = aspect_mode;
+        } else if (aspect_mode == PS2_ASPECT_FULL) {
+            g_last_band_clear_mode = aspect_mode;
+        }
+    }
+
+    q = draw_rect_textured(q, 0, &rect);
+    q = draw_finish(q);
+
+    dma_wait_fast();
+
+    while (wait_vblanks != 0) {
+        graph_wait_vsync();
+        wait_vblanks--;
+    }
+
+    dma_channel_send_normal(DMA_CHANNEL_GIF, g_draw_packet->data, q - g_draw_packet->data, 0, 0);
+}
+
+static int ps2_video_can_reuse_256_frame(const uint16_t *src, unsigned width, unsigned height)
+{
+    size_t bytes;
+
+    if (!src || !g_last_uploaded_tex_valid || !g_last_frame_256_valid)
+        return 0;
+
+    if (width != PS2_VIDEO_UPLOAD_256_WIDTH)
+        return 0;
+
+    if (height != g_last_frame_256_height)
+        return 0;
+
+    bytes = (size_t)width * (size_t)height * sizeof(uint16_t);
+    return memcmp(src, g_last_frame_256, bytes) == 0;
+}
+
+static void ps2_video_store_last_256_frame(const uint16_t *src, unsigned width, unsigned height)
+{
+    size_t bytes;
+
+    if (!src || width != PS2_VIDEO_UPLOAD_256_WIDTH || height == 0 || height > PS2_VIDEO_TEX_HEIGHT) {
+        g_last_frame_256_valid = 0;
+        g_last_frame_256_height = 0;
+        return;
+    }
+
+    bytes = (size_t)width * (size_t)height * sizeof(uint16_t);
+    memcpy(g_last_frame_256, src, bytes);
+    g_last_frame_256_height = height;
+    g_last_frame_256_valid = 1;
+}
+
 
 void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
 {
@@ -481,35 +586,33 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 
     if (width > PS2_VIDEO_TEX_WIDTH)
         width = PS2_VIDEO_TEX_WIDTH;
+
     if (height > PS2_VIDEO_TEX_HEIGHT)
         height = PS2_VIDEO_TEX_HEIGHT;
 
     wait_vsync = select_menu_actions_game_vsync_enabled();
     wait_vblanks = app_overlay_video_wait_vblanks(wait_vsync);
     overlay_active = (g_dbg1[0] || g_dbg2[0] || g_dbg3[0] || g_dbg4[0]);
+
     t0 = ps2_video_prof_read_count();
 
-    if (width <= PS2_VIDEO_UPLOAD_256_WIDTH)
-    {
+    if (width <= PS2_VIDEO_UPLOAD_256_WIDTH) {
         const uint16_t *upload_src_256 = g_upload_256;
+        int reusable_linear_256 = 0;
 
         if (width == PS2_VIDEO_UPLOAD_256_WIDTH &&
             pitch == (PS2_VIDEO_UPLOAD_256_WIDTH * sizeof(uint16_t)) &&
-            !overlay_active)
-        {
+            !overlay_active) {
             upload_src_256 = (const uint16_t *)src;
-        }
-        else if (width == PS2_VIDEO_UPLOAD_256_WIDTH &&
-                 pitch == (PS2_VIDEO_UPLOAD_256_WIDTH * sizeof(uint16_t)))
-        {
+            reusable_linear_256 = 1;
+        } else if (width == PS2_VIDEO_UPLOAD_256_WIDTH &&
+                   pitch == (PS2_VIDEO_UPLOAD_256_WIDTH * sizeof(uint16_t))) {
             ps2_video_convert_rgb565_linear(
                 (const uint16_t *)src,
                 g_upload_256,
                 width * height
             );
-        }
-        else
-        {
+        } else {
             ps2_video_convert_rgb565_pitched_stride(
                 src,
                 width,
@@ -522,6 +625,11 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 
         t_ovl = 0;
         if (overlay_active) {
+            if (upload_src_256 != g_upload_256) {
+                memcpy(g_upload_256, upload_src_256, width * height * sizeof(uint16_t));
+                upload_src_256 = g_upload_256;
+            }
+
             t_ovl = ps2_video_prof_read_count();
             dbg_set_target(
                 g_upload_256,
@@ -535,6 +643,15 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         }
 
         t1 = ps2_video_prof_read_count();
+
+        if (reusable_linear_256 &&
+            ps2_video_can_reuse_256_frame(upload_src_256, width, height)) {
+            ps2_video_draw_cached_source(g_last_uploaded_tex_slot, width, height, wait_vblanks);
+            t2 = ps2_video_prof_read_count();
+            ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
+            return;
+        }
+
         ps2_video_upload_and_draw_source(
             upload_src_256,
             PS2_VIDEO_UPLOAD_256_WIDTH,
@@ -543,22 +660,26 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
             height,
             wait_vblanks
         );
+
         t2 = ps2_video_prof_read_count();
+
+        if (reusable_linear_256)
+            ps2_video_store_last_256_frame(upload_src_256, width, height);
+        else
+            g_last_frame_256_valid = 0;
+
         ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
         return;
     }
 
     if (width == PS2_VIDEO_TEX_WIDTH &&
-        pitch == (PS2_VIDEO_TEX_WIDTH * sizeof(uint16_t)))
-    {
+        pitch == (PS2_VIDEO_TEX_WIDTH * sizeof(uint16_t))) {
         ps2_video_convert_rgb565_linear(
             (const uint16_t *)src,
             g_upload,
             width * height
         );
-    }
-    else
-    {
+    } else {
         ps2_video_convert_rgb565_pitched(
             src,
             width,
@@ -567,6 +688,9 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
             g_upload
         );
     }
+
+    g_last_frame_256_valid = 0;
+    g_last_frame_256_height = 0;
 
     t_ovl = 0;
     if (overlay_active) {
@@ -578,6 +702,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
     }
 
     t1 = ps2_video_prof_read_count();
+
     ps2_video_upload_and_draw_source(
         g_upload,
         PS2_VIDEO_TEX_WIDTH,
@@ -586,9 +711,12 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         height,
         wait_vblanks
     );
+
     t2 = ps2_video_prof_read_count();
+
     ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
 }
+
 
 
 void ps2_video_present_ui_fixed_rgb565(const void *data, unsigned width, unsigned height, size_t pitch)
