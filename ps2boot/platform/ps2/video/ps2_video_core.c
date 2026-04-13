@@ -471,7 +471,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
             height,
             width,
             height,
-            wait_vsync
+            wait_vblanks
         );
         t2 = ps2_video_prof_read_count();
         ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
