@@ -491,8 +491,16 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 
     if (width <= PS2_VIDEO_UPLOAD_256_WIDTH)
     {
+        const uint16_t *upload_src_256 = g_upload_256;
+
         if (width == PS2_VIDEO_UPLOAD_256_WIDTH &&
-            pitch == (PS2_VIDEO_UPLOAD_256_WIDTH * sizeof(uint16_t)))
+            pitch == (PS2_VIDEO_UPLOAD_256_WIDTH * sizeof(uint16_t)) &&
+            !overlay_active)
+        {
+            upload_src_256 = (const uint16_t *)src;
+        }
+        else if (width == PS2_VIDEO_UPLOAD_256_WIDTH &&
+                 pitch == (PS2_VIDEO_UPLOAD_256_WIDTH * sizeof(uint16_t)))
         {
             ps2_video_convert_rgb565_linear(
                 (const uint16_t *)src,
@@ -528,7 +536,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 
         t1 = ps2_video_prof_read_count();
         ps2_video_upload_and_draw_source(
-            g_upload_256,
+            upload_src_256,
             PS2_VIDEO_UPLOAD_256_WIDTH,
             height,
             width,
