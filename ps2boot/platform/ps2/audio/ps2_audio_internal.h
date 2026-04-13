@@ -35,6 +35,10 @@
 #define BACKEND_RESUME_UNMUTE_FRAMES (BACKEND_FEED_FRAMES * 4)
 #define BACKEND_REAL_TARGET_FRAMES  (BACKEND_FEED_FRAMES * 2)
 #define BACKEND_REAL_TARGET_BYTES   (BACKEND_REAL_TARGET_FRAMES * PS2_AUDIO_FRAME_BYTES)
+#define AUDIO_SYNC_TARGET_FRAMES     (BACKEND_QUEUE_TARGET_FRAMES + BACKEND_FEED_FRAMES)
+#define AUDIO_SYNC_DEADZONE_FRAMES   (BACKEND_FEED_FRAMES / 2)
+#define RESAMPLE_BASE_STEP_Q16      (((unsigned int)CORE_AUDIO_RATE) << 16)
+#define RESAMPLE_STEP_MAX_DELTA_Q16 (RESAMPLE_BASE_STEP_Q16 / 100)
 #define RESAMPLE_IN_CHUNK_MAX       736
 
 #define SOUND_THREAD_PRIO           96
@@ -43,6 +47,7 @@
 
 extern int16_t g_resample_out[RESAMPLE_OUT_MAX_FRAMES * PS2_AUDIO_CHANNELS];
 extern unsigned int g_resample_phase;
+extern unsigned int g_resample_step_q16;
 extern int16_t g_resample_prev_l;
 extern int16_t g_resample_prev_r;
 extern int g_resample_have_prev;

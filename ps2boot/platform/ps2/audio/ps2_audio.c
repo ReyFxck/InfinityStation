@@ -71,14 +71,16 @@ static void ps2_audio_wait_loops(int loops)
         RotateThreadReadyQueue(SOUND_THREAD_PRIO);
 }
 
+
 static void ps2_audio_reset_stream_state(void)
 {
     g_resample_phase = 0;
+    g_resample_step_q16 = RESAMPLE_BASE_STEP_Q16;
     g_resample_prev_l = 0;
     g_resample_prev_r = 0;
     g_resample_have_prev = 0;
-    memset(g_resample_out, 0, sizeof(g_resample_out));
 }
+
 
 static void ps2_audio_log_state(const char *tag)
 {
@@ -100,6 +102,42 @@ static void ps2_audio_clear_ring(void)
     ps2_audio_ring_unlock();
 }
 
+
+
+static void ps2_audio_update_resample_step(unsigned int buffered_frames)
+{
+    int error = (int)buffered_frames - (int)AUDIO_SYNC_TARGET_FRAMES;
+    unsigned int step = RESAMPLE_BASE_STEP_Q16;
+    unsigned int delta = 0;
+    unsigned int abs_error;
+
+    if (error > -(int)AUDIO_SYNC_DEADZONE_FRAMES &&
+        error < (int)AUDIO_SYNC_DEADZONE_FRAMES) {
+        g_resample_step_q16 = step;
+        return;
+    }
+
+    if (error > 0)
+        error -= (int)AUDIO_SYNC_DEADZONE_FRAMES;
+    else
+        error += (int)AUDIO_SYNC_DEADZONE_FRAMES;
+
+    abs_error = (error < 0) ? (unsigned int)(-error) : (unsigned int)error;
+    delta = abs_error << 12;
+
+    if (delta > RESAMPLE_STEP_MAX_DELTA_Q16)
+        delta = RESAMPLE_STEP_MAX_DELTA_Q16;
+
+    if (error > 0) {
+        step += delta;
+    } else if (step > delta) {
+        step -= delta;
+    } else {
+        step = 1;
+    }
+
+    g_resample_step_q16 = step;
+}
 
 static unsigned int ps2_audio_ring_buffered_frames(void)
 {
@@ -620,6 +658,7 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
         if (chunk > RESAMPLE_IN_CHUNK_MAX)
             chunk = RESAMPLE_IN_CHUNK_MAX;
 
+        ps2_audio_update_resample_step(ps2_audio_ring_buffered_frames());
         out_frames = ps2_audio_resample_chunk(&data[done * 2], chunk);
         if (out_frames == 0) {
             done += chunk;
