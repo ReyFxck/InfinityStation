@@ -20,6 +20,7 @@ static int g_audio_paused = 0;
 static int g_audio_resume_armed = 0;
 static unsigned int g_audio_backend_volume = PS2_AUDIO_BACKEND_VOLUME;
 static int g_backend_reprime_cooldown = 0;
+static int g_backend_empty_streak = 0;
 
 static int g_sound_tid = -1;
 static volatile int g_sound_thread_running = 0;
@@ -438,15 +439,24 @@ static void ps2_audio_sound_thread(void *arg)
         queued_bytes = ps2_backend_queued_bytes();
         buffered_frames = ps2_audio_ring_buffered_frames();
 
+        if (!g_audio_paused &&
+            buffered_frames == 0 &&
+            queued_bytes <= BACKEND_FEED_BYTES) {
+            if (g_backend_empty_streak < AUDIO_UNDERRUN_HYSTERESIS_LOOPS)
+                g_backend_empty_streak++;
+        } else {
+            g_backend_empty_streak = 0;
+        }
+
         if (g_backend_reprime_cooldown > 0)
             g_backend_reprime_cooldown--;
 
         if (!g_audio_paused &&
             g_backend_reprime_cooldown == 0 &&
-            buffered_frames == 0 &&
-            queued_bytes <= BACKEND_FEED_BYTES) {
+            g_backend_empty_streak >= AUDIO_UNDERRUN_HYSTERESIS_LOOPS) {
             ps2_audio_recover_backend_underrun();
             g_backend_reprime_cooldown = 16;
+            g_backend_empty_streak = 0;
             ps2_audio_wait_loops(1);
             continue;
         }
@@ -667,6 +677,7 @@ void ps2_audio_pump(void)
 
 
 
+
 void ps2_audio_pause(void)
 {
     if (g_audio_state != 1)
@@ -677,6 +688,7 @@ void ps2_audio_pause(void)
     g_audio_paused = 1;
     g_audio_resume_armed = 0;
     g_backend_reprime_cooldown = 0;
+    g_backend_empty_streak = 0;
 
     /* pause suave: fade-out, depois re-prime o backend com silencio */
     ps2_audio_clear_ring();
@@ -696,6 +708,8 @@ void ps2_audio_pause(void)
 
 
 
+
+
 void ps2_audio_resume(void)
 {
     if (g_audio_state != 1)
@@ -705,6 +719,7 @@ void ps2_audio_resume(void)
     g_audio_paused = 0;
     g_audio_resume_armed = 1;
     g_backend_reprime_cooldown = 0;
+    g_backend_empty_streak = 0;
     ps2_audio_clear_ring();
     ps2_audio_reset_stream_state();
     g_warned_not_ready = 0;
@@ -717,6 +732,8 @@ void ps2_audio_resume(void)
 
     ps2_audio_log_state("resumed-armed");
 }
+
+
 
 
 
@@ -739,9 +756,11 @@ void ps2_audio_shutdown(void)
     g_audio_paused = 0;
     g_audio_resume_armed = 0;
     g_backend_reprime_cooldown = 0;
+    g_backend_empty_streak = 0;
     g_audio_state = 0;
     ps2_backend_shutdown();
 }
+
 
 
 size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
