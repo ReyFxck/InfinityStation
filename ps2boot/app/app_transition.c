@@ -102,6 +102,10 @@ void app_transition_restart_game(struct retro_system_av_info *av,
 
     app_transition_load_selected_game(av, die_fn);
 
+    app_overlay_reset_timing();
+    if (av->timing.fps > 1.0)
+        app_overlay_set_core_nominal_fps(av->timing.fps);
+
     ps2_audio_resume();
     app_state_set_mode(APP_MODE_GAME);
 }
@@ -131,8 +135,13 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
     app_launcher_run(prev_buttons);
 
     ps2_video_set_offsets(*saved_launcher_x, *saved_launcher_y);
+    ps2_video_hard_reset();
 
     app_transition_load_selected_game(av, die_fn);
+
+    app_overlay_reset_timing();
+    if (av->timing.fps > 1.0)
+        app_overlay_set_core_nominal_fps(av->timing.fps);
 
     ps2_audio_resume();
     app_state_set_mode(APP_MODE_GAME);

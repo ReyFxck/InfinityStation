@@ -1,5 +1,4 @@
 #include "select_menu_actions_internal.h"
-#include "frontend_config.h"
 
 int select_menu_wrap_index(int v, int count)
 {
@@ -32,23 +31,12 @@ int select_menu_actions_is_open(void)
     return select_menu_state_get()->open;
 }
 
-void select_menu_actions_open(void)
-{
+void select_menu_actions_open(void) {
     select_menu_state_t *state = select_menu_state_mut();
-    const frontend_config_t *cfg = frontend_config_get();
 
     state->open = 1;
     state->page = SELECT_MENU_PAGE_MAIN;
     state->pending_action = SELECT_MENU_ACTION_NONE;
-
-    state->show_fps = cfg->show_fps;
-    state->fps_rainbow = cfg->fps_rainbow;
-    state->frame_limit = cfg->frame_limit;
-    state->game_vsync = cfg->game_vsync;
-    state->game_reduce_slowdown = cfg->game_reduce_slowdown;
-    state->game_reduce_flicker = cfg->game_reduce_flicker;
-    state->game_frameskip_mode = cfg->game_frameskip_mode;
-    state->game_frameskip_threshold = cfg->game_frameskip_threshold;
 
     if (state->game_sel >= select_menu_game_options_count())
         state->game_sel = select_menu_game_options_count() - 1;
