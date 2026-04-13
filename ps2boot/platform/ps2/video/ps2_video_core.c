@@ -5,9 +5,11 @@
 
 static lod_t g_lod_nearest;
 static clutbuffer_t g_clut_none;
-static qword_t g_draw_base_packet[64];
-static unsigned g_draw_base_qwc;
 #define PS2_VIDEO_TEX_SLOTS 3u
+#define PS2_VIDEO_DRAW_BASE_PACKET_QWORDS 64u
+
+static qword_t g_draw_base_packets[PS2_VIDEO_TEX_SLOTS][PS2_VIDEO_DRAW_BASE_PACKET_QWORDS];
+static unsigned g_draw_base_qwcs[PS2_VIDEO_TEX_SLOTS];
 static texbuffer_t g_tex_slots[PS2_VIDEO_TEX_SLOTS];
 static unsigned g_tex_slot_next;
 static unsigned g_tex_slots_in_flight;
@@ -178,16 +180,33 @@ static inline qword_t *ps2_video_clear_bands(
 }
 
 
-static void ps2_video_build_draw_base_packet(void)
+
+static void ps2_video_build_draw_base_packet_for_slot(unsigned slot)
 {
-    qword_t *q = g_draw_base_packet;
+    qword_t *q;
+    texbuffer_t tex;
+
+    if (slot >= PS2_VIDEO_TEX_SLOTS)
+        return;
+
+    tex = g_tex_slots[slot];
+    q = g_draw_base_packets[slot];
 
     q = draw_setup_environment(q, 0, &g_frame, &g_z);
     q = draw_texture_sampling(q, 0, &g_lod_nearest);
-    q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
+    q = draw_texturebuffer(q, 0, &tex, &g_clut_none);
 
-    g_draw_base_qwc = (unsigned)(q - g_draw_base_packet);
+    g_draw_base_qwcs[slot] = (unsigned)(q - g_draw_base_packets[slot]);
 }
+
+static void ps2_video_build_all_draw_base_packets(void)
+{
+    unsigned i;
+
+    for (i = 0; i < PS2_VIDEO_TEX_SLOTS; i++)
+        ps2_video_build_draw_base_packet_for_slot(i);
+}
+
 
 void ps2_video_apply_display_offset(void)
 {
@@ -292,7 +311,7 @@ int ps2_video_init_once(void)
     if (!g_tex_packet || !g_draw_packet)
         return 0;
 
-    ps2_video_build_draw_base_packet();
+    ps2_video_build_all_draw_base_packets();
 
     g_video_ready = 1;
     return 1;
@@ -308,6 +327,7 @@ static void ps2_video_upload_and_draw_source(
 )
 {
     qword_t *q;
+    unsigned tex_slot;
     texrect_t rect;
     float x0, y0, x1, y1;
     unsigned upload_bytes = upload_width * upload_height * sizeof(uint16_t);
@@ -317,9 +337,9 @@ static void ps2_video_upload_and_draw_source(
         g_tex_slots_in_flight = 0;
     }
 
-    g_tex = g_tex_slots[g_tex_slot_next];
+    tex_slot = g_tex_slot_next;
+    g_tex = g_tex_slots[tex_slot];
     g_tex_slot_next = (g_tex_slot_next + 1u) % PS2_VIDEO_TEX_SLOTS;
-    ps2_video_build_draw_base_packet();
 
     ps2_video_get_target_rect(&x0, &y0, &x1, &y1);
 
@@ -355,13 +375,13 @@ static void ps2_video_upload_and_draw_source(
     rect.color.a = 0x80;
     rect.color.q = 1.0f;
 
-    if (g_draw_base_qwc != 0) {
+    if (g_draw_base_qwcs[tex_slot] != 0) {
         memcpy(
             g_draw_packet->data,
-            g_draw_base_packet,
-            g_draw_base_qwc * sizeof(qword_t)
+            g_draw_base_packets[tex_slot],
+            g_draw_base_qwcs[tex_slot] * sizeof(qword_t)
         );
-        q = g_draw_packet->data + g_draw_base_qwc;
+        q = g_draw_packet->data + g_draw_base_qwcs[tex_slot];
     } else {
         q = g_draw_packet->data;
         q = draw_setup_environment(q, 0, &g_frame, &g_z);
@@ -562,6 +582,7 @@ void ps2_video_hard_reset(void)
     g_tex = g_tex_slots[0];
     g_tex_slot_next = 0;
     g_tex_slots_in_flight = 0;
+    ps2_video_build_all_draw_base_packets();
 
     SyncDCache((void *)g_upload,
                (void *)((unsigned char *)g_upload + sizeof(g_upload)));
