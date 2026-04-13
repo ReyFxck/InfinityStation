@@ -7,8 +7,10 @@ static lod_t g_lod_nearest;
 static clutbuffer_t g_clut_none;
 #define PS2_VIDEO_TEX_SLOTS 3u
 #define PS2_VIDEO_DRAW_BASE_PACKET_QWORDS 64u
+#define PS2_VIDEO_RECT_TEMPLATE_COUNT 4u
 
 static qword_t g_draw_base_packets[PS2_VIDEO_TEX_SLOTS][PS2_VIDEO_DRAW_BASE_PACKET_QWORDS];
+static texrect_t g_rect_templates[PS2_VIDEO_RECT_TEMPLATE_COUNT];
 static unsigned g_draw_base_qwcs[PS2_VIDEO_TEX_SLOTS];
 static texbuffer_t g_tex_slots[PS2_VIDEO_TEX_SLOTS];
 static unsigned g_tex_slot_next;
@@ -169,6 +171,47 @@ static inline unsigned ps2_video_get_effective_aspect_mode(void)
     return mode;
 }
 
+static void ps2_video_build_rect_template(unsigned mode)
+{
+    texrect_t *rect;
+
+    if (mode >= PS2_VIDEO_RECT_TEMPLATE_COUNT)
+        return;
+
+    rect = &g_rect_templates[mode];
+
+    rect->v0.x = g_aspect_rects[mode][0];
+    rect->v0.y = g_aspect_rects[mode][1];
+    rect->v0.z = 0;
+    rect->v1.x = g_aspect_rects[mode][2];
+    rect->v1.y = g_aspect_rects[mode][3];
+    rect->v1.z = 0;
+
+    rect->t0.u = 0.0f;
+    rect->t0.v = 0.0f;
+    rect->t1.u = 0.0f;
+    rect->t1.v = 0.0f;
+
+    rect->color.r = 0x80;
+    rect->color.g = 0x80;
+    rect->color.b = 0x80;
+    rect->color.a = 0x80;
+    rect->color.q = 1.0f;
+}
+
+static void ps2_video_build_all_rect_templates(void)
+{
+    unsigned i;
+
+    for (i = 0; i < PS2_VIDEO_RECT_TEMPLATE_COUNT; i++)
+        ps2_video_build_rect_template(i);
+}
+
+static inline const texrect_t *ps2_video_get_rect_template(void)
+{
+    return &g_rect_templates[ps2_video_get_effective_aspect_mode()];
+}
+
 
 static inline qword_t *ps2_video_clear_bands(
     qword_t *q, float x0, float y0, float x1, float y1
@@ -324,6 +367,7 @@ int ps2_video_init_once(void)
         return 0;
 
     ps2_video_build_all_draw_base_packets();
+    ps2_video_build_all_rect_templates();
     g_last_band_clear_mode = 0xffffffffu;
 
     g_video_ready = 1;
@@ -341,8 +385,8 @@ static void ps2_video_upload_and_draw_source(
 {
     qword_t *q;
     unsigned tex_slot;
+    const texrect_t *base_rect;
     texrect_t rect;
-    float x0, y0, x1, y1;
     unsigned upload_bytes = upload_width * upload_height * sizeof(uint16_t);
 
     if (g_tex_slots_in_flight >= PS2_VIDEO_TEX_SLOTS) {
@@ -354,7 +398,7 @@ static void ps2_video_upload_and_draw_source(
     g_tex = g_tex_slots[tex_slot];
     g_tex_slot_next = (g_tex_slot_next + 1u) % PS2_VIDEO_TEX_SLOTS;
 
-    ps2_video_get_target_rect(&x0, &y0, &x1, &y1);
+    base_rect = ps2_video_get_rect_template();
 
     dma_wait_fast();
     SyncDCache((void *)upload, (void *)((const unsigned char *)upload + upload_bytes));
@@ -372,21 +416,9 @@ static void ps2_video_upload_and_draw_source(
     q = draw_texture_flush(q);
     dma_channel_send_chain(DMA_CHANNEL_GIF, g_tex_packet->data, q - g_tex_packet->data, 0, 0);
 
-    rect.v0.x = x0;
-    rect.v0.y = y0;
-    rect.v0.z = 0;
-    rect.v1.x = x1;
-    rect.v1.y = y1;
-    rect.v1.z = 0;
-    rect.t0.u = 0.0f;
-    rect.t0.v = 0.0f;
+    rect = *base_rect;
     rect.t1.u = (float)width - 1.0f;
     rect.t1.v = (float)height - 1.0f;
-    rect.color.r = 0x80;
-    rect.color.g = 0x80;
-    rect.color.b = 0x80;
-    rect.color.a = 0x80;
-    rect.color.q = 1.0f;
 
     if (g_draw_base_qwcs[tex_slot] != 0) {
         memcpy(
@@ -407,7 +439,13 @@ static void ps2_video_upload_and_draw_source(
 
         if (aspect_mode != PS2_ASPECT_FULL &&
             aspect_mode != g_last_band_clear_mode) {
-            q = ps2_video_clear_bands(q, x0, y0, x1, y1);
+            q = ps2_video_clear_bands(
+                q,
+                base_rect->v0.x,
+                base_rect->v0.y,
+                base_rect->v1.x,
+                base_rect->v1.y
+            );
             g_last_band_clear_mode = aspect_mode;
         } else if (aspect_mode == PS2_ASPECT_FULL) {
             g_last_band_clear_mode = aspect_mode;
@@ -608,6 +646,7 @@ void ps2_video_hard_reset(void)
     g_tex_slots_in_flight = 0;
     g_last_band_clear_mode = 0xffffffffu;
     ps2_video_build_all_draw_base_packets();
+    ps2_video_build_all_rect_templates();
 
     SyncDCache((void *)g_upload,
                (void *)((unsigned char *)g_upload + sizeof(g_upload)));
