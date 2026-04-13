@@ -129,15 +129,31 @@ void ps2_backend_wait_audio(int bytes)
     audsrv_wait_audio(bytes);
 }
 
+
 int ps2_backend_queue_audio(const int16_t *data, int bytes)
 {
-    int ret = audsrv_play_audio((char *)data, bytes);
+    int ret;
+
+    if (!g_audsrv_loaded)
+        return -1;
+
+    if (!data || bytes <= 0)
+        return 0;
+
+    ret = audsrv_play_audio((char *)data, bytes);
     if (ret < 0) {
         PS2AUDIO_LOG("[PS2AUDIO] audsrv_play_audio FAIL -> %d\n", ret);
         return ret;
     }
-    return bytes;
+
+    if (ret != bytes) {
+        PS2AUDIO_LOG("[PS2AUDIO] audsrv_play_audio partial=%d expected=%d\n",
+                     ret, bytes);
+    }
+
+    return ret;
 }
+
 
 void ps2_backend_stop_audio(void)
 {
