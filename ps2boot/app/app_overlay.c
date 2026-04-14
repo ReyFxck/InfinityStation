@@ -9,6 +9,11 @@
 #include "ps2_video.h"
 #include "ui/select_menu/select_menu_state.h"
 
+extern const char *app_core_prof_get_line1(void);
+extern const char *app_core_prof_get_line2(void);
+extern const char *ps2_video_prof_get_line1(void);
+extern const char *ps2_video_prof_get_line2(void);
+
 static unsigned g_fps_display = 0;
 static unsigned g_fps_accum = 0;
 static clock_t g_fps_last_clock = 0;
@@ -176,7 +181,12 @@ void app_overlay_update_fps(void)
             return;
 
         snprintf(l1, sizeof(l1), "FPS %u", g_fps_display);
-        ps2_video_set_debug(l1, "", "", "");
+        ps2_video_set_debug(
+            l1,
+            app_core_prof_get_line1(),
+            app_core_prof_get_line2(),
+            ps2_video_prof_get_line1()
+        );
         g_overlay_visible = 1;
         g_overlay_last_sent_fps = g_fps_display;
     } else {

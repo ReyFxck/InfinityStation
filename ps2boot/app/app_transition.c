@@ -13,6 +13,7 @@
 #include "ps2_video.h"
 #include "ps2_audio.h"
 #include <debug.h>
+#include <stdio.h>
 
 static int g_core_initialized = 0;
 
@@ -27,22 +28,54 @@ static void app_transition_refresh_av_info(struct retro_system_av_info *av)
 
 static void app_transition_core_init_once(void)
 {
-    if (g_core_initialized)
+    printf("[DBG] app_transition_core_init_once: enter initialized=%d\n", g_core_initialized);
+    fflush(stdout);
+
+    if (g_core_initialized) {
+        printf("[DBG] app_transition_core_init_once: skip already initialized\n");
+        fflush(stdout);
         return;
+    }
 
     app_callbacks_register();
+    printf("[DBG] app_transition_core_init_once: before retro_init\n");
+    fflush(stdout);
+
     retro_init();
+
+    printf("[DBG] app_transition_core_init_once: after retro_init\n");
+    fflush(stdout);
+
     app_boot_log_core_info();
     g_core_initialized = 1;
+
+    printf("[DBG] app_transition_core_init_once: exit initialized=%d\n", g_core_initialized);
+    fflush(stdout);
 }
 
 static void app_transition_core_deinit_if_needed(void)
 {
-    if (!g_core_initialized)
+    printf("[DBG] app_transition_core_deinit_if_needed: enter initialized=%d\n", g_core_initialized);
+    fflush(stdout);
+
+    if (!g_core_initialized) {
+        printf("[DBG] app_transition_core_deinit_if_needed: skip not initialized\n");
+        fflush(stdout);
         return;
+    }
+
+    printf("[DBG] app_transition_core_deinit_if_needed: before retro_deinit\n");
+    fflush(stdout);
 
     retro_deinit();
+
+    printf("[DBG] app_transition_core_deinit_if_needed: after retro_deinit\n");
+    fflush(stdout);
+
     g_core_initialized = 0;
+
+    printf("[DBG] app_transition_core_deinit_if_needed: exit initialized=%d\n", g_core_initialized);
+    fflush(stdout);
 }
 
 void app_transition_prepare(uint32_t *prev_buttons)
@@ -74,33 +107,62 @@ static void app_transition_flush_black_frame(void)
 void app_transition_load_selected_game(struct retro_system_av_info *av,
     void (*die_fn)(const char *msg))
 {
+    printf("[DBG] app_transition_load_selected_game: enter\n");
+    fflush(stdout);
+
     app_transition_core_init_once();
 
+    printf("[DBG] app_transition_load_selected_game: before app_game_load_selected\n");
+    fflush(stdout);
+
     if (!app_game_load_selected()) {
+        printf("[DBG] app_transition_load_selected_game: app_game_load_selected FAILED\n");
+        fflush(stdout);
         if (die_fn)
             die_fn("retro_load_game() falhou");
         return;
     }
 
+    printf("[DBG] app_transition_load_selected_game: app_game_load_selected OK\n");
+    fflush(stdout);
+
     app_transition_refresh_av_info(av);
+
+    printf("[DBG] app_transition_load_selected_game: exit fps=%.3f\n", av ? av->timing.fps : 0.0);
+    fflush(stdout);
 }
 
 void app_transition_restart_game(struct retro_system_av_info *av,
     uint32_t *prev_buttons,
     void (*die_fn)(const char *msg))
 {
+    printf("[DBG] app_transition_restart_game: enter initialized=%d\n", g_core_initialized);
+    fflush(stdout);
+
     ps2_audio_pause();
 
-    if (g_core_initialized)
+    if (g_core_initialized) {
+        printf("[DBG] app_transition_restart_game: before retro_unload_game\n");
+        fflush(stdout);
         retro_unload_game();
+        printf("[DBG] app_transition_restart_game: after retro_unload_game\n");
+        fflush(stdout);
+    }
 
+    printf("[DBG] app_transition_restart_game: before app_game_unload_loaded\n");
+    fflush(stdout);
     app_game_unload_loaded();
-    app_transition_core_deinit_if_needed();
+    printf("[DBG] app_transition_restart_game: after app_game_unload_loaded\n");
+    fflush(stdout);
+
+    /* manter o core inicializado entre trocas para evitar fragmentacao */
     app_transition_prepare(prev_buttons);
 
-    app_transition_flush_black_frame();
-
+    printf("[DBG] app_transition_restart_game: before app_transition_load_selected_game\n");
+    fflush(stdout);
     app_transition_load_selected_game(av, die_fn);
+    printf("[DBG] app_transition_restart_game: after app_transition_load_selected_game\n");
+    fflush(stdout);
 
     app_overlay_reset_timing();
     if (av->timing.fps > 1.0)
@@ -108,7 +170,11 @@ void app_transition_restart_game(struct retro_system_av_info *av,
 
     ps2_audio_resume();
     app_state_set_mode(APP_MODE_GAME);
+
+    printf("[DBG] app_transition_restart_game: exit\n");
+    fflush(stdout);
 }
+
 
 void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
     uint32_t *prev_buttons,
@@ -116,28 +182,47 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
     int *saved_launcher_y,
     void (*die_fn)(const char *msg))
 {
+    printf("[DBG] app_transition_open_launcher_and_reload: enter initialized=%d\n", g_core_initialized);
+    fflush(stdout);
+
     ps2_audio_pause();
 
-    if (g_core_initialized)
+    if (g_core_initialized) {
+        printf("[DBG] app_transition_open_launcher_and_reload: before retro_unload_game\n");
+        fflush(stdout);
         retro_unload_game();
+        printf("[DBG] app_transition_open_launcher_and_reload: after retro_unload_game\n");
+        fflush(stdout);
+    }
 
+    printf("[DBG] app_transition_open_launcher_and_reload: before app_game_unload_loaded\n");
+    fflush(stdout);
     app_game_unload_loaded();
-    app_transition_core_deinit_if_needed();
+    printf("[DBG] app_transition_open_launcher_and_reload: after app_game_unload_loaded\n");
+    fflush(stdout);
+
+    /* manter o core inicializado entre trocas para evitar fragmentacao */
     app_transition_prepare(prev_buttons);
 
     ps2_video_get_offsets(saved_launcher_x, saved_launcher_y);
     ps2_video_set_offsets(0, 0);
 
-    app_transition_flush_black_frame();
-
     app_state_set_mode(APP_MODE_LAUNCHER);
+
+    printf("[DBG] app_transition_open_launcher_and_reload: before app_launcher_run\n");
+    fflush(stdout);
     ps2_audio_pump();
     app_launcher_run(prev_buttons);
+    printf("[DBG] app_transition_open_launcher_and_reload: after app_launcher_run\n");
+    fflush(stdout);
 
     ps2_video_set_offsets(*saved_launcher_x, *saved_launcher_y);
-    ps2_video_hard_reset();
 
+    printf("[DBG] app_transition_open_launcher_and_reload: before app_transition_load_selected_game\n");
+    fflush(stdout);
     app_transition_load_selected_game(av, die_fn);
+    printf("[DBG] app_transition_open_launcher_and_reload: after app_transition_load_selected_game\n");
+    fflush(stdout);
 
     app_overlay_reset_timing();
     if (av->timing.fps > 1.0)
@@ -145,4 +230,8 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
 
     ps2_audio_resume();
     app_state_set_mode(APP_MODE_GAME);
+
+    printf("[DBG] app_transition_open_launcher_and_reload: exit\n");
+    fflush(stdout);
 }
+

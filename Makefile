@@ -157,7 +157,7 @@ EE_OBJS = \
         $(EXTRA_OBJS)
 
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
-EE_CFLAGS += -O3 -G0 -DLAGFIX
+EE_CFLAGS += -O3 -G0 -DLAGFIX -DLOAD_FROM_MEMORY
 EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 EE_CFLAGS += -Ips2boot/app -Ips2boot/platform/ps2 -Ips2boot/platform/ps2/audio -Ips2boot/platform/ps2/video -Ips2boot/platform/ps2/input -Ips2boot/platform/ps2/menu -Ips2boot/platform/ps2/storage -Ips2boot/platform/ps2/debug -Ips2boot/assets
 

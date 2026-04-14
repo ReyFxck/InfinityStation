@@ -44,7 +44,6 @@ int app_runtime_handle_menu(uint32_t buttons, uint32_t pressed, uint32_t *prev_b
         } else {
             double nominal_fps = app_overlay_get_core_nominal_fps();
 
-            ps2_video_hard_reset();
 
             app_state_set_mode(APP_MODE_GAME);
             app_overlay_reset_timing();

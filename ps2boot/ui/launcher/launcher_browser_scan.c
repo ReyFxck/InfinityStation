@@ -410,7 +410,7 @@ int launcher_browser_load_more_entries(int want)
 
     while (loaded < want) {
         struct dirent *de;
-        char full[512];
+        char full[INF_PATH_MAX];
         char entry_name_buf[256];
         const char *entry_name;
         struct stat st;

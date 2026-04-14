@@ -122,7 +122,13 @@ static char g_app_core_prof_line4[48];
 
 static inline unsigned app_core_prof_read_count(void)
 {
+#if defined(__mips__)
+    unsigned value;
+    __asm__ __volatile__("mfc0 %0, $9" : "=r"(value));
+    return value;
+#else
     return 0;
+#endif
 }
 
 static inline float app_core_prof_cycles_to_ms(unsigned long long cycles, unsigned frames)
@@ -638,6 +644,9 @@ static void audio_upload_samples(void)
 void retro_init(void)
 {
    struct retro_log_callback log;
+
+   printf("[DBG] retro_init: enter\n");
+   fflush(stdout);
    enum retro_pixel_format rgb565;
    bool achievements = true;
 
@@ -668,10 +677,16 @@ void retro_init(void)
 
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;
+
+   printf("[DBG] retro_init: exit\n");
+   fflush(stdout);
 }
 
 void retro_deinit(void)
 {
+   printf("[DBG] retro_deinit: enter\n");
+   fflush(stdout);
+
    if (Settings.SPC7110)
       Del7110Gfx();
 
@@ -701,6 +716,9 @@ void retro_deinit(void)
    retro_audio_buff_underrun  = false;
    retro_audio_latency        = 0;
    update_audio_latency       = false;
+
+   printf("[DBG] retro_deinit: exit\n");
+   fflush(stdout);
 }
 
 uint32_t S9xReadJoypad(int32_t port)
@@ -1316,8 +1334,18 @@ static void init_descriptors(void)
 
 bool retro_load_game(const struct retro_game_info* game)
 {
-   if (!game)
+   printf("[DBG] retro_load_game: enter game=%p path='%s' size=%u data=%p\n",
+         (const void*)game,
+         (game && game->path) ? game->path : "",
+         (unsigned)((game) ? game->size : 0),
+         (game) ? game->data : NULL);
+   fflush(stdout);
+
+   if (!game) {
+      printf("[DBG] retro_load_game: fail null game\n");
+      fflush(stdout);
       return false;
+   }
 
    CPU.Flags = 0;
    init_descriptors();
@@ -1328,7 +1356,14 @@ bool retro_load_game(const struct retro_game_info* game)
 #else
    if (!LoadROM(game->path))
 #endif
+   {
+      printf("[DBG] retro_load_game: LoadROM FAILED\n");
+      fflush(stdout);
       return false;
+   }
+
+   printf("[DBG] retro_load_game: LoadROM OK\n");
+   fflush(stdout);
 
    Settings.FrameTime = (Settings.PAL ? Settings.FrameTimePAL : Settings.FrameTimeNTSC);
 
@@ -1337,6 +1372,9 @@ bool retro_load_game(const struct retro_game_info* game)
 #ifndef USE_BLARGG_APU
    S9xSetPlaybackRate(Settings.SoundPlaybackRate);
 #endif
+
+   printf("[DBG] retro_load_game: exit success\n");
+   fflush(stdout);
 
    return true;
 }
@@ -1351,6 +1389,37 @@ bool retro_load_game_special(unsigned game_type, const struct retro_game_info* i
 
 void retro_unload_game(void)
 {
+   printf("[DBG] retro_unload_game: enter\n");
+   fflush(stdout);
+
+   if (log_cb)
+      log_cb(RETRO_LOG_INFO, "retro_unload_game()\n");
+
+   if (Settings.SPC7110)
+      Del7110Gfx();
+
+   if (environ_cb)
+      environ_cb(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, NULL);
+
+   audio_out_buffer_deinit();
+
+   retro_audio_buff_active    = false;
+   retro_audio_buff_occupancy = 0;
+   retro_audio_buff_underrun  = false;
+   retro_audio_latency        = 0;
+   update_audio_latency       = false;
+
+   frameskip_counter = 0;
+
+   g_app_audio_prof_callback_cycles_frame = 0;
+   g_app_audio_prof_batch_cycles_frame = 0;
+   g_app_audio_prof_batch_calls_frame = 0;
+
+   CPU.Flags = 0;
+   IPPU.RenderThisFrame = false;
+
+   printf("[DBG] retro_unload_game: exit\n");
+   fflush(stdout);
 }
 
 void* retro_get_memory_data(unsigned type)

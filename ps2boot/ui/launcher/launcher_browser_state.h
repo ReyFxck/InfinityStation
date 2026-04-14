@@ -2,6 +2,7 @@
 #define LAUNCHER_BROWSER_STATE_H
 
 #include "launcher_browser.h"
+#include "common/inf_paths.h"
 
 #include <dirent.h>
 
@@ -9,7 +10,7 @@ typedef struct {
     launcher_browser_entry_t *entries;
     int entry_count;
     int entry_capacity;
-    char current_path[256];
+    char current_path[INF_PATH_MAX];
     int selected;
     int scroll;
     int last_error;

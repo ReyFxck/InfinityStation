@@ -211,7 +211,7 @@ int launcher_browser_scan_memory_card_path(const char *path)
     int format = 0;
     int ret = 0;
     int i;
-    char pattern[256];
+    char pattern[INF_PATH_MAX];
 
     port = launcher_browser_mc_port_from_path(path);
     if (port < 0)
@@ -243,7 +243,7 @@ int launcher_browser_scan_memory_card_path(const char *path)
     for (i = 0; i < ret; i++) {
         const char *name = (const char *)g_mc_dir[i].EntryName;
         int is_dir = (g_mc_dir[i].AttrFile & MC_ATTR_SUBDIR) ? 1 : 0;
-        char full[256];
+        char full[INF_PATH_MAX];
 
         if (!name[0] || !strcmp(name, ".") || !strcmp(name, ".."))
             continue;

@@ -6,6 +6,7 @@
 #include "app_core_options.h"
 #include "rom_loader/rom_loader.h"
 #include "rom_loader/rom_zip.h"
+#include "common/inf_paths.h"
 
 #include "libretro.h"
 #include "ui/launcher/launcher.h"
@@ -13,7 +14,7 @@
 static void *g_loaded_rom_data = NULL;
 static size_t g_loaded_rom_size = 0;
 static char g_loaded_rom_name[256];
-static char g_loaded_rom_temp_path[512];
+static char g_loaded_rom_temp_path[INF_PATH_MAX];
 
 static int app_game_ext_equals(const char *path, const char *ext)
 {
@@ -51,15 +52,26 @@ static int app_game_should_preload(const char *path)
     if (!path || !path[0])
         return 0;
 
+#ifdef LOAD_FROM_MEMORY
+    return 1;
+#else
     if (!strncmp(path, "host:", 5))
         return 1;
 
     return 0;
+#endif
 }
+
 
 static int app_game_try_load_zip_as_temp_path(const char *path,
                                               struct retro_game_info *game)
 {
+    (void)path;
+    (void)game;
+
+#ifdef LOAD_FROM_MEMORY
+    return 0;
+#else
     if (!path || !game)
         return 0;
 
@@ -79,7 +91,10 @@ static int app_game_try_load_zip_as_temp_path(const char *path,
     game->data = NULL;
     game->size = 0;
     return 1;
+#endif
 }
+
+
 
 void app_game_unload_loaded(void)
 {
@@ -122,13 +137,7 @@ int app_game_load_selected(void)
     if (app_game_try_load_zip_as_temp_path(path, &game)) {
         load_mode = "zip-temp";
     } else {
-        if (app_game_ext_equals(path, ".zip")) {
-            preload = 1;
-            printf("[DBG] zip-temp falhou, fallback para preload: '%s'\n", path);
-            fflush(stdout);
-        } else {
-            preload = app_game_should_preload(path);
-        }
+        preload = app_game_should_preload(path);
 
         if (preload) {
             if (!rom_loader_load(path,
@@ -144,7 +153,7 @@ int app_game_load_selected(void)
             game.path = g_loaded_rom_name[0] ? g_loaded_rom_name : path;
             game.data = g_loaded_rom_data;
             game.size = g_loaded_rom_size;
-            load_mode = "preload";
+            load_mode = app_game_ext_equals(path, ".zip") ? "zip-preload" : "preload";
         } else {
             game.path = path;
             game.data = NULL;
@@ -170,6 +179,15 @@ int app_game_load_selected(void)
                                        cfg->game_frameskip_threshold);
         printf("[DBG] retro_load_game() OK\n");
         fflush(stdout);
+
+#ifdef LOAD_FROM_MEMORY
+        if (g_loaded_rom_data) {
+            rom_loader_free(&g_loaded_rom_data, &g_loaded_rom_size);
+            g_loaded_rom_data = NULL;
+            g_loaded_rom_size = 0;
+            g_loaded_rom_name[0] = '\0';
+        }
+#endif
         return 1;
     }
 
@@ -182,3 +200,4 @@ int app_game_load_selected(void)
     app_game_unload_loaded();
     return 0;
 }
+

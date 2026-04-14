@@ -211,8 +211,8 @@ int launcher_browser_activate(char *selected_path, size_t path_size, char *selec
 {
     launcher_browser_state_t *state = launcher_browser_state_mut();
     const launcher_browser_entry_t *entry;
-    char full[256];
-    char previous_path[256];
+    char full[INF_PATH_MAX];
+    char previous_path[INF_PATH_MAX];
 
     entry = launcher_browser_entry(state->selected);
     if (!entry)

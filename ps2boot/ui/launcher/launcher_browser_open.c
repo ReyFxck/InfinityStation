@@ -126,8 +126,8 @@ int launcher_browser_refresh(void)
 int launcher_browser_go_parent(void)
 {
     const launcher_browser_state_t *state = launcher_browser_state_get();
-    char temp[256];
-    char root_path[256];
+    char temp[INF_PATH_MAX];
+    char root_path[INF_PATH_MAX];
     char *slash;
     int root_index = -1;
 

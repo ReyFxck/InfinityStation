@@ -27,6 +27,8 @@ static unsigned long long g_prof_convert_cycles;
 static unsigned long long g_prof_overlay_cycles;
 static unsigned long long g_prof_backend_cycles;
 static unsigned long long g_prof_total_cycles;
+static char g_prof_line1[48];
+static char g_prof_line2[48];
 
 static inline unsigned ps2_video_prof_read_count(void)
 {
@@ -52,12 +54,48 @@ static void ps2_video_prof_commit_split(
     unsigned height
 )
 {
-    (void)cvt_cycles;
-    (void)ovl_cycles;
-    (void)backend_cycles;
-    (void)total_cycles;
     (void)width;
     (void)height;
+
+    g_prof_convert_cycles += cvt_cycles;
+    g_prof_overlay_cycles += ovl_cycles;
+    g_prof_backend_cycles += backend_cycles;
+    g_prof_total_cycles += total_cycles;
+    g_prof_frames++;
+
+    if (g_prof_frames >= 30u) {
+        snprintf(
+            g_prof_line1,
+            sizeof(g_prof_line1),
+            "VID C%.2f O%.2f G%.2f",
+            ps2_video_prof_cycles_to_ms(g_prof_convert_cycles, g_prof_frames),
+            ps2_video_prof_cycles_to_ms(g_prof_overlay_cycles, g_prof_frames),
+            ps2_video_prof_cycles_to_ms(g_prof_backend_cycles, g_prof_frames)
+        );
+
+        snprintf(
+            g_prof_line2,
+            sizeof(g_prof_line2),
+            "VID T%.2f",
+            ps2_video_prof_cycles_to_ms(g_prof_total_cycles, g_prof_frames)
+        );
+
+        g_prof_frames = 0;
+        g_prof_convert_cycles = 0;
+        g_prof_overlay_cycles = 0;
+        g_prof_backend_cycles = 0;
+        g_prof_total_cycles = 0;
+    }
+}
+
+const char *ps2_video_prof_get_line1(void)
+{
+    return g_prof_line1;
+}
+
+const char *ps2_video_prof_get_line2(void)
+{
+    return g_prof_line2;
 }
 
 
@@ -426,8 +464,7 @@ static void ps2_video_upload_and_draw_source(
     {
         unsigned aspect_mode = ps2_video_get_effective_aspect_mode();
 
-        if (aspect_mode != PS2_ASPECT_FULL &&
-            aspect_mode != g_last_band_clear_mode) {
+        if (aspect_mode != PS2_ASPECT_FULL) {
             q = ps2_video_clear_bands(
                 q,
                 base_rect->v0.x,
@@ -435,10 +472,9 @@ static void ps2_video_upload_and_draw_source(
                 base_rect->v1.x,
                 base_rect->v1.y
             );
-            g_last_band_clear_mode = aspect_mode;
-        } else if (aspect_mode == PS2_ASPECT_FULL) {
-            g_last_band_clear_mode = aspect_mode;
         }
+
+        g_last_band_clear_mode = aspect_mode;
     }
 
     q = draw_rect_textured(q, 0, &rect);
@@ -495,8 +531,7 @@ static void ps2_video_draw_cached_source(unsigned tex_slot, unsigned width, unsi
     {
         unsigned aspect_mode = ps2_video_get_effective_aspect_mode();
 
-        if (aspect_mode != PS2_ASPECT_FULL &&
-            aspect_mode != g_last_band_clear_mode) {
+        if (aspect_mode != PS2_ASPECT_FULL) {
             q = ps2_video_clear_bands(
                 q,
                 base_rect->v0.x,
@@ -504,10 +539,9 @@ static void ps2_video_draw_cached_source(unsigned tex_slot, unsigned width, unsi
                 base_rect->v1.x,
                 base_rect->v1.y
             );
-            g_last_band_clear_mode = aspect_mode;
-        } else if (aspect_mode == PS2_ASPECT_FULL) {
-            g_last_band_clear_mode = aspect_mode;
         }
+
+        g_last_band_clear_mode = aspect_mode;
     }
 
     q = draw_rect_textured(q, 0, &rect);
@@ -742,6 +776,56 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
         height,
         wait_vblanks
     );
+}
+
+void ps2_video_soft_reset(void)
+{
+    packet_t *packet;
+    qword_t *q;
+
+    if (!g_video_ready)
+        return;
+
+    printf("[DBG] ps2_video_soft_reset: enter\n");
+    fflush(stdout);
+
+    draw_wait_finish();
+    dma_wait_fast();
+
+    memset(g_upload, 0, sizeof(g_upload));
+    memset(g_frame_base, 0, sizeof(g_frame_base));
+    memset(g_upload_256, 0, sizeof(g_upload_256));
+    memset(g_launcher_upload, 0, sizeof(g_launcher_upload));
+
+    g_tex = g_tex_slots[0];
+    g_tex_slot_next = 0;
+    g_tex_slots_in_flight = 0;
+    g_last_uploaded_tex_slot = 0;
+    g_last_uploaded_tex_valid = 0;
+    g_last_frame_256_valid = 0;
+    g_last_frame_256_height = 0;
+    g_last_band_clear_mode = 0xffffffffu;
+
+    SyncDCache((void *)g_upload,
+               (void *)((unsigned char *)g_upload + sizeof(g_upload)));
+
+    packet = packet_init(32, PACKET_NORMAL);
+    if (!packet) {
+        printf("[DBG] ps2_video_soft_reset: packet_init failed\n");
+        fflush(stdout);
+        return;
+    }
+
+    q = packet->data;
+    q = draw_setup_environment(q, 0, &g_frame, &g_z);
+    q = draw_clear(q, 0, 0.0f, 0.0f, (float)g_frame.width, (float)g_frame.height, 0, 0, 0);
+    q = draw_finish(q);
+    dma_channel_send_normal(DMA_CHANNEL_GIF, packet->data, q - packet->data, 0, 0);
+    dma_wait_fast();
+    packet_free(packet);
+
+    printf("[DBG] ps2_video_soft_reset: exit\n");
+    fflush(stdout);
 }
 
 void ps2_video_hard_reset(void)

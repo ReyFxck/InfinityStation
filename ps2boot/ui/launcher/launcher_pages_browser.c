@@ -2,6 +2,7 @@
 #include <string.h>
 #include "ps2_launcher_video.h"
 #include "font/browser_font.h"
+#include "common/inf_paths.h"
 #include "launcher_pages_internal.h"
 
 extern const unsigned int launcher_logo_width;
@@ -145,7 +146,7 @@ void launcher_pages_draw_browser_page(void)
     int row;
     const char *current_path;
     static int s_prev_selected = -9999;
-    static char s_prev_path[256] = "";
+    static char s_prev_path[INF_PATH_MAX] = "";
     static unsigned s_marquee_delay_frames = 0;
     static unsigned s_marquee_tick = 0;
     static int s_root_status_active = 0;
