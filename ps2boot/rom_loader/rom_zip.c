@@ -125,6 +125,19 @@ static int ascii_equals_ci(const char *a, const char *b)
     return a[i] == '\0' && b[i] == '\0';
 }
 
+static unsigned int fnv1a32_update(unsigned int h, const char *s)
+{
+    if (!s)
+        return h;
+
+    while (*s) {
+        h ^= (unsigned char)*s++;
+        h *= 16777619u;
+    }
+
+    return h;
+}
+
 static int zip_entry_match_score(const char *zip_path, const char *entry_name)
 {
     char zip_stem[256];
@@ -136,12 +149,12 @@ static int zip_entry_match_score(const char *zip_path, const char *entry_name)
     if (!zip_stem[0] || !entry_stem[0])
         return 0;
 
+    /* So da prioridade maxima para match EXATO.
+       Evita colisao tipo "Super Mario Kart" vs "Super Mario World". */
     if (ascii_equals_ci(zip_stem, entry_stem))
-        return 3;
+        return 100;
 
-    if (strstr(entry_stem, zip_stem) || strstr(zip_stem, entry_stem))
-        return 2;
-
+    /* Continua valido como ROM, mas sem favoritismo por substring. */
     return 1;
 }
 
@@ -390,10 +403,15 @@ static int build_temp_output_path(const char *zip_path,
     size_t pos = 0;
     int need_slash = 0;
     char safe_name[256];
+    unsigned int unique_id = 2166136261u;
     int written;
 
     if (!zip_path || !out_path || out_path_size == 0)
         return 0;
+
+    unique_id = fnv1a32_update(unique_id, zip_path);
+    unique_id = fnv1a32_update(unique_id, "|");
+    unique_id = fnv1a32_update(unique_id, rom_name ? rom_name : "");
 
     sanitize_file_component(base_name_only(rom_name), safe_name, sizeof(safe_name));
     dir_len = path_dir_prefix_len(zip_path);
@@ -412,8 +430,9 @@ static int build_temp_output_path(const char *zip_path,
 
     written = snprintf(out_path + pos,
                        out_path_size - pos,
-                       "%s_is_tmp_%s",
+                       "%s_is_tmp_%08X_%s",
                        need_slash ? "/" : "",
+                       unique_id,
                        safe_name);
 
     if (written <= 0 || (size_t)written >= (out_path_size - pos))

@@ -560,6 +560,8 @@ static void ps2_video_draw_cached_source(unsigned tex_slot, unsigned width, unsi
 static int ps2_video_can_reuse_256_frame(const uint16_t *src, unsigned width, unsigned height)
 {
     size_t bytes;
+    size_t count;
+    unsigned i;
 
     if (!src || !g_last_uploaded_tex_valid || !g_last_frame_256_valid)
         return 0;
@@ -570,7 +572,26 @@ static int ps2_video_can_reuse_256_frame(const uint16_t *src, unsigned width, un
     if (height != g_last_frame_256_height)
         return 0;
 
-    bytes = (size_t)width * (size_t)height * sizeof(uint16_t);
+    count = (size_t)width * (size_t)height;
+    if (count == 0)
+        return 0;
+
+    /*
+     * Cheap sample precheck:
+     * avoid a full-frame memcmp on active gameplay frames that obviously changed.
+     * Keep the final memcmp so static screens still reuse the already uploaded texture safely.
+     */
+    if (src[0] != g_last_frame_256[0] ||
+        src[count - 1u] != g_last_frame_256[count - 1u])
+        return 0;
+
+    for (i = 1; i < 8; i++) {
+        size_t idx = ((count - 1u) * i) / 8u;
+        if (src[idx] != g_last_frame_256[idx])
+            return 0;
+    }
+
+    bytes = count * sizeof(uint16_t);
     return memcmp(src, g_last_frame_256, bytes) == 0;
 }
 

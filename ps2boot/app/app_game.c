@@ -5,7 +5,6 @@
 #include "frontend_config.h"
 #include "app_core_options.h"
 #include "rom_loader/rom_loader.h"
-#include "rom_loader/rom_zip.h"
 #include "common/inf_paths.h"
 
 #include "libretro.h"
@@ -14,7 +13,6 @@
 static void *g_loaded_rom_data = NULL;
 static size_t g_loaded_rom_size = 0;
 static char g_loaded_rom_name[256];
-static char g_loaded_rom_temp_path[INF_PATH_MAX];
 static char g_loaded_rom_identity_path[INF_PATH_MAX];
 
 static int app_game_ext_equals(const char *path, const char *ext)
@@ -109,50 +107,12 @@ static void app_game_build_identity_path(const char *selected_path,
 }
 
 
-static int app_game_try_load_zip_as_temp_path(const char *path,
-                                              struct retro_game_info *game)
-{
-    (void)path;
-    (void)game;
-
-#ifdef LOAD_FROM_MEMORY
-    return 0;
-#else
-    if (!path || !game)
-        return 0;
-
-    if (!app_game_ext_equals(path, ".zip"))
-        return 0;
-
-    if (!rom_zip_extract_to_temp_file(path,
-                                      g_loaded_rom_temp_path,
-                                      sizeof(g_loaded_rom_temp_path),
-                                      g_loaded_rom_name,
-                                      sizeof(g_loaded_rom_name))) {
-        g_loaded_rom_temp_path[0] = '\0';
-        return 0;
-    }
-
-    game->path = g_loaded_rom_temp_path;
-    game->data = NULL;
-    game->size = 0;
-    return 1;
-#endif
-}
-
-
-
 void app_game_unload_loaded(void)
 {
     if (g_loaded_rom_data) {
         rom_loader_free(&g_loaded_rom_data, &g_loaded_rom_size);
         g_loaded_rom_data = NULL;
         g_loaded_rom_size = 0;
-    }
-
-    if (g_loaded_rom_temp_path[0]) {
-        remove(g_loaded_rom_temp_path);
-        g_loaded_rom_temp_path[0] = '\0';
     }
 
     g_loaded_rom_name[0] = '\0';
@@ -181,37 +141,33 @@ int app_game_load_selected(void)
 
     app_game_unload_loaded();
 
-    if (app_game_try_load_zip_as_temp_path(path, &game)) {
-        load_mode = "zip-temp";
-    } else {
-        preload = app_game_should_preload(path);
+    preload = app_game_should_preload(path);
 
-        if (preload) {
-            if (!rom_loader_load(path,
-                                 &g_loaded_rom_data,
-                                 &g_loaded_rom_size,
-                                 g_loaded_rom_name,
-                                 sizeof(g_loaded_rom_name))) {
-                printf("[DBG] rom_loader_load() FALHOU: path='%s'\n", path);
-                fflush(stdout);
-                return 0;
-            }
-
-            app_game_build_identity_path(path,
-                                         g_loaded_rom_name,
-                                         g_loaded_rom_identity_path,
-                                         sizeof(g_loaded_rom_identity_path));
-
-            game.path = g_loaded_rom_identity_path[0] ? g_loaded_rom_identity_path : path;
-            game.data = g_loaded_rom_data;
-            game.size = g_loaded_rom_size;
-            load_mode = app_game_ext_equals(path, ".zip") ? "zip-preload" : "preload";
-        } else {
-            game.path = path;
-            game.data = NULL;
-            game.size = 0;
-            load_mode = "path";
+    if (preload) {
+        if (!rom_loader_load(path,
+                             &g_loaded_rom_data,
+                             &g_loaded_rom_size,
+                             g_loaded_rom_name,
+                             sizeof(g_loaded_rom_name))) {
+            printf("[DBG] rom_loader_load() FALHOU: path='%s'\n", path);
+            fflush(stdout);
+            return 0;
         }
+
+        app_game_build_identity_path(path,
+                                     g_loaded_rom_name,
+                                     g_loaded_rom_identity_path,
+                                     sizeof(g_loaded_rom_identity_path));
+
+        game.path = g_loaded_rom_identity_path[0] ? g_loaded_rom_identity_path : path;
+        game.data = g_loaded_rom_data;
+        game.size = g_loaded_rom_size;
+        load_mode = app_game_ext_equals(path, ".zip") ? "zip-preload" : "preload";
+    } else {
+        game.path = path;
+        game.data = NULL;
+        game.size = 0;
+        load_mode = "path";
     }
 
     game.meta = NULL;

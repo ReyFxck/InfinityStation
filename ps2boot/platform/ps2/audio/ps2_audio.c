@@ -78,12 +78,7 @@ static void ps2_audio_wait_loops(int loops)
 
 static void ps2_audio_reset_stream_state(void)
 {
-    g_resample_phase = 0;
-    g_resample_step_q16 = RESAMPLE_BASE_STEP_Q16;
-    g_resample_target_step_q16 = RESAMPLE_BASE_STEP_Q16;
-    g_resample_prev_l = 0;
-    g_resample_prev_r = 0;
-    g_resample_have_prev = 0;
+    /* Sem resample: core e backend usam a mesma taxa. */
 }
 
 
@@ -144,59 +139,6 @@ static void ps2_audio_fade_backend_volume(unsigned int from, unsigned int to)
             DelayThread(PS2_AUDIO_FADE_DELAY_US);
     }
 }
-
-static void ps2_audio_update_resample_step(unsigned int buffered_frames)
-{
-    int error = (int)buffered_frames - (int)AUDIO_SYNC_TARGET_FRAMES;
-    unsigned int current = g_resample_step_q16;
-    unsigned int target = RESAMPLE_BASE_STEP_Q16;
-    unsigned int delta = 0;
-    unsigned int abs_error;
-    unsigned int slew = RESAMPLE_STEP_SLEW_MAX_Q16;
-
-    if (error > -(int)AUDIO_SYNC_DEADZONE_FRAMES &&
-        error < (int)AUDIO_SYNC_DEADZONE_FRAMES) {
-        g_resample_target_step_q16 = target;
-    } else {
-        if (error > 0)
-            error -= (int)AUDIO_SYNC_DEADZONE_FRAMES;
-        else
-            error += (int)AUDIO_SYNC_DEADZONE_FRAMES;
-
-        abs_error = (error < 0) ? (unsigned int)(-error) : (unsigned int)error;
-        delta = abs_error << 11;
-
-        if (delta > RESAMPLE_STEP_MAX_DELTA_Q16)
-            delta = RESAMPLE_STEP_MAX_DELTA_Q16;
-
-        if (error > 0) {
-            target += delta;
-        } else if (target > delta) {
-            target -= delta;
-        } else {
-            target = 1;
-        }
-
-        g_resample_target_step_q16 = target;
-    }
-
-    target = g_resample_target_step_q16;
-
-    if (current < target) {
-        unsigned int inc = target - current;
-        if (inc > slew)
-            inc = slew;
-        current += inc;
-    } else if (current > target) {
-        unsigned int dec = current - target;
-        if (dec > slew)
-            dec = slew;
-        current -= dec;
-    }
-
-    g_resample_step_q16 = current;
-}
-
 
 static unsigned int ps2_audio_ring_buffered_frames(void)
 {
@@ -780,6 +722,9 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
     if (g_audio_paused)
         return frames;
 
+    if (!data || frames == 0)
+        return 0;
+
     if (!g_logged_first_push) {
         PS2AUDIO_LOG("[PS2AUDIO] first push frames=%u\n", (unsigned)frames);
         g_logged_first_push = 1;
@@ -787,43 +732,32 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
 
     while (done < frames) {
         size_t chunk = frames - done;
-        size_t out_frames;
         unsigned int written;
 
-        if (chunk > RESAMPLE_IN_CHUNK_MAX)
-            chunk = RESAMPLE_IN_CHUNK_MAX;
-
-        ps2_audio_update_resample_step(ps2_audio_ring_buffered_frames());
-        out_frames = ps2_audio_resample_chunk(&data[done * 2], chunk);
-        if (out_frames == 0) {
-            done += chunk;
-            continue;
-        }
-
-        if (out_frames >= SOUND_TOTAL_FRAMES) {
+        if (chunk >= SOUND_TOTAL_FRAMES) {
             if (!g_warned_overrun) {
                 PS2AUDIO_LOG("[PS2AUDIO] oversized audio chunk=%u, trimming to ring\n",
-                       (unsigned int)out_frames);
+                       (unsigned int)chunk);
                 g_warned_overrun = 1;
             }
-            out_frames = SOUND_TOTAL_FRAMES - 1;
+            chunk = SOUND_TOTAL_FRAMES - 1;
         }
 
-        if (ps2_audio_ring_buffered_frames() + out_frames >= SOUND_TOTAL_FRAMES) {
-            unsigned int dropped = ps2_audio_make_room_for_frames((unsigned int)out_frames);
+        if (ps2_audio_ring_buffered_frames() + chunk >= SOUND_TOTAL_FRAMES) {
+            unsigned int dropped = ps2_audio_make_room_for_frames((unsigned int)chunk);
 
             if (!g_warned_overrun) {
                 PS2AUDIO_LOG("[PS2AUDIO] ring overrun: dropped_oldest=%u incoming=%u\n",
-                       dropped, (unsigned int)out_frames);
+                       dropped, (unsigned int)chunk);
                 g_warned_overrun = 1;
             }
         }
 
-        written = ps2_audio_copy_to_ring(g_resample_out, (unsigned int)out_frames);
-        if (written < out_frames) {
+        written = ps2_audio_copy_to_ring(&data[done * PS2_AUDIO_CHANNELS], (unsigned int)chunk);
+        if (written < chunk) {
             if (!g_warned_overrun) {
                 PS2AUDIO_LOG("[PS2AUDIO] ring short write: written=%u expected=%u\n",
-                       written, (unsigned int)out_frames);
+                       written, (unsigned int)chunk);
                 g_warned_overrun = 1;
             }
         } else {

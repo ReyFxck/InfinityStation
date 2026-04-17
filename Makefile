@@ -71,7 +71,6 @@ BASE_OBJS = \
         ps2boot/platform/ps2/menu/ps2_menu.o \
     ps2boot/platform/ps2/audio/ps2_audio.o \
 ps2boot/platform/ps2/audio/ps2_audio_backend_audsrv.o \
-ps2boot/platform/ps2/audio/ps2_audio_resampler.o \
  ps2boot/platform/ps2/storage/ps2_disc.o \
         ps2boot/ui/select_menu/select_menu.o \
         ps2boot/ui/select_menu/select_menu_actions.o \
