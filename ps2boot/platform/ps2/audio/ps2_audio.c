@@ -294,7 +294,7 @@ static int ps2_audio_backend_queue_all(const int16_t *data, unsigned int frames)
             chunk = BACKEND_FEED_BYTES;
 
         ps2_backend_wait_audio(chunk);
-        FlushCache(0);
+        SyncDCache((void *)ptr, (void *)(ptr + chunk));
 
         sent = ps2_backend_queue_audio((const int16_t *)ptr, chunk);
         if (sent <= 0)
