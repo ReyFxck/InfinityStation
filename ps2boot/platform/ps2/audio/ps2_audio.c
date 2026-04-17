@@ -683,23 +683,34 @@ void ps2_audio_resume(void)
 
 void ps2_audio_shutdown(void)
 {
-    if (g_audio_state == 1) {
-        g_sound_thread_exit = 1;
-        if (g_sound_tid >= 0) {
-            WakeupThread(g_sound_tid);
-            DelayThread(1000);
-            DeleteThread(g_sound_tid);
-            g_sound_tid = -1;
-        }
+    ps2_audio_stop_thread();
+
+    if (g_audio_ring_sema >= 0) {
+        DeleteSema(g_audio_ring_sema);
+        g_audio_ring_sema = -1;
     }
+
+    memset(g_backend_block, 0, sizeof(g_backend_block));
+    memset(g_menu_silence_block, 0, sizeof(g_menu_silence_block));
+    memset(g_ringbuf, 0, sizeof(g_ringbuf));
+    g_write_pos = 0;
+    g_read_pos = 0;
+    g_buffered_frames = 0;
+
+    g_warned_not_ready = 0;
+    g_warned_overrun = 0;
+    g_warned_underrun = 0;
+    g_logged_first_push = 0;
 
     g_sound_thread_running = 0;
     g_sound_thread_exit = 0;
     g_audio_paused = 0;
     g_audio_resume_armed = 0;
+    g_audio_backend_volume = PS2_AUDIO_BACKEND_VOLUME;
     g_backend_reprime_cooldown = 0;
     g_backend_empty_streak = 0;
     g_audio_state = 0;
+
     ps2_backend_shutdown();
 }
 

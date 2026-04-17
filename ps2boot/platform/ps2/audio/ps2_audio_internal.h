@@ -15,8 +15,7 @@
 #define PS2AUDIO_LOG(...) printf(__VA_ARGS__)
 #endif
 
-#define PS2_AUDIO_RATE              CORE_AUDIO_RATE
-#define CORE_AUDIO_RATE             32040
+#define PS2_AUDIO_RATE              PS2_CORE_AUDIO_RATE
 #define PS2_AUDIO_CHANNELS          2
 #define PS2_AUDIO_BYTES_PER_SAMPLE  2
 #define PS2_AUDIO_FRAME_BYTES       (PS2_AUDIO_CHANNELS * PS2_AUDIO_BYTES_PER_SAMPLE)

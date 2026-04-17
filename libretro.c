@@ -26,6 +26,7 @@
 
 #include "libretro_core_options.h"
 #include "app_core_options.h"
+#include "ps2_audio.h"
 
 #include <stdio.h>
 
@@ -69,7 +70,7 @@ int one_c, slow_one_c, two_c;
 
 #define VIDEO_REFRESH_RATE_PAL  (SNES_CLOCK_SPEED * 6.0 / (SNES_CYCLES_PER_SCANLINE * SNES_MAX_PAL_VCOUNTER))
 #define VIDEO_REFRESH_RATE_NTSC (SNES_CLOCK_SPEED * 6.0 / (SNES_CYCLES_PER_SCANLINE * SNES_MAX_NTSC_VCOUNTER))
-#define AUDIO_SAMPLE_RATE       32040
+#define AUDIO_SAMPLE_RATE       PS2_CORE_AUDIO_RATE
 
 static int16_t *audio_out_buffer       = NULL;
 #ifdef USE_BLARGG_APU
