@@ -117,7 +117,7 @@ static int iso_name_equals_ci(const char *a, const char *b)
     return a[i] == '\0' && b[i] == '\0';
 }
 
-static void iso_extract_name(const unsigned char *rec, char *out, size_t out_size)
+static void iso_extract_name_raw(const unsigned char *rec, char *out, size_t out_size)
 {
     unsigned int len = rec[32];
     const unsigned char *src = rec + 33;
@@ -131,13 +131,27 @@ static void iso_extract_name(const unsigned char *rec, char *out, size_t out_siz
         return;
     }
 
-    for (i = 0; i < len && j + 1 < out_size; i++) {
-        unsigned char c = src[i];
-        if (c == ';')
-            break;
-        out[j++] = (char)c;
-    }
+    for (i = 0; i < len && j + 1 < out_size; i++)
+        out[j++] = (char)src[i];
+
     out[j] = '\0';
+}
+
+static void iso_extract_name(const unsigned char *rec, char *out, size_t out_size)
+{
+    char raw[128];
+    size_t i = 0;
+
+    iso_extract_name_raw(rec, raw, sizeof(raw));
+
+    if (!out || out_size == 0)
+        return;
+
+    while (raw[i] && raw[i] != ';' && i + 1 < out_size) {
+        out[i] = raw[i];
+        i++;
+    }
+    out[i] = '\0';
 }
 
 static int iso_read_sector(unsigned int lsn, unsigned char *buf)
@@ -263,6 +277,53 @@ static int iso_walk_path(const char *rel_path, iso_dir_info_t *out)
     return 1;
 }
 
+static void iso_build_disc_dir_path(char *out, size_t out_size,
+                                    const char *rel_path,
+                                    const char *name)
+{
+    if (!out || out_size == 0)
+        return;
+
+    if (!rel_path || !rel_path[0])
+        snprintf(out, out_size, "disc:/%s", name ? name : "");
+    else
+        snprintf(out, out_size, "disc:/%s/%s", rel_path, name ? name : "");
+}
+
+static void iso_build_cdrom_file_path(char *out, size_t out_size,
+                                      const char *rel_path,
+                                      const char *iso_name_raw)
+{
+    const char prefix[] = "cdrom0:\\\\";
+    size_t pos = 0;
+    size_t i;
+
+    if (!out || out_size == 0)
+        return;
+
+    memcpy(out + pos, prefix, sizeof(prefix) - 1);
+    pos += sizeof(prefix) - 1;
+
+    if (rel_path && rel_path[0]) {
+        for (i = 0; rel_path[i] && pos + 1 < out_size; i++) {
+            char c = rel_path[i];
+            out[pos++] = (c == '/') ? '\\\\' : c;
+        }
+
+        if (pos + 1 < out_size)
+            out[pos++] = '\\\\';
+    }
+
+    if (iso_name_raw) {
+        for (i = 0; iso_name_raw[i] && pos + 1 < out_size; i++) {
+            char c = iso_name_raw[i];
+            out[pos++] = (c == '/') ? '\\\\' : c;
+        }
+    }
+
+    out[pos] = '\0';
+}
+
 static int iso_list_dir_filtered(const char *rel_path)
 {
     launcher_browser_state_t *state = launcher_browser_state_mut();
@@ -287,6 +348,8 @@ static int iso_list_dir_filtered(const char *rel_path)
             unsigned int len = sector[pos];
             const unsigned char *rec;
             char name[128];
+            char raw_name[128];
+            char full_path[INF_PATH_MAX];
             int is_dir;
 
             if (len == 0)
@@ -295,11 +358,17 @@ static int iso_list_dir_filtered(const char *rel_path)
                 break;
 
             rec = sector + pos;
+            iso_extract_name_raw(rec, raw_name, sizeof(raw_name));
             iso_extract_name(rec, name, sizeof(name));
             is_dir = (rec[25] & 0x02) ? 1 : 0;
 
-            if (name[0] && (is_dir || rom_loader_is_supported(name))) {
-                if (!launcher_browser_append_entry(name, "", is_dir)) {
+            if (name[0] && (is_dir || rom_loader_is_supported(raw_name) || rom_loader_is_supported(name))) {
+                if (is_dir)
+                    iso_build_disc_dir_path(full_path, sizeof(full_path), rel_path, name);
+                else
+                    iso_build_cdrom_file_path(full_path, sizeof(full_path), rel_path, raw_name);
+
+                if (!launcher_browser_append_entry(name, full_path, is_dir)) {
                     state->last_error = 1;
                     return 0;
                 }
