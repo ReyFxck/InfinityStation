@@ -342,9 +342,14 @@ static void input_poll_cb(void)
 
 static int16_t input_state_cb(unsigned port, unsigned device, unsigned index, unsigned id)
 {
-    (void)port;
-    (void)device;
     (void)index;
+
+    if (port != 0)
+        return 0;
+
+    if (device != RETRO_DEVICE_JOYPAD)
+        return 0;
+
     return ps2_input_libretro_state(id);
 }
 

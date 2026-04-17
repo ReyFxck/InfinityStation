@@ -124,22 +124,27 @@ static int browser_nav_take_step(void)
 void launcher_actions_handle_browser(uint32_t pressed)
 {
     launcher_state_t *state = launcher_state_mut();
-    int nav_step = browser_nav_take_step();
+    int wants_activate = (pressed & (PAD_START | PAD_CROSS)) != 0;
+    int wants_page_up = (pressed & PAD_L1) != 0;
+    int wants_page_down = (pressed & PAD_R1) != 0;
+    int nav_step = (wants_activate || wants_page_up || wants_page_down)
+        ? 0
+        : browser_nav_take_step();
 
     if (nav_step < 0)
         launcher_browser_move(-1, LAUNCHER_BROWSER_ROWS);
     else if (nav_step > 0)
         launcher_browser_move(1, LAUNCHER_BROWSER_ROWS);
 
-    if (pressed & PAD_L1)
+    if (wants_page_up)
         launcher_browser_move(-LAUNCHER_BROWSER_ROWS, LAUNCHER_BROWSER_ROWS);
-    if (pressed & PAD_R1)
+    if (wants_page_down)
         launcher_browser_move(LAUNCHER_BROWSER_ROWS, LAUNCHER_BROWSER_ROWS);
 
     if (pressed & PAD_SELECT)
         launcher_browser_refresh();
 
-    if (pressed & (PAD_START | PAD_CROSS)) {
+    if (wants_activate) {
         int activate_result;
 
         browser_nav_reset();

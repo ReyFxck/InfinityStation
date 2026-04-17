@@ -15,6 +15,7 @@ static void *g_loaded_rom_data = NULL;
 static size_t g_loaded_rom_size = 0;
 static char g_loaded_rom_name[256];
 static char g_loaded_rom_temp_path[INF_PATH_MAX];
+static char g_loaded_rom_identity_path[INF_PATH_MAX];
 
 static int app_game_ext_equals(const char *path, const char *ext)
 {
@@ -60,6 +61,51 @@ static int app_game_should_preload(const char *path)
 
     return 0;
 #endif
+}
+
+static void app_game_build_identity_path(const char *selected_path,
+                                         const char *loaded_name,
+                                         char *out,
+                                         size_t out_size)
+{
+    const char *a;
+    const char *b;
+    const char *slash;
+    size_t dir_len;
+
+    if (!out || out_size == 0)
+        return;
+
+    out[0] = '\0';
+
+    if (!selected_path || !selected_path[0])
+        return;
+
+    if (!app_game_ext_equals(selected_path, ".zip") || !loaded_name || !loaded_name[0]) {
+        snprintf(out, out_size, "%s", selected_path);
+        return;
+    }
+
+    a = strrchr(selected_path, '/');
+    b = strrchr(selected_path, '\\');
+    slash = a;
+    if (!slash || (b && b > slash))
+        slash = b;
+
+    if (!slash) {
+        snprintf(out, out_size, "%s", loaded_name);
+        return;
+    }
+
+    dir_len = (size_t)(slash - selected_path + 1);
+    if (dir_len >= out_size) {
+        snprintf(out, out_size, "%s", loaded_name);
+        return;
+    }
+
+    memcpy(out, selected_path, dir_len);
+    out[dir_len] = '\0';
+    snprintf(out + dir_len, out_size - dir_len, "%s", loaded_name);
 }
 
 
@@ -110,6 +156,7 @@ void app_game_unload_loaded(void)
     }
 
     g_loaded_rom_name[0] = '\0';
+    g_loaded_rom_identity_path[0] = '\0';
 }
 
 int app_game_load_selected(void)
@@ -150,7 +197,12 @@ int app_game_load_selected(void)
                 return 0;
             }
 
-            game.path = g_loaded_rom_name[0] ? g_loaded_rom_name : path;
+            app_game_build_identity_path(path,
+                                         g_loaded_rom_name,
+                                         g_loaded_rom_identity_path,
+                                         sizeof(g_loaded_rom_identity_path));
+
+            game.path = g_loaded_rom_identity_path[0] ? g_loaded_rom_identity_path : path;
             game.data = g_loaded_rom_data;
             game.size = g_loaded_rom_size;
             load_mode = app_game_ext_equals(path, ".zip") ? "zip-preload" : "preload";

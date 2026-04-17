@@ -84,6 +84,112 @@ static int zip_name_is_rom(const char *name)
     return 0;
 }
 
+static void name_stem_only(const char *path, char *out, size_t out_size)
+{
+    const char *base;
+    const char *dot;
+    size_t len;
+
+    if (!out || out_size == 0)
+        return;
+
+    out[0] = '\0';
+
+    if (!path)
+        return;
+
+    base = base_name_only(path);
+    dot = strrchr(base, '.');
+    len = dot ? (size_t)(dot - base) : strlen(base);
+
+    if (len >= out_size)
+        len = out_size - 1;
+
+    memcpy(out, base, len);
+    out[len] = '\0';
+}
+
+static int ascii_equals_ci(const char *a, const char *b)
+{
+    size_t i = 0;
+
+    if (!a || !b)
+        return 0;
+
+    while (a[i] && b[i]) {
+        if (to_lower_ascii(a[i]) != to_lower_ascii(b[i]))
+            return 0;
+        i++;
+    }
+
+    return a[i] == '\0' && b[i] == '\0';
+}
+
+static int zip_entry_match_score(const char *zip_path, const char *entry_name)
+{
+    char zip_stem[256];
+    char entry_stem[256];
+
+    name_stem_only(zip_path, zip_stem, sizeof(zip_stem));
+    name_stem_only(entry_name, entry_stem, sizeof(entry_stem));
+
+    if (!zip_stem[0] || !entry_stem[0])
+        return 0;
+
+    if (ascii_equals_ci(zip_stem, entry_stem))
+        return 3;
+
+    if (strstr(entry_stem, zip_stem) || strstr(zip_stem, entry_stem))
+        return 2;
+
+    return 1;
+}
+
+static int zip_find_best_rom_index(mz_zip_archive *zip,
+                                   const char *zip_path,
+                                   mz_uint *best_index,
+                                   mz_zip_archive_file_stat *best_stat)
+{
+    mz_uint i;
+    mz_uint file_count;
+    int best_score = 0;
+    int found = 0;
+
+    if (!zip || !best_index || !best_stat)
+        return 0;
+
+    file_count = mz_zip_reader_get_num_files(zip);
+
+    for (i = 0; i < file_count; i++) {
+        mz_zip_archive_file_stat st;
+        int score;
+
+        memset(&st, 0, sizeof(st));
+        if (!mz_zip_reader_file_stat(zip, i, &st))
+            continue;
+        if (mz_zip_reader_is_file_a_directory(zip, i))
+            continue;
+        if (!zip_name_is_rom(st.m_filename))
+            continue;
+        if (!st.m_uncomp_size)
+            continue;
+        if (st.m_uncomp_size > (mz_uint64)((size_t)-1))
+            continue;
+
+        score = zip_entry_match_score(zip_path, st.m_filename);
+        if (!found || score > best_score) {
+            *best_index = i;
+            *best_stat = st;
+            best_score = score;
+            found = 1;
+            if (score >= 3)
+                break;
+        }
+    }
+
+    return found;
+}
+
 static int read_disc_file_once(const char *path, void **out_data, size_t *out_size)
 {
     int fd;
@@ -397,8 +503,8 @@ int rom_zip_load(const char *zip_path, void **out_data, size_t *out_size,
                  char *out_name, size_t out_name_size)
 {
     mz_zip_archive zip;
-    mz_uint i;
-    mz_uint file_count;
+    mz_uint best_index = 0;
+    mz_zip_archive_file_stat best_stat;
     void *zip_data = NULL;
     size_t zip_size = 0;
     int used_mem_reader = 0;
@@ -422,39 +528,42 @@ int rom_zip_load(const char *zip_path, void **out_data, size_t *out_size,
     }
 
     used_mem_reader = (zip_data != NULL);
-    file_count = mz_zip_reader_get_num_files(&zip);
 
-    for (i = 0; i < file_count; i++) {
-        mz_zip_archive_file_stat st;
-        void *buf;
+    memset(&best_stat, 0, sizeof(best_stat));
+    if (!zip_find_best_rom_index(&zip, zip_path, &best_index, &best_stat)) {
+        mz_zip_reader_end(&zip);
 
-        memset(&st, 0, sizeof(st));
+        if (used_mem_reader)
+            free(zip_data);
 
-        if (!mz_zip_reader_file_stat(&zip, i, &st))
-            continue;
-        if (mz_zip_reader_is_file_a_directory(&zip, i))
-            continue;
-        if (!zip_name_is_rom(st.m_filename))
-            continue;
-        if (!st.m_uncomp_size)
-            continue;
-        if (st.m_uncomp_size > (mz_uint64)((size_t)-1))
-            continue;
+        printf("[DBG] rom_zip_load: nenhuma ROM valida em '%s'\n",
+               zip_path ? zip_path : "");
+        fflush(stdout);
+        return 0;
+    }
 
-        buf = malloc((size_t)st.m_uncomp_size);
-        if (!buf)
-            break;
+    {
+        void *buf = malloc((size_t)best_stat.m_uncomp_size);
+        if (!buf) {
+            mz_zip_reader_end(&zip);
+            if (used_mem_reader)
+                free(zip_data);
+            return 0;
+        }
 
-        if (!mz_zip_reader_extract_to_mem(&zip, i, buf, (size_t)st.m_uncomp_size, 0)) {
+        if (!mz_zip_reader_extract_to_mem(&zip, best_index, buf, (size_t)best_stat.m_uncomp_size, 0)) {
             free(buf);
-            continue;
+            mz_zip_reader_end(&zip);
+            if (used_mem_reader)
+                free(zip_data);
+            return 0;
         }
 
         *out_data = buf;
-        *out_size = (size_t)st.m_uncomp_size;
+        *out_size = (size_t)best_stat.m_uncomp_size;
 
         if (out_name && out_name_size > 0) {
-            strncpy(out_name, base_name_only(st.m_filename), out_name_size - 1);
+            strncpy(out_name, base_name_only(best_stat.m_filename), out_name_size - 1);
             out_name[out_name_size - 1] = '\0';
         }
 
@@ -490,8 +599,8 @@ int rom_zip_extract_to_temp_file(const char *zip_path,
                                  size_t out_name_size)
 {
     mz_zip_archive zip;
-    mz_uint i;
-    mz_uint file_count;
+    mz_uint best_index = 0;
+    mz_zip_archive_file_stat best_stat;
     void *zip_data = NULL;
     size_t zip_size = 0;
     int used_mem_reader = 0;
@@ -514,51 +623,58 @@ int rom_zip_extract_to_temp_file(const char *zip_path,
     }
 
     used_mem_reader = (zip_data != NULL);
-    file_count = mz_zip_reader_get_num_files(&zip);
 
-    for (i = 0; i < file_count; i++) {
-        mz_zip_archive_file_stat st;
-
-        memset(&st, 0, sizeof(st));
-
-        if (!mz_zip_reader_file_stat(&zip, i, &st))
-            continue;
-        if (mz_zip_reader_is_file_a_directory(&zip, i))
-            continue;
-        if (!zip_name_is_rom(st.m_filename))
-            continue;
-        if (!st.m_uncomp_size)
-            continue;
-        if (st.m_uncomp_size > (mz_uint64)((size_t)-1))
-            continue;
-
-        if (!build_temp_output_path(zip_path,
-                                    base_name_only(st.m_filename),
-                                    out_path,
-                                    out_path_size))
-            continue;
-
-        if (!extract_current_file_to_path(&zip, i, out_path))
-            continue;
-
-        if (out_name && out_name_size > 0) {
-            strncpy(out_name, base_name_only(st.m_filename), out_name_size - 1);
-            out_name[out_name_size - 1] = '\0';
-        }
-
+    memset(&best_stat, 0, sizeof(best_stat));
+    if (!zip_find_best_rom_index(&zip, zip_path, &best_index, &best_stat)) {
         mz_zip_reader_end(&zip);
 
         if (used_mem_reader)
             free(zip_data);
 
-        printf("[DBG] rom_zip_extract_to_temp_file OK: rom='%s' zip='%s' temp='%s'%s\n",
-               out_name ? out_name : "",
-               zip_path ? zip_path : "",
-               out_path,
-               used_mem_reader ? " [mem-reader]" : " [file-reader]");
+        out_path[0] = '\0';
+
+        printf("[DBG] rom_zip_extract_to_temp_file: nenhuma ROM extraida de '%s'\n",
+               zip_path ? zip_path : "");
         fflush(stdout);
-        return 1;
+        return 0;
     }
+
+    if (!build_temp_output_path(zip_path,
+                                base_name_only(best_stat.m_filename),
+                                out_path,
+                                out_path_size)) {
+        mz_zip_reader_end(&zip);
+        if (used_mem_reader)
+            free(zip_data);
+        out_path[0] = '\0';
+        return 0;
+    }
+
+    if (!extract_current_file_to_path(&zip, best_index, out_path)) {
+        mz_zip_reader_end(&zip);
+        if (used_mem_reader)
+            free(zip_data);
+        out_path[0] = '\0';
+        return 0;
+    }
+
+    if (out_name && out_name_size > 0) {
+        strncpy(out_name, base_name_only(best_stat.m_filename), out_name_size - 1);
+        out_name[out_name_size - 1] = '\0';
+    }
+
+    mz_zip_reader_end(&zip);
+
+    if (used_mem_reader)
+        free(zip_data);
+
+    printf("[DBG] rom_zip_extract_to_temp_file OK: rom='%s' zip='%s' temp='%s'%s\n",
+           out_name ? out_name : "",
+           zip_path ? zip_path : "",
+           out_path,
+           used_mem_reader ? " [mem-reader]" : " [file-reader]");
+    fflush(stdout);
+    return 1;
 
     mz_zip_reader_end(&zip);
 

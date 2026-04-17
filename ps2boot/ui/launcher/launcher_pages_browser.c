@@ -149,6 +149,7 @@ void launcher_pages_draw_browser_page(void)
     static char s_prev_path[INF_PATH_MAX] = "";
     static unsigned s_marquee_delay_frames = 0;
     static unsigned s_marquee_tick = 0;
+    static unsigned s_marquee_step_hold = 0;
     static int s_root_status_active = 0;
     static unsigned s_root_status_cooldown = 0;
     const int content_x = 105;
@@ -161,7 +162,8 @@ void launcher_pages_draw_browser_page(void)
     const uint16_t normal = 0x39E7;
     const uint16_t select = 0x7053;
     const int visible_name_chars = 24;
-    const unsigned marquee_delay_frames = 4;
+    const unsigned marquee_delay_frames = 12;
+    const unsigned marquee_step_frames = 3;
     const unsigned root_status_refresh_frames = 60;
 
     count = launcher_browser_count();
@@ -183,6 +185,7 @@ void launcher_pages_draw_browser_page(void)
         snprintf(s_prev_path, sizeof(s_prev_path), "%s", current_path);
         s_marquee_delay_frames = 0;
         s_marquee_tick = 0;
+        s_marquee_step_hold = 0;
     } else {
         const launcher_browser_entry_t *sel_entry = NULL;
 
@@ -190,13 +193,16 @@ void launcher_pages_draw_browser_page(void)
             sel_entry = launcher_browser_entry(selected);
 
         if (!last_error && count > 0 && sel_entry && (int)strlen(sel_entry->name) > visible_name_chars) {
-            if (s_marquee_delay_frames < marquee_delay_frames)
+            if (s_marquee_delay_frames < marquee_delay_frames) {
                 s_marquee_delay_frames++;
-            else
+            } else if (++s_marquee_step_hold >= marquee_step_frames) {
+                s_marquee_step_hold = 0;
                 s_marquee_tick++;
+            }
         } else {
             s_marquee_delay_frames = 0;
             s_marquee_tick = 0;
+            s_marquee_step_hold = 0;
         }
     }
 
