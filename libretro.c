@@ -1389,12 +1389,6 @@ bool retro_load_game_special(unsigned game_type, const struct retro_game_info* i
 
 void retro_unload_game(void)
 {
-   printf("[DBG] retro_unload_game: enter\n");
-   fflush(stdout);
-
-   if (log_cb)
-      log_cb(RETRO_LOG_INFO, "retro_unload_game()\n");
-
    if (Settings.SPC7110)
       Del7110Gfx();
 
@@ -1408,19 +1402,38 @@ void retro_unload_game(void)
    retro_audio_buff_underrun  = false;
    retro_audio_latency        = 0;
    update_audio_latency       = false;
-
-   frameskip_counter = 0;
+   frameskip_counter          = 0;
 
    g_app_audio_prof_callback_cycles_frame = 0;
-   g_app_audio_prof_batch_cycles_frame = 0;
-   g_app_audio_prof_batch_calls_frame = 0;
+   g_app_audio_prof_batch_cycles_frame    = 0;
+   g_app_audio_prof_batch_calls_frame     = 0;
 
    CPU.Flags = 0;
    IPPU.RenderThisFrame = false;
 
-   printf("[DBG] retro_unload_game: exit\n");
-   fflush(stdout);
+   if (Memory.RAM)
+      memset(Memory.RAM, 0, 0x20000);
+   if (Memory.VRAM)
+      memset(Memory.VRAM, 0, 0x10000);
+   if (Memory.FillRAM)
+      memset(Memory.FillRAM, 0, 0x8000);
+   if (Memory.ROM)
+      memset(Memory.ROM, 0, MAX_ROM_SIZE);
+
+   if (IPPU.TileCached[TILE_2BIT])
+      memset(IPPU.TileCached[TILE_2BIT], 0, MAX_2BIT_TILES);
+   if (IPPU.TileCached[TILE_4BIT])
+      memset(IPPU.TileCached[TILE_4BIT], 0, MAX_4BIT_TILES);
+   if (IPPU.TileCached[TILE_8BIT])
+      memset(IPPU.TileCached[TILE_8BIT], 0, MAX_8BIT_TILES);
+
+   Memory.CalculatedSize = 0;
+   Memory.HeaderCount    = 0;
+   Memory.LoROM          = false;
+   Memory.HiROM          = false;
 }
+
+
 
 void* retro_get_memory_data(unsigned type)
 {
