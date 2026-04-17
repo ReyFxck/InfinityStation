@@ -223,7 +223,10 @@ int launcher_browser_activate(char *selected_path, size_t path_size, char *selec
     if (selected_label && label_size > 0)
         snprintf(selected_label, label_size, "%s", entry->name);
 
-    launcher_browser_build_full_path(full, sizeof(full), state->current_path, entry->name);
+    if (entry->full_path[0])
+        snprintf(full, sizeof(full), "%s", entry->full_path);
+    else
+        launcher_browser_build_full_path(full, sizeof(full), state->current_path, entry->name);
 
     if (!full[0]) {
         state->last_error = 1;

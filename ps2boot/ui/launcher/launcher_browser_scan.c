@@ -299,7 +299,7 @@ static int iso_list_dir_filtered(const char *rel_path)
             is_dir = (rec[25] & 0x02) ? 1 : 0;
 
             if (name[0] && (is_dir || rom_loader_is_supported(name))) {
-                if (!launcher_browser_append_entry(name, is_dir)) {
+                if (!launcher_browser_append_entry(name, "", is_dir)) {
                     state->last_error = 1;
                     return 0;
                 }
@@ -344,7 +344,7 @@ int launcher_browser_scan_disc_path(const char *path)
     if (!rel || !rel[0]) {
         iso_dir_info_t roms;
         if (iso_walk_path("ROMS", &roms) && roms.is_dir) {
-            if (!launcher_browser_append_entry("ROMS", 1)) {
+            if (!launcher_browser_append_entry("ROMS", "disc:/ROMS", 1)) {
                 state->last_error = 1;
                 return 0;
             }
@@ -470,7 +470,7 @@ int launcher_browser_load_more_entries(int want)
                 continue;
         }
 
-        if (!launcher_browser_append_entry(entry_name, is_dir)) {
+        if (!launcher_browser_append_entry(entry_name, full, is_dir)) {
             state->last_error = 1;
             state->scan_done = 1;
             launcher_browser_close_scan_dir();

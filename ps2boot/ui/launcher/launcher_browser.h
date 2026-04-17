@@ -2,10 +2,12 @@
 #define LAUNCHER_BROWSER_H
 
 #include <stddef.h>
+#include "common/inf_paths.h"
 
 typedef struct
 {
     char name[128];
+    char full_path[INF_PATH_MAX];
     int is_dir;
 } launcher_browser_entry_t;
 

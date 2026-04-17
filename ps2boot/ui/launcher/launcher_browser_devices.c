@@ -192,12 +192,12 @@ int launcher_browser_scan_root_devices(void)
     state->last_error = 0;
     state->scan_done = 1;
 
-    if (!launcher_browser_append_entry("disc:/", 1))  return 0;
-    if (!launcher_browser_append_entry("mc0:/", 1))   return 0;
-    if (!launcher_browser_append_entry("mc1:/", 1))   return 0;
-    if (!launcher_browser_append_entry("mass0:/", 1)) return 0;
-    if (!launcher_browser_append_entry("mass1:/", 1)) return 0;
-    if (!launcher_browser_append_entry("host:/", 1))  return 0;
+    if (!launcher_browser_append_entry("disc:/", "disc:/", 1))  return 0;
+    if (!launcher_browser_append_entry("mc0:/", "mc0:/", 1))   return 0;
+    if (!launcher_browser_append_entry("mc1:/", "mc1:/", 1))   return 0;
+    if (!launcher_browser_append_entry("mass0:/", "mass0:/", 1)) return 0;
+    if (!launcher_browser_append_entry("mass1:/", "mass1:/", 1)) return 0;
+    if (!launcher_browser_append_entry("host:/", "host:/", 1))  return 0;
 
     return 1;
 }
@@ -252,7 +252,7 @@ int launcher_browser_scan_memory_card_path(const char *path)
         if (!is_dir && !rom_loader_is_supported(full))
             continue;
 
-        if (!launcher_browser_append_entry(name, is_dir)) {
+        if (!launcher_browser_append_entry(name, full, is_dir)) {
             state->last_error = 1;
             return 0;
         }

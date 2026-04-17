@@ -75,7 +75,7 @@ int launcher_browser_ensure_capacity(int need)
     return 1;
 }
 
-int launcher_browser_append_entry(const char *name, int is_dir)
+int launcher_browser_append_entry(const char *name, const char *full_path, int is_dir)
 {
     launcher_browser_state_t *state = launcher_browser_state_mut();
     launcher_browser_entry_t *entry;
@@ -85,6 +85,7 @@ int launcher_browser_append_entry(const char *name, int is_dir)
 
     entry = &state->entries[state->entry_count];
     snprintf(entry->name, sizeof(entry->name), "%s", name ? name : "");
+    snprintf(entry->full_path, sizeof(entry->full_path), "%s", full_path ? full_path : "");
     entry->is_dir = is_dir ? 1 : 0;
     state->entry_count++;
     return 1;

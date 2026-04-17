@@ -21,7 +21,7 @@ int launcher_browser_is_root_path(const char *path);
 void launcher_browser_close_scan_dir(void);
 void launcher_browser_clear_entries(void);
 int launcher_browser_ensure_capacity(int need);
-int launcher_browser_append_entry(const char *name, int is_dir);
+int launcher_browser_append_entry(const char *name, const char *full_path, int is_dir);
 
 void launcher_browser_init(void);
 int launcher_browser_reset_to_path(const char *path);
