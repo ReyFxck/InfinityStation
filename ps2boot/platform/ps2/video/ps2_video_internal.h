@@ -17,6 +17,7 @@
 
 #define VIDEO_WAIT_VSYNC 1
 
+#define PS2_VIDEO_TEX_SLOTS   3u
 #define PS2_VIDEO_TEX_WIDTH   512u
 #define PS2_VIDEO_TEX_HEIGHT  256u
 #define PS2_VIDEO_TEX_PIXELS  (PS2_VIDEO_TEX_WIDTH * PS2_VIDEO_TEX_HEIGHT)
@@ -39,8 +40,8 @@ extern int g_aspect_mode;
 extern framebuffer_t g_frame;
 extern zbuffer_t g_z;
 extern texbuffer_t g_tex;
-extern packet_t *g_tex_packet;
-extern packet_t *g_draw_packet;
+extern packet_t *g_tex_packets[PS2_VIDEO_TEX_SLOTS];
+extern packet_t *g_draw_packets[PS2_VIDEO_TEX_SLOTS];
 
 extern uint16_t g_upload[PS2_VIDEO_TEX_PIXELS];
 extern uint16_t g_frame_base[PS2_VIDEO_TEX_PIXELS];

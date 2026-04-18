@@ -9,8 +9,8 @@ int g_aspect_mode = PS2_ASPECT_4_3;
 framebuffer_t g_frame;
 zbuffer_t g_z;
 texbuffer_t g_tex;
-packet_t *g_tex_packet = 0;
-packet_t *g_draw_packet = 0;
+packet_t *g_tex_packets[PS2_VIDEO_TEX_SLOTS] = {0};
+packet_t *g_draw_packets[PS2_VIDEO_TEX_SLOTS] = {0};
 
 uint16_t g_upload[PS2_VIDEO_TEX_PIXELS] __attribute__((aligned(64)));
 uint16_t g_frame_base[PS2_VIDEO_TEX_PIXELS] __attribute__((aligned(64)));
