@@ -476,7 +476,8 @@ static void ps2_video_upload_and_draw_source(
     {
         unsigned aspect_mode = ps2_video_get_effective_aspect_mode();
 
-        if (aspect_mode != PS2_ASPECT_FULL) {
+        if (aspect_mode != PS2_ASPECT_FULL &&
+            g_last_band_clear_mode != aspect_mode) {
             q = ps2_video_clear_bands(
                 q,
                 base_rect->v0.x,
@@ -548,7 +549,8 @@ static void ps2_video_draw_cached_source(unsigned tex_slot, unsigned width, unsi
     {
         unsigned aspect_mode = ps2_video_get_effective_aspect_mode();
 
-        if (aspect_mode != PS2_ASPECT_FULL) {
+        if (aspect_mode != PS2_ASPECT_FULL &&
+            g_last_band_clear_mode != aspect_mode) {
             q = ps2_video_clear_bands(
                 q,
                 base_rect->v0.x,
