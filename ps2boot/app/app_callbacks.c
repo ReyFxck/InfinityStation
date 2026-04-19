@@ -344,13 +344,13 @@ static int16_t input_state_cb(unsigned port, unsigned device, unsigned index, un
 {
     (void)index;
 
-    if (port != 0)
+    if (port >= PS2_INPUT_MAX_PLAYERS)
         return 0;
 
     if (device != RETRO_DEVICE_JOYPAD)
         return 0;
 
-    return ps2_input_libretro_state(id);
+    return ps2_input_libretro_state(port, id);
 }
 
 void app_callbacks_register(void)

@@ -178,7 +178,7 @@ HOT_FRONTEND_OBJS = \
 
 $(HOT_FRONTEND_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
-EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lmc -lpatches -liopreboot -laudsrv -lcdvd
+EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lmtap -lmc -lpatches -liopreboot -laudsrv -lcdvd
 
 EXTRA_TARGETS = $(EE_BIN)
 
