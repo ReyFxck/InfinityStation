@@ -24,7 +24,6 @@ static unsigned g_throttle_last_display_hz = 0;
 static int g_overlay_visible = -1;
 static unsigned g_overlay_last_sent_fps = (unsigned)-1;
 
-
 static double app_overlay_target_fps(void)
 {
     int mode = ps2_menu_frame_limit_mode();
