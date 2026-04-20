@@ -32,6 +32,7 @@ typedef struct app_core_var {
 
 static unsigned g_frame_count = 0;
 static int g_logged_video_cb = 0;
+static int g_warned_bad_pixel_format = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
 static int g_logged_audio_cb = 0;
 static int g_logged_audio_batch_cb = 0;
@@ -191,14 +192,35 @@ static bool app_get_core_variable(struct retro_variable *var)
     return false;
 }
 
+static bool app_set_pixel_format(const enum retro_pixel_format *fmt)
+{
+    if (!fmt)
+        return false;
+
+    switch (*fmt) {
+    case RETRO_PIXEL_FORMAT_RGB565:
+        g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
+        g_warned_bad_pixel_format = 0;
+        return true;
+
+    default:
+#if !QUIET_RUNTIME_LOGS
+        if (!g_warned_bad_pixel_format) {
+            printf("[APPCB] unsupported pixel format requested: %d\n", (int)*fmt);
+            g_warned_bad_pixel_format = 1;
+        }
+#else
+        g_warned_bad_pixel_format = 1;
+#endif
+        return false;
+    }
+}
+
 static bool environ_cb(unsigned cmd, void *data)
 {
     switch (cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
-        if (!data)
-            return false;
-        g_pixel_format = *(const enum retro_pixel_format *)data;
-        return true;
+        return app_set_pixel_format((const enum retro_pixel_format *)data);
 
     case RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK:
         if (!data) {
@@ -299,8 +321,18 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
 
     app_overlay_update_fps();
 
-    if (g_pixel_format == RETRO_PIXEL_FORMAT_RGB565)
-        ps2_video_present_rgb565(data, width, height, pitch);
+    if (g_pixel_format != RETRO_PIXEL_FORMAT_RGB565) {
+#if !QUIET_RUNTIME_LOGS
+        if (!g_warned_bad_pixel_format) {
+            printf("[APPCB] refusing frame with unsupported pixel format=%d\n",
+                   (int)g_pixel_format);
+            g_warned_bad_pixel_format = 1;
+        }
+#endif
+        return;
+    }
+
+    ps2_video_present_rgb565(data, width, height, pitch);
 }
 
 static void audio_cb(int16_t left, int16_t right)
