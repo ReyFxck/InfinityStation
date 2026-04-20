@@ -1,84 +1,225 @@
-<div align="center">
-
-# InfinityStation - PS2 SNES Frontend
+# InfinityStation – SNES Frontend for PlayStation 2
 
 [![English](https://img.shields.io/badge/English-red)](README.md)
 [![Português-BR](https://img.shields.io/badge/Português--BR-blue)](README.pt-BR.md)
 
-A PlayStation 2 frontend/boot project for running a SNES core with a custom launcher, in-game menu, ZIP ROM loading, and PS2-specific platform code.
+InfinityStation is a frontend/launcher in development for running an SNES core on the PlayStation 2, with a focus on performance, modularization, and usability on original hardware.
 
-</div>
+> **Note**
+> This project is still under development (**W.I.P**). The current focus is code cleanup, modularization, and performance and usability improvements. See the **Current status and limitations** section for the current state of the project.
 
-> [!NOTE]
-> This project is currently **W.I.P**.
->
-> It is focused on cleanup, modularization, PS2 usability improvements, and making future work easier.
+## Index
 
-## Inspired By
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Useful commands](#useful-commands)
+- [Testing methods](#testing-methods)
+- [Supported ROM formats](#supported-rom-formats)
+- [Project structure](#project-structure)
+- [Technologies used](#technologies-used)
+- [Current status and limitations](#current-status-and-limitations)
+- [Progress](#progress)
+- [Future plans](#future-plans)
+- [How to contribute](#how-to-contribute)
+- [License and legal notices](#license-and-legal-notices)
+- [Credits](#credits)
+- [Contact](#contact)
 
-This project is heavily inspired by:
-- **PGEN**
-- **SNESticle**
-- **SNESStation**
+## Requirements
 
-Not as a direct copy of any one of them, but as part of the general idea, style, and direction for building a more usable SNES frontend/experience on PlayStation 2.
+- A PlayStation 2 or emulator, for testing purposes.
+- A configured PS2 build environment (`ps2sdk`, `ee-gcc` compiler, and `make`).
+- Compatible SNES ROMs in `.sfc`, `.smc`, `.swc`, `.fig`, or `.zip` format.
 
-## Current Features
+## Installation
 
-- Embedded ROM boot option
-- USB browser/launcher
-- In-game menu
-- Display position adjustment
-- Aspect ratio options
-- FPS overlay
-- Frame limit options
-- ZIP ROM loading support
-- Modularized app, launcher, menu, and PS2 video code
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/ReyFxck/InfinityStation.git
+   cd InfinityStation
+   ```
+
+2. **Build**
+
+   Make sure `ps2sdk` and `make` are installed and available in your `PATH`.
+
+   ```bash
+   make
+   ```
+
+   The main build generates the project's ELF file.
+
+## Useful commands
+
+```bash
+make help
+make clean
+make rebuild
+make V=1
+make push
+make push-android
+make push-win WIN_OUT_DIR=/path
+make iso
+make iso ISO_ROMS_DIR=/path
+make iso-push ISO_ROMS_DIR=/path
+```
+
+### Quick summary
+
+- `make help` — shows the available commands.
+- `make clean` — removes leftovers from previous builds.
+- `make rebuild` — cleans and rebuilds the project.
+- `make V=1` — builds with verbose output.
+- `make push` / `make push-android` — copies the ELF to the configured Android directory.
+- `make push-win WIN_OUT_DIR=/path` — copies the ELF to a directory on Windows.
+- `make iso` — generates a test ISO.
+- `make iso ISO_ROMS_DIR=/path` — generates an ISO including ROMs from the specified folder.
+- `make iso-push ISO_ROMS_DIR=/path` — generates the ISO and copies it to the configured destination.
+
+## Testing methods
+
+### 1. ELF testing
+- Build the project.
+- Copy the generated ELF to a USB device or memory card.
+- Run it through Free McBoot, LaunchELF, or another compatible manager.
+
+### 2. ISO testing
+- Generate a test ISO with:
+  ```bash
+  make iso
+  ```
+- To include ROMs in the image:
+  ```bash
+  make iso ISO_ROMS_DIR=/path/to/roms
+  ```
+
+### 3. Emulator testing
+- The project can be tested in emulators by loading the ELF directly.
+- When applicable, the ISO can also be used for quick boot flow validation.
+
+## Supported ROM formats
+
+The formats currently considered in the project's workflow are:
+
+- `.sfc`
+- `.smc`
+- `.swc`
+- `.fig`
+- `.zip`
+
+> **Note:** practical support may vary depending on the current state of the core, loader, and testing coverage.
+
+## Project structure
+
+```text
+.github/workflows/    # CI / automated build
+libretro-common/      # shared utilities
+ps2boot/              # frontend, PS2 integration, and ROM loader
+source/               # SNES core base code
+libretro.c            # main bridge to the libretro core
+Makefile              # build, push, and ISO generation
+```
+
+### Main directories inside `ps2boot/`
+
+- `ps2boot/app/`  
+  Main app flow, boot, runtime, state handling, transitions, overlay, and frontend configuration.
+
+- `ps2boot/ui/launcher/`  
+  Main launcher, browser, pages, actions, background, and fonts.
+
+- `ps2boot/ui/select_menu/`  
+  In-game menu and related pages.
+
+- `ps2boot/platform/ps2/`  
+  PS2-specific platform code, including audio, debug, input, menu, storage, and video modules.
+
+- `ps2boot/rom_loader/`  
+  ROM loader and ZIP support, including `miniz` integration.
+
+## Technologies used
+
+- **snes9x2005** — SNES emulation core adapted for PS2.
+- **miniz** — ZIP decompression library.
+- **ps2sdk** — SDK for PlayStation 2 homebrew development.
+- **C / GCC** — main project language and compiler.
+- **GitHub Actions** — build automation used to validate project compilation.
+
+## Current status and limitations
+
+The project still has several bugs, but it is already in a playable state through emulation.
+
+Known limitations at the moment:
+
+- audio is still not working;
+- FPS drops may happen even with EE headroom available;
+- some menus still show incorrect behavior, such as confusion when opening the correct ROM or loading through USB;
+- some animations are currently too fast;
+- the launcher settings menu has not been implemented yet;
+- launcher music remains disabled because of the current audio issues.
 
 ## Progress
 
-Recent work includes:
-- splitting large launcher files into smaller modules
-- splitting select menu actions and page rendering
-- splitting PS2 video code into separate parts
-- splitting app startup, runtime, and callback responsibilities
-- adding modular ROM loading
-- adding ZIP support through `miniz`
-- cleaning and consolidating the `Makefile`
+### Menus
 
-## Planned Improvements
+| Area | Optimization | Progress / Additions | Bugs / Improvements |
+|---|---:|---:|---:|
+| Initial launcher menu | 50% | 65% | 10% |
+| Settings menu (initial launcher) | 0% | 0% | 0% |
+| Credits menu (initial launcher) | 10% | 30% | 75% |
+| Device selection | 60% | 10% | 95% |
 
-- more launcher options
-- better UI feedback and error messages
-- more ROM compatibility testing
-- more visual polish
-- more documentation
-- more real hardware testing
+### Game / Core / System
+
+| Area | Optimization | Progress / Additions | Bugs / Status |
+|---|---:|---:|---:|
+| In-game audio | 60% | 50% | 100% *(no audio)* |
+| General optimizations | 50% | 50% | 50% |
+| GS | ? | ? | ? |
+| NTSC/PAL support | ? | ? | ? |
+| Core feature support | 60% | 30% | 75% |
+| Screen functions (PS2) | 50% | 45% | 30% |
+
+## Future plans
+
+- More options in the launcher and in-game menu.
+- Better visual feedback and error messages.
+- More ROM compatibility testing.
+- Visual polish and interface improvements.
+- More complete documentation and translation.
+- More real hardware testing.
+
+## How to contribute
+
+Contributions are welcome. To help:
+
+1. Open an *issue* with suggestions, questions, or problems you found.
+2. Fork the repository and create a branch for your change.
+3. After implementing and testing it, submit a *pull request* with a clear description of the changes.
+4. Feel free to help with documentation, translation, or new features.
+
+## License and legal notices
+
+This repository combines original code and components derived from or integrated with third-party projects.
+
+Before redistributing, reusing, or relicensing any part of the project, check:
+
+- the `copyright` file;
+- the repository credits;
+- the headers and notices present in inherited files.
+
+This helps avoid confusion between the project's original code and the external components included in it.
 
 ## Credits
 
-- **Iaddis** (**@iaddis**)  
-  Some ideas about how ZIP file loading could be implemented.
+Special thanks to:
 
-- **Rich Geldreich** (**@richgel999**)  
-  `miniz`, used for ZIP decompression and support.
+- **Iaddis** (`@iaddis`) — ideas observed in the Snesticle project files for implementing ZIP file loading.
+- **Rich Geldreich** (`@richgel999`) — for creating the `miniz` library used for ZIP decompression.
+- **The Snes9x community and @libretro** — for the `snes9x2005` core and related work.
+- **`ps2sdk` / `ps2dev` contributors** (`@ps2dev`) — for making PS2 development possible.
 
-- **Snes9x and community**, together with **@libretro**  
-  For the `snes9x2005` core and related work used in this project.
+## Contact
 
-- **ps2sdk / ps2dev contributors** (**@ps2dev**)  
-  Thank you for the effort that makes it easier to build applications for the PlayStation 2.
-
-## Notes
-
-This does not represent a final polished release.
-
-The project is currently focused on:
-- code cleanup
-- modularization
-- PS2 usability improvements
-- making future work easier
-
-## License
-
-See the `LICENSE` file in this repository.
+For questions, suggestions, or collaboration, use [GitHub Issues](https://github.com/ReyFxck/InfinityStation/issues) or contact the maintainer.
