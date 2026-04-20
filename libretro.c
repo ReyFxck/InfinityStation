@@ -137,7 +137,7 @@ static inline float app_core_prof_cycles_to_ms(unsigned long long cycles, unsign
     if (!frames)
         return 0.0f;
 
-    return (float)((double)cycles / (double)frames / 294912.0);
+    return (float)((double)cycles / (double)frames / 147456.0);
 }
 
 static void app_core_prof_commit(unsigned mainloop_cycles, unsigned audio_cycles, unsigned total_cycles)

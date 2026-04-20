@@ -41,7 +41,7 @@ static inline float ps2_video_prof_cycles_to_ms(unsigned long long cycles, unsig
     if (!frames)
         return 0.0f;
 
-    return (float)((double)cycles / (double)frames / 294912.0);
+    return (float)((double)cycles / (double)frames / 147456.0);
 }
 
 static void ps2_video_prof_commit_split(
