@@ -29,6 +29,9 @@
 #include "ps2_audio.h"
 
 #include <stdio.h>
+#if defined(__mips__) && !defined(PSP)
+#include <malloc.h>
+#endif
 
 static void app_gfx_prof_reset_frame(void) {}
 static void app_gfx_prof_get_frame(unsigned long long *obj_cycles, unsigned *obj_calls)
@@ -462,6 +465,8 @@ void S9xInitDisplay(void)
 #elif defined(_3DS)
    safety = 0x80;
    GFX.Screen_buffer = (uint8_t *) linearMemAlign(GFX.Pitch * h + safety, 0x80);
+#elif defined(__mips__) && !defined(PSP)
+   GFX.Screen_buffer = (uint8_t *) memalign(64, GFX.Pitch * h + safety);
 #else
    GFX.Screen_buffer = (uint8_t *) malloc(GFX.Pitch * h + safety);
 #endif

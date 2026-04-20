@@ -171,11 +171,22 @@ static void ps2_audio_finish_resume_if_ready(void)
 
 void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underrun_likely)
 {
-    unsigned int buffered = ps2_audio_ring_buffered_frames();
+    unsigned int ring_frames = ps2_audio_ring_buffered_frames();
+    unsigned int backend_frames = 0;
+    unsigned int total_frames;
     unsigned int occ = 0;
+    int queued_bytes = 0;
 
-    if (SOUND_TOTAL_FRAMES)
-        occ = (buffered * 100U) / SOUND_TOTAL_FRAMES;
+    if ((g_audio_state == 1) && !g_audio_paused) {
+        queued_bytes = ps2_backend_queued_bytes();
+        if (queued_bytes > 0)
+            backend_frames = (unsigned int)queued_bytes / PS2_AUDIO_FRAME_BYTES;
+    }
+
+    total_frames = ring_frames + backend_frames;
+
+    if (BACKEND_QUEUE_TARGET_FRAMES)
+        occ = (total_frames * 100U) / BACKEND_QUEUE_TARGET_FRAMES;
 
     if (occ > 100U)
         occ = 100U;
@@ -187,7 +198,7 @@ void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underr
         *occupancy = occ;
 
     if (underrun_likely)
-        *underrun_likely = (buffered < (BACKEND_FEED_FRAMES * 2));
+        *underrun_likely = (total_frames < BACKEND_REAL_TARGET_FRAMES);
 }
 
 
