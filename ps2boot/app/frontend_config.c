@@ -16,9 +16,9 @@ void frontend_config_init_defaults(void)
     g_frontend_config.fps_rainbow = 0;
     g_frontend_config.frame_limit = 3; /* SELECT_MENU_FRAME_LIMIT_OFF */
     g_frontend_config.game_vsync = 0;
-    g_frontend_config.game_reduce_slowdown = 0;
+    g_frontend_config.game_reduce_slowdown = 1;
     g_frontend_config.game_reduce_flicker = 0;
-    g_frontend_config.game_frameskip_mode = 0;
+    g_frontend_config.game_frameskip_mode = 1;
     g_frontend_config.game_frameskip_threshold = 33;
     g_frontend_config_inited = 1;
 }
