@@ -104,31 +104,67 @@ static void app_transition_flush_black_frame(void)
     }
 }
 
+static int app_transition_try_load_selected_game(struct retro_system_av_info *av)
+{
+    printf("[DBG] app_transition_try_load_selected_game: enter\n");
+    fflush(stdout);
+
+    app_transition_core_init_once();
+
+    printf("[DBG] app_transition_try_load_selected_game: before app_game_load_selected\n");
+    fflush(stdout);
+
+    if (!app_game_load_selected()) {
+        printf("[DBG] app_transition_try_load_selected_game: app_game_load_selected FAILED\n");
+        fflush(stdout);
+        return 0;
+    }
+
+    printf("[DBG] app_transition_try_load_selected_game: app_game_load_selected OK\n");
+    fflush(stdout);
+
+    app_transition_refresh_av_info(av);
+
+    printf("[DBG] app_transition_try_load_selected_game: exit fps=%.3f\n",
+           av ? av->timing.fps : 0.0);
+    fflush(stdout);
+    return 1;
+}
+
+static int app_transition_recover_full_core_reload(struct retro_system_av_info *av,
+    uint32_t *prev_buttons)
+{
+    printf("[DBG] app_transition_recover_full_core_reload: enter\n");
+    fflush(stdout);
+
+    app_transition_core_deinit_if_needed();
+    app_transition_prepare(prev_buttons);
+    app_transition_flush_black_frame();
+
+    if (!app_transition_try_load_selected_game(av)) {
+        printf("[DBG] app_transition_recover_full_core_reload: FAILED\n");
+        fflush(stdout);
+        return 0;
+    }
+
+    printf("[DBG] app_transition_recover_full_core_reload: success\n");
+    fflush(stdout);
+    return 1;
+}
+
 void app_transition_load_selected_game(struct retro_system_av_info *av,
     void (*die_fn)(const char *msg))
 {
     printf("[DBG] app_transition_load_selected_game: enter\n");
     fflush(stdout);
 
-    app_transition_core_init_once();
-
-    printf("[DBG] app_transition_load_selected_game: before app_game_load_selected\n");
-    fflush(stdout);
-
-    if (!app_game_load_selected()) {
-        printf("[DBG] app_transition_load_selected_game: app_game_load_selected FAILED\n");
-        fflush(stdout);
+    if (!app_transition_try_load_selected_game(av)) {
         if (die_fn)
-            die_fn("retro_load_game() falhou");
+            die_fn("Falha ao carregar a ROM selecionada");
         return;
     }
 
-    printf("[DBG] app_transition_load_selected_game: app_game_load_selected OK\n");
-    fflush(stdout);
-
-    app_transition_refresh_av_info(av);
-
-    printf("[DBG] app_transition_load_selected_game: exit fps=%.3f\n", av ? av->timing.fps : 0.0);
+    printf("[DBG] app_transition_load_selected_game: exit\n");
     fflush(stdout);
 }
 
@@ -158,10 +194,21 @@ void app_transition_restart_game(struct retro_system_av_info *av,
     /* manter o core inicializado entre trocas para evitar fragmentacao */
     app_transition_prepare(prev_buttons);
 
-    printf("[DBG] app_transition_restart_game: before app_transition_load_selected_game\n");
+    printf("[DBG] app_transition_restart_game: before app_transition_try_load_selected_game\n");
     fflush(stdout);
-    app_transition_load_selected_game(av, die_fn);
-    printf("[DBG] app_transition_restart_game: after app_transition_load_selected_game\n");
+
+    if (!app_transition_try_load_selected_game(av)) {
+        printf("[DBG] app_transition_restart_game: fast reload failed, trying full core reload\n");
+        fflush(stdout);
+
+        if (!app_transition_recover_full_core_reload(av, prev_buttons)) {
+            if (die_fn)
+                die_fn("Falha ao reinicializar o core e recarregar a ROM");
+            return;
+        }
+    }
+
+    printf("[DBG] app_transition_restart_game: after app_transition_try_load_selected_game\n");
     fflush(stdout);
 
     app_overlay_reset_timing();
@@ -218,10 +265,21 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
 
     ps2_video_set_offsets(*saved_launcher_x, *saved_launcher_y);
 
-    printf("[DBG] app_transition_open_launcher_and_reload: before app_transition_load_selected_game\n");
+    printf("[DBG] app_transition_open_launcher_and_reload: before app_transition_try_load_selected_game\n");
     fflush(stdout);
-    app_transition_load_selected_game(av, die_fn);
-    printf("[DBG] app_transition_open_launcher_and_reload: after app_transition_load_selected_game\n");
+
+    if (!app_transition_try_load_selected_game(av)) {
+        printf("[DBG] app_transition_open_launcher_and_reload: fast reload failed, trying full core reload\n");
+        fflush(stdout);
+
+        if (!app_transition_recover_full_core_reload(av, prev_buttons)) {
+            if (die_fn)
+                die_fn("Falha ao reinicializar o core e recarregar a ROM");
+            return;
+        }
+    }
+
+    printf("[DBG] app_transition_open_launcher_and_reload: after app_transition_try_load_selected_game\n");
     fflush(stdout);
 
     app_overlay_reset_timing();
