@@ -511,14 +511,33 @@ static void init_sfc_setting(void)
    Settings.HBlankStart = (256 * Settings.H_Max) / SNES_HCOUNTER_MAX;
 }
 
-static void audio_out_buffer_init(void)
+static bool audio_out_buffer_init(void)
 {
    float refresh_rate        = (float)((Settings.PAL) ?
          VIDEO_REFRESH_RATE_PAL : VIDEO_REFRESH_RATE_NTSC);
    float samples_per_frame   = (float)AUDIO_SAMPLE_RATE / refresh_rate;
    size_t buffer_size        = ((size_t)samples_per_frame + 1) << 1;
 
-   audio_out_buffer          = (int16_t *)malloc(buffer_size * sizeof(int16_t));
+   if (audio_out_buffer)
+      free(audio_out_buffer);
+   audio_out_buffer = NULL;
+
+#ifdef USE_BLARGG_APU
+   audio_out_buffer_size     = 0;
+   audio_out_buffer_pos      = 0;
+   audio_batch_frames_max    = (1 << 16);
+#else
+   audio_samples_per_frame   = 0.0f;
+   audio_samples_accumulator = 0.0f;
+#endif
+
+   if (buffer_size == 0)
+      return false;
+
+   audio_out_buffer = (int16_t *)malloc(buffer_size * sizeof(int16_t));
+   if (!audio_out_buffer)
+      return false;
+
 #ifdef USE_BLARGG_APU
    audio_out_buffer_size     = buffer_size;
    audio_out_buffer_pos      = 0;
@@ -527,6 +546,8 @@ static void audio_out_buffer_init(void)
    audio_samples_per_frame   = samples_per_frame;
    audio_samples_accumulator = 0.0f;
 #endif
+
+   return true;
 }
 
 static void audio_out_buffer_deinit(void)
@@ -549,8 +570,12 @@ static void audio_out_buffer_deinit(void)
 static void S9xAudioCallback(void)
 {
    size_t available_samples;
-   size_t buffer_capacity = audio_out_buffer_size -
-         audio_out_buffer_pos;
+   size_t buffer_capacity;
+
+   if (!audio_out_buffer || audio_out_buffer_size == 0)
+      return;
+
+   buffer_capacity = audio_out_buffer_size - audio_out_buffer_pos;
 
    S9xFinalizeSamples();
    available_samples = S9xGetSampleCount();
@@ -564,6 +589,12 @@ static void S9xAudioCallback(void)
       tmp_buffer_size = audio_out_buffer_size + (available_samples - buffer_capacity);
       tmp_buffer_size = (tmp_buffer_size << 1) - (tmp_buffer_size >> 1);
       tmp_buffer      = (int16_t *)malloc(tmp_buffer_size * sizeof(int16_t));
+
+      if (!tmp_buffer)
+      {
+         audio_out_buffer_pos = 0;
+         return;
+      }
 
       for (i = 0; i < audio_out_buffer_pos; i++)
          tmp_buffer[i] = audio_out_buffer[i];
@@ -583,6 +614,10 @@ static void S9xAudioCallback(void)
 static void audio_upload_samples(void)
 {
    size_t available_frames;
+
+   if (!audio_batch_cb || !audio_out_buffer)
+      return;
+
 #ifdef USE_BLARGG_APU
    int16_t *audio_out_buffer_ptr;
 
@@ -1374,7 +1409,21 @@ bool retro_load_game(const struct retro_game_info* game)
    Settings.FrameTime = (Settings.PAL ? Settings.FrameTimePAL : Settings.FrameTimeNTSC);
 
    retro_set_audio_buff_status_cb();
-   audio_out_buffer_init();
+   if (!audio_out_buffer_init())
+   {
+      printf("[DBG] retro_load_game: audio_out_buffer_init FAILED\n");
+      fflush(stdout);
+
+      if (environ_cb)
+         environ_cb(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, NULL);
+
+      retro_audio_buff_active    = false;
+      retro_audio_buff_occupancy = 0;
+      retro_audio_buff_underrun  = false;
+      retro_audio_latency        = 0;
+      update_audio_latency       = false;
+      return false;
+   }
 #ifndef USE_BLARGG_APU
    S9xSetPlaybackRate(Settings.SoundPlaybackRate);
 #endif
