@@ -178,6 +178,12 @@ void app_transition_restart_game(struct retro_system_av_info *av,
     ps2_audio_pause();
 
     if (g_core_initialized) {
+        printf("[DBG] app_transition_restart_game: before app_game_sram_autosave\n");
+        fflush(stdout);
+        app_game_sram_autosave();
+        printf("[DBG] app_transition_restart_game: after app_game_sram_autosave\n");
+        fflush(stdout);
+
         printf("[DBG] app_transition_restart_game: before retro_unload_game\n");
         fflush(stdout);
         retro_unload_game();
@@ -235,6 +241,12 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
     ps2_audio_pause();
 
     if (g_core_initialized) {
+        printf("[DBG] app_transition_open_launcher_and_reload: before app_game_sram_autosave\n");
+        fflush(stdout);
+        app_game_sram_autosave();
+        printf("[DBG] app_transition_open_launcher_and_reload: after app_game_sram_autosave\n");
+        fflush(stdout);
+
         printf("[DBG] app_transition_open_launcher_and_reload: before retro_unload_game\n");
         fflush(stdout);
         retro_unload_game();
