@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define PS2_CORE_AUDIO_RATE 32040u
+#define PS2_CORE_AUDIO_RATE 32000u
 
 int ps2_audio_init_once(void);
 void ps2_audio_shutdown(void);

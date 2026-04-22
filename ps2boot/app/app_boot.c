@@ -61,13 +61,8 @@ void app_boot_init(void (*die_fn)(const char *msg))
 
     /* log removido */
     /* log removido */
-    if (!ps2_audio_init_once()) {
-        /* log removido */
-        /* log removido */
-    } else {
-        /* log removido */
-        /* log removido */
-    }
+    if (!ps2_audio_init_once())
+        die_fn("ps2_audio_init_once() falhou");
 
     /* log removido */
     (void)ps2_input_init_once();

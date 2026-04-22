@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include "ps2_audio_backend.h"
 
-#define QUIET_PS2AUDIO_LOGS 1
+#define QUIET_PS2AUDIO_LOGS 0
 #if QUIET_PS2AUDIO_LOGS
 #define PS2AUDIO_LOG(...) ((void)0)
 #else

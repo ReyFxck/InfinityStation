@@ -13,7 +13,7 @@
 #include "ps2_audio.h"
 
 /* QUIET_RUNTIME_LOGS_BEGIN */
-#define QUIET_RUNTIME_LOGS 1
+#define QUIET_RUNTIME_LOGS 0
 #if QUIET_RUNTIME_LOGS
 #undef printf
 #define printf(...) ((void)0)

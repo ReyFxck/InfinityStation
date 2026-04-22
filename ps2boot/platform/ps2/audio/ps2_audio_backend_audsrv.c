@@ -146,11 +146,6 @@ int ps2_backend_queue_audio(const int16_t *data, int bytes)
         return ret;
     }
 
-    if (ret != bytes) {
-        PS2AUDIO_LOG("[PS2AUDIO] audsrv_play_audio partial=%d expected=%d\n",
-                     ret, bytes);
-    }
-
     return ret;
 }
 
