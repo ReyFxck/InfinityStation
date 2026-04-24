@@ -780,6 +780,7 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
     while (done < frames) {
         size_t chunk = frames - done;
         unsigned int written;
+        unsigned int dropped_for_room = 0;
 
         if (chunk >= SOUND_TOTAL_FRAMES) {
             if (!g_warned_overrun) {
@@ -790,13 +791,13 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
             chunk = SOUND_TOTAL_FRAMES - 1;
         }
 
-        while (ps2_audio_ring_buffered_frames() + chunk >= SOUND_TOTAL_FRAMES) {
-            if (!g_warned_overrun) {
-                PS2AUDIO_LOG("[PS2AUDIO] ring full: waiting for drain incoming=%u\n",
-                       (unsigned int)chunk);
+        if (ps2_audio_ring_buffered_frames() + chunk >= SOUND_TOTAL_FRAMES) {
+            dropped_for_room = ps2_audio_make_room_for_frames((unsigned int)chunk);
+            if (dropped_for_room && !g_warned_overrun) {
+                PS2AUDIO_LOG("[PS2AUDIO] ring full: dropped old frames=%u incoming=%u\n",
+                       dropped_for_room, (unsigned int)chunk);
                 g_warned_overrun = 1;
             }
-            ps2_audio_wait_loops(1);
         }
 
         written = ps2_audio_copy_to_ring(&data[done * PS2_AUDIO_CHANNELS], (unsigned int)chunk);
@@ -807,7 +808,8 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
                 g_warned_overrun = 1;
             }
         } else {
-            g_warned_overrun = 0;
+            if (!dropped_for_room)
+                g_warned_overrun = 0;
             ps2_audio_finish_resume_if_ready();
         }
 
