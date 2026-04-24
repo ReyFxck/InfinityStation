@@ -173,13 +173,13 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "snes9x_2005_overclock_cycles",
       "Reduce Slowdown (Hack, Unsafe, Restart)",
       NULL,
-      "Many games for the SNES suffered from slowdown due to the weak main CPU. This option helps allievate that at the cost of possible bugs. COMPATIBLE: Reduce slowdown but keep as much game compatibility as much as possible. MAX: Reduce slowdown as much as possible but will break more games.",
+      "Many SNES games suffered from slowdown due to the weak main CPU. This hack can reduce slowdown, but timing-sensitive games and enhancement-chip games may break or desync audio. COMPATIBLE: smaller cycle reduction, safer default. MAX: strongest reduction, highest compatibility risk.",
       NULL,
       "hacks",
       {
          { "disabled",   NULL },
-         { "compatible", "Compatible" },
-         { "max",        "Max" },
+         { "compatible", "Compatible (safer)" },
+         { "max",        "Max (unsafe)" },
          { NULL, NULL },
       },
       "disabled"

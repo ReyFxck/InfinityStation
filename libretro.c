@@ -12,10 +12,6 @@
 #include "srtc.h"
 #include "sa1.h"
 
-#ifdef PSP
-#include <pspkernel.h>
-#include <pspgu.h>
-#endif
 
 #include <libretro.h>
 #include <retro_miscellaneous.h>
@@ -30,6 +26,7 @@
 
 #include <stdio.h>
 #if defined(__mips__) && !defined(PSP)
+#include <kernel.h>
 #include <malloc.h>
 #endif
 
@@ -74,12 +71,16 @@ int one_c, slow_one_c, two_c;
 #define VIDEO_REFRESH_RATE_PAL  (SNES_CLOCK_SPEED * 6.0 / (SNES_CYCLES_PER_SCANLINE * SNES_MAX_PAL_VCOUNTER))
 #define VIDEO_REFRESH_RATE_NTSC (SNES_CLOCK_SPEED * 6.0 / (SNES_CYCLES_PER_SCANLINE * SNES_MAX_NTSC_VCOUNTER))
 #define AUDIO_SAMPLE_RATE       PS2_CORE_AUDIO_RATE
+/* Stereo frames kept preallocated so gameplay never reallocates audio. */
+#define AUDIO_OUT_PREALLOC_FRAMES  4096u
+#define AUDIO_OUT_PREALLOC_SAMPLES (AUDIO_OUT_PREALLOC_FRAMES << 1)
 
 static int16_t *audio_out_buffer       = NULL;
 #ifdef USE_BLARGG_APU
 static size_t audio_out_buffer_size    = 0;
 static size_t audio_out_buffer_pos     = 0;
 static size_t audio_batch_frames_max   = (1 << 16);
+static bool audio_out_buffer_overflow_warned = false;
 #else
 static float audio_samples_per_frame   = 0.0f;
 static float audio_samples_accumulator = 0.0f;
@@ -132,6 +133,22 @@ static inline unsigned app_core_prof_read_count(void)
     return value;
 #else
     return 0;
+#endif
+}
+
+static inline unsigned app_core_prof_delta(unsigned t1, unsigned t0)
+{
+    return (unsigned)(t1 - t0);
+}
+
+static inline void app_core_sync_dcache_range(const void *ptr, size_t len)
+{
+#if defined(__mips__) && !defined(PSP)
+    if (ptr && len)
+        SyncDCache((void *)ptr, (void *)((const uint8_t *)ptr + len));
+#else
+    (void)ptr;
+    (void)len;
 #endif
 }
 
@@ -458,21 +475,48 @@ void S9xInitDisplay(void)
 {
    int32_t h = IMAGE_HEIGHT;
    int32_t safety = 32;
+   size_t screen_size;
+   size_t z_size;
 
    GFX.Pitch = IMAGE_WIDTH * 2;
-#ifdef DS2_DMA
-   GFX.Screen_buffer = (uint8_t *) AlignedMalloc(GFX.Pitch * h + safety, 32, &PtrAdj.GFXScreen);
-#elif defined(_3DS)
+
+#if defined(_3DS)
    safety = 0x80;
-   GFX.Screen_buffer = (uint8_t *) linearMemAlign(GFX.Pitch * h + safety, 0x80);
 #elif defined(__mips__) && !defined(PSP)
-   GFX.Screen_buffer = (uint8_t *) memalign(64, GFX.Pitch * h + safety);
-#else
-   GFX.Screen_buffer = (uint8_t *) malloc(GFX.Pitch * h + safety);
+   safety = 64;
 #endif
-   GFX.SubScreen_buffer = (uint8_t *) malloc(GFX.Pitch * h + safety);
-   GFX.ZBuffer_buffer = (uint8_t *) malloc((GFX.Pitch >> 1) * h + safety);
-   GFX.SubZBuffer_buffer = (uint8_t *) malloc((GFX.Pitch >> 1) * h + safety);
+
+   screen_size = (size_t)GFX.Pitch * (size_t)h + (size_t)safety;
+   z_size      = ((size_t)GFX.Pitch >> 1) * (size_t)h + (size_t)safety;
+
+#ifdef DS2_DMA
+   GFX.Screen_buffer = (uint8_t *) AlignedMalloc(screen_size, 32, &PtrAdj.GFXScreen);
+   GFX.SubScreen_buffer = (uint8_t *) malloc(screen_size);
+   GFX.ZBuffer_buffer = (uint8_t *) malloc(z_size);
+   GFX.SubZBuffer_buffer = (uint8_t *) malloc(z_size);
+#elif defined(_3DS)
+   GFX.Screen_buffer = (uint8_t *) linearMemAlign(screen_size, 0x80);
+   GFX.SubScreen_buffer = (uint8_t *) malloc(screen_size);
+   GFX.ZBuffer_buffer = (uint8_t *) malloc(z_size);
+   GFX.SubZBuffer_buffer = (uint8_t *) malloc(z_size);
+#elif defined(__mips__) && !defined(PSP)
+   GFX.Screen_buffer = (uint8_t *) memalign(64, screen_size);
+   GFX.SubScreen_buffer = (uint8_t *) memalign(64, screen_size);
+   GFX.ZBuffer_buffer = (uint8_t *) memalign(64, z_size);
+   GFX.SubZBuffer_buffer = (uint8_t *) memalign(64, z_size);
+#else
+   GFX.Screen_buffer = (uint8_t *) malloc(screen_size);
+   GFX.SubScreen_buffer = (uint8_t *) malloc(screen_size);
+   GFX.ZBuffer_buffer = (uint8_t *) malloc(z_size);
+   GFX.SubZBuffer_buffer = (uint8_t *) malloc(z_size);
+#endif
+
+   if (!GFX.Screen_buffer || !GFX.SubScreen_buffer ||
+       !GFX.ZBuffer_buffer || !GFX.SubZBuffer_buffer)
+   {
+      S9xDeinitDisplay();
+      return;
+   }
 
    GFX.Screen = GFX.Screen_buffer + safety;
    GFX.SubScreen = GFX.SubScreen_buffer + safety;
@@ -516,7 +560,16 @@ static bool audio_out_buffer_init(void)
    float refresh_rate        = (float)((Settings.PAL) ?
          VIDEO_REFRESH_RATE_PAL : VIDEO_REFRESH_RATE_NTSC);
    float samples_per_frame   = (float)AUDIO_SAMPLE_RATE / refresh_rate;
-   size_t buffer_size        = ((size_t)samples_per_frame + 1) << 1;
+   size_t min_buffer_size    = ((size_t)samples_per_frame + 1) << 1;
+   size_t buffer_size        = AUDIO_OUT_PREALLOC_SAMPLES;
+
+#ifdef USE_BLARGG_APU
+   if (buffer_size < (min_buffer_size * 8u))
+      buffer_size = min_buffer_size * 8u;
+#else
+   if (buffer_size < min_buffer_size)
+      buffer_size = min_buffer_size;
+#endif
 
    if (audio_out_buffer)
       free(audio_out_buffer);
@@ -526,6 +579,7 @@ static bool audio_out_buffer_init(void)
    audio_out_buffer_size     = 0;
    audio_out_buffer_pos      = 0;
    audio_batch_frames_max    = (1 << 16);
+   audio_out_buffer_overflow_warned = false;
 #else
    audio_samples_per_frame   = 0.0f;
    audio_samples_accumulator = 0.0f;
@@ -534,7 +588,11 @@ static bool audio_out_buffer_init(void)
    if (buffer_size == 0)
       return false;
 
+#if defined(__mips__) && !defined(PSP)
+   audio_out_buffer = (int16_t *)memalign(64, buffer_size * sizeof(int16_t));
+#else
    audio_out_buffer = (int16_t *)malloc(buffer_size * sizeof(int16_t));
+#endif
    if (!audio_out_buffer)
       return false;
 
@@ -575,35 +633,27 @@ static void S9xAudioCallback(void)
    if (!audio_out_buffer || audio_out_buffer_size == 0)
       return;
 
-   buffer_capacity = audio_out_buffer_size - audio_out_buffer_pos;
-
    S9xFinalizeSamples();
    available_samples = S9xGetSampleCount();
 
-   if (buffer_capacity < available_samples)
+   if (audio_out_buffer_pos >= audio_out_buffer_size)
+      buffer_capacity = 0;
+   else
+      buffer_capacity = audio_out_buffer_size - audio_out_buffer_pos;
+
+   if (available_samples > buffer_capacity)
    {
-      int16_t *tmp_buffer = NULL;
-      size_t tmp_buffer_size;
-      size_t i;
+      if (!audio_out_buffer_overflow_warned && log_cb)
+         log_cb(RETRO_LOG_WARN,
+               "Audio output buffer full; clamping samples instead of reallocating mid-frame.
+");
 
-      tmp_buffer_size = audio_out_buffer_size + (available_samples - buffer_capacity);
-      tmp_buffer_size = (tmp_buffer_size << 1) - (tmp_buffer_size >> 1);
-      tmp_buffer      = (int16_t *)malloc(tmp_buffer_size * sizeof(int16_t));
-
-      if (!tmp_buffer)
-      {
-         audio_out_buffer_pos = 0;
-         return;
-      }
-
-      for (i = 0; i < audio_out_buffer_pos; i++)
-         tmp_buffer[i] = audio_out_buffer[i];
-
-      free(audio_out_buffer);
-
-      audio_out_buffer      = tmp_buffer;
-      audio_out_buffer_size = tmp_buffer_size;
+      audio_out_buffer_overflow_warned = true;
+      available_samples = buffer_capacity;
    }
+
+   if (available_samples == 0)
+      return;
 
    S9xMixSamples(audio_out_buffer + audio_out_buffer_pos,
          available_samples);
@@ -624,7 +674,7 @@ static void audio_upload_samples(void)
    {
       unsigned cb_t0 = app_core_prof_read_count();
       S9xAudioCallback();
-      g_app_audio_prof_callback_cycles_frame += (unsigned long long)(app_core_prof_read_count() - cb_t0);
+      g_app_audio_prof_callback_cycles_frame += (unsigned long long)app_core_prof_delta(app_core_prof_read_count(), cb_t0);
    }
 
    audio_out_buffer_ptr = audio_out_buffer;
@@ -649,7 +699,7 @@ static void audio_upload_samples(void)
       batch_t0 = app_core_prof_read_count();
       frames_written = audio_batch_cb(
             audio_out_buffer_ptr, frames_to_write);
-      g_app_audio_prof_batch_cycles_frame += (unsigned long long)(app_core_prof_read_count() - batch_t0);
+      g_app_audio_prof_batch_cycles_frame += (unsigned long long)app_core_prof_delta(app_core_prof_read_count(), batch_t0);
       g_app_audio_prof_batch_calls_frame++;
 
       if ((frames_written < frames_to_write) &&
@@ -1002,30 +1052,17 @@ void retro_run(void)
    prof_t_audio0 = app_core_prof_read_count();
    audio_upload_samples();
    prof_t_audio1 = app_core_prof_read_count();
-   app_core_prof_commit(prof_t_loop1 - prof_t_loop0,
-                        prof_t_audio1 - prof_t_audio0,
-                        prof_t_audio1 - prof_t0);
+   app_core_prof_commit(app_core_prof_delta(prof_t_loop1, prof_t_loop0),
+         app_core_prof_delta(prof_t_audio1, prof_t_audio0),
+         app_core_prof_delta(prof_t_audio1, prof_t0));
    return;
 #endif
 
    if (IPPU.RenderThisFrame)
    {
-#ifdef PSP
-      static unsigned int __attribute__((aligned(16))) d_list[32];
-      void* const texture_vram_p = (void*)(0x44200000 - (512 * 512)); /* max VRAM address - frame size */
-      sceKernelDcacheWritebackRange(GFX.Screen, GFX.Pitch * IPPU.RenderedScreenHeight);
-      sceGuStart(GU_DIRECT, d_list);
-      sceGuCopyImage(GU_PSM_4444, 0, 0, IPPU.RenderedScreenWidth, IPPU.RenderedScreenHeight, GFX.Pitch >> 1, GFX.Screen, 0, 0, 512, texture_vram_p);
-      sceGuTexSync();
-      sceGuTexImage(0, 512, 512, 512, texture_vram_p);
-      sceGuTexMode(GU_PSM_5551, 0, 0, GU_FALSE);
-      sceGuTexFunc(GU_TFX_REPLACE, GU_TCC_RGB);
-      sceGuDisable(GU_BLEND);
-      sceGuFinish();
-      video_cb(texture_vram_p, IPPU.RenderedScreenWidth, IPPU.RenderedScreenHeight, GFX.Pitch);
-#else
+      app_core_sync_dcache_range(GFX.Screen,
+            (size_t)GFX.Pitch * (size_t)IPPU.RenderedScreenHeight);
       video_cb(GFX.Screen, IPPU.RenderedScreenWidth, IPPU.RenderedScreenHeight, GFX.Pitch);
-#endif
    }
    else
       video_cb(NULL, IPPU.RenderedScreenWidth, IPPU.RenderedScreenHeight, GFX.Pitch);
@@ -1033,9 +1070,9 @@ void retro_run(void)
    prof_t_audio0 = app_core_prof_read_count();
    audio_upload_samples();
    prof_t_audio1 = app_core_prof_read_count();
-   app_core_prof_commit(prof_t_loop1 - prof_t_loop0,
-                        prof_t_audio1 - prof_t_audio0,
-                        prof_t_audio1 - prof_t0);
+   app_core_prof_commit(app_core_prof_delta(prof_t_loop1, prof_t_loop0),
+         app_core_prof_delta(prof_t_audio1, prof_t_audio0),
+         app_core_prof_delta(prof_t_audio1, prof_t0));
 }
 
 bool S9xReadMousePosition(int32_t which1, int32_t* x, int32_t* y, uint32_t* buttons)

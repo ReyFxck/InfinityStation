@@ -36,6 +36,11 @@ static inline unsigned ps2_video_prof_read_count(void)
     return value;
 }
 
+static inline unsigned ps2_video_prof_delta(unsigned t1, unsigned t0)
+{
+    return (unsigned)(t1 - t0);
+}
+
 static inline float ps2_video_prof_cycles_to_ms(unsigned long long cycles, unsigned frames)
 {
     if (!frames)
@@ -697,7 +702,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
             );
             dbg_overlay();
             dbg_reset_target();
-            t_ovl = ps2_video_prof_read_count() - t_ovl;
+            t_ovl = ps2_video_prof_delta(ps2_video_prof_read_count(), t_ovl);
         }
 
         t1 = ps2_video_prof_read_count();
@@ -706,7 +711,11 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
             ps2_video_can_reuse_256_frame(upload_src_256, width, height)) {
             ps2_video_draw_cached_source(g_last_uploaded_tex_slot, width, height, wait_vblanks);
             t2 = ps2_video_prof_read_count();
-            ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
+            ps2_video_prof_commit_split(
+                (unsigned)(ps2_video_prof_delta(t1, t0) - t_ovl),
+                t_ovl,
+                ps2_video_prof_delta(t2, t1),
+                ps2_video_prof_delta(t2, t0), width, height);
             return;
         }
 
@@ -726,7 +735,11 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         else
             g_last_frame_256_valid = 0;
 
-        ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
+        ps2_video_prof_commit_split(
+                (unsigned)(ps2_video_prof_delta(t1, t0) - t_ovl),
+                t_ovl,
+                ps2_video_prof_delta(t2, t1),
+                ps2_video_prof_delta(t2, t0), width, height);
         return;
     }
 
@@ -756,7 +769,7 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
         dbg_set_target(g_upload, PS2_VIDEO_TEX_WIDTH, width, height);
         dbg_overlay();
         dbg_reset_target();
-        t_ovl = ps2_video_prof_read_count() - t_ovl;
+        t_ovl = ps2_video_prof_delta(ps2_video_prof_read_count(), t_ovl);
     }
 
     t1 = ps2_video_prof_read_count();
@@ -772,7 +785,11 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 
     t2 = ps2_video_prof_read_count();
 
-    ps2_video_prof_commit_split((t1 - t0) - t_ovl, t_ovl, t2 - t1, t2 - t0, width, height);
+    ps2_video_prof_commit_split(
+                (unsigned)(ps2_video_prof_delta(t1, t0) - t_ovl),
+                t_ovl,
+                ps2_video_prof_delta(t2, t1),
+                ps2_video_prof_delta(t2, t0), width, height);
 }
 
 
