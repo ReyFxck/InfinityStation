@@ -44,7 +44,6 @@ extern packet_t *g_tex_packets[PS2_VIDEO_TEX_SLOTS];
 extern packet_t *g_draw_packets[PS2_VIDEO_TEX_SLOTS];
 
 extern uint16_t g_upload[PS2_VIDEO_TEX_PIXELS];
-extern uint16_t g_frame_base[PS2_VIDEO_TEX_PIXELS];
 extern uint16_t g_upload_256[PS2_VIDEO_UPLOAD_256_PIXELS];
 extern uint16_t g_rgb565_lut[65536];
 

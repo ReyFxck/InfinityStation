@@ -1,5 +1,17 @@
 #include "ps2_video_internal.h"
 
+static void ps2_video_menu_clear_visible(void)
+{
+    unsigned y;
+
+    for (y = 0; y < 224u; y++) {
+        memset(&g_upload[y * PS2_VIDEO_TEX_WIDTH],
+               0,
+               256u * sizeof(g_upload[0]));
+    }
+}
+
+
 void ps2_video_menu_put_pixel_store(unsigned x, unsigned y, uint16_t color)
 {
     if (x >= 256 || y >= 224)
@@ -23,7 +35,7 @@ void ps2_video_menu_put_pixel(unsigned x, unsigned y, uint16_t color)
 
 void ps2_video_menu_begin_frame(void)
 {
-    memcpy(g_upload, g_frame_base, sizeof(g_upload));
+    ps2_video_menu_clear_visible();
     menu_tint_blue();
 }
 
@@ -39,7 +51,7 @@ void ps2_video_draw_menu(int page, int main_sel, int video_sel, int aspect_sel)
     uint16_t white  = 0xFFFF;
     uint16_t yellow = 0x83FF;
 
-    memcpy(g_upload, g_frame_base, sizeof(g_upload));
+    ps2_video_menu_clear_visible();
     menu_tint_blue();
 
     if (page == PS2_MENU_MAIN) {

@@ -13,7 +13,6 @@ packet_t *g_tex_packets[PS2_VIDEO_TEX_SLOTS] = {0};
 packet_t *g_draw_packets[PS2_VIDEO_TEX_SLOTS] = {0};
 
 uint16_t g_upload[PS2_VIDEO_TEX_PIXELS] __attribute__((aligned(64)));
-uint16_t g_frame_base[PS2_VIDEO_TEX_PIXELS] __attribute__((aligned(64)));
 uint16_t g_upload_256[PS2_VIDEO_UPLOAD_256_PIXELS] __attribute__((aligned(64)));
 uint16_t g_rgb565_lut[65536] __attribute__((aligned(64)));
 

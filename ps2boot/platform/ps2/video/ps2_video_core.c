@@ -850,7 +850,6 @@ void ps2_video_soft_reset(void)
     dma_wait_fast();
 
     memset(g_upload, 0, sizeof(g_upload));
-    memset(g_frame_base, 0, sizeof(g_frame_base));
     memset(g_upload_256, 0, sizeof(g_upload_256));
     memset(g_launcher_upload, 0, sizeof(g_launcher_upload));
 
@@ -899,7 +898,6 @@ void ps2_video_hard_reset(void)
     dma_wait_fast();
 
     memset(g_upload, 0, sizeof(g_upload));
-    memset(g_frame_base, 0, sizeof(g_frame_base));
     memset(g_upload_256, 0, sizeof(g_upload_256));
     memset(g_launcher_upload, 0, sizeof(g_launcher_upload));
 
