@@ -17,6 +17,39 @@
 #include "ps2_audio.h"
 #include "ps2_disc.h"
 
+/* INF: símbolos exportados por ps2boot/assets/usb_irx_blob.S */
+extern unsigned char _usbd_irx_start[];
+extern unsigned char _usbd_irx_end[];
+extern unsigned char _bdm_irx_start[];
+extern unsigned char _bdm_irx_end[];
+extern unsigned char _usbmass_bd_irx_start[];
+extern unsigned char _usbmass_bd_irx_end[];
+extern unsigned char _bdmfs_fatfs_irx_start[];
+extern unsigned char _bdmfs_fatfs_irx_end[];
+
+static int app_boot_load_irx_blob(unsigned char *start, unsigned char *end, const char *name)
+{
+    int rc, ret = 0;
+    int size = (int)(end - start);
+    if (size <= 0) return 0;
+    rc = SifExecModuleBuffer(start, (unsigned)size, 0, NULL, &ret);
+    (void)name;
+    return (rc >= 0 && ret >= 0) ? 1 : 0;
+}
+
+static void app_boot_load_usb_modules(void)
+{
+    (void)app_boot_load_irx_blob(_usbd_irx_start, _usbd_irx_end, "usbd.irx");
+    (void)app_boot_load_irx_blob(_bdm_irx_start, _bdm_irx_end, "bdm.irx");
+    (void)app_boot_load_irx_blob(_usbmass_bd_irx_start, _usbmass_bd_irx_end, "usbmass_bd.irx");
+    (void)app_boot_load_irx_blob(_bdmfs_fatfs_irx_start, _bdmfs_fatfs_irx_end, "bdmfs_fatfs.irx");
+    /* tempo para o stack USB enumerar antes de outros módulos. */
+    {
+        int i;
+        for (i = 0; i < 60; i++)
+            (void)SifIopSync();
+    }
+}
 static void app_boot_reset_iop_minimal(void)
 {
 
@@ -51,6 +84,7 @@ void app_boot_init(void (*die_fn)(const char *msg))
     /* log removido */
 
     app_boot_reset_iop_minimal();
+    app_boot_load_usb_modules();
     ps2_audio_set_iop_ready(1);
     ps2_disc_init_once();
 

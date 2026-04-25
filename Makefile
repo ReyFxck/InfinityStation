@@ -36,9 +36,7 @@ CORE_SRCS = \
         $(SRC_DIR)/spc7110dec.c \
         $(SRC_DIR)/srtc.c \
         $(SRC_DIR)/tile.c \
-        $(SRC_DIR)/apu.c \
-        $(SRC_DIR)/soundux.c \
-        $(SRC_DIR)/spc700.c \
+        $(SRC_DIR)/apu_blargg.c \
         $(CORE_DIR)/libretro.c
 
 
@@ -90,6 +88,7 @@ ps2boot/platform/ps2/audio/ps2_audio_backend_audsrv.o \
         ps2boot/ui/launcher/launcher_browser_scan.o \
         ps2boot/ui/launcher/launcher_browser_sort.o \
     ps2boot/assets/audsrv_blob.o \
+    ps2boot/assets/usb_irx_blob.o \
         $(CORE_SRCS:.c=.o) \
   $(COMM_OBJS)
 
@@ -157,16 +156,14 @@ EE_OBJS = \
         $(EXTRA_OBJS)
 
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
-EE_CFLAGS += -O3 -G0 -DLAGFIX -DLOAD_FROM_MEMORY
+EE_CFLAGS += -O3 -G0 -DLAGFIX -DLOAD_FROM_MEMORY -DUSE_BLARGG_APU
 EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 EE_CFLAGS += -Ips2boot/app -Ips2boot/platform/ps2 -Ips2boot/platform/ps2/audio -Ips2boot/platform/ps2/video -Ips2boot/platform/ps2/input -Ips2boot/platform/ps2/menu -Ips2boot/platform/ps2/storage -Ips2boot/platform/ps2/debug -Ips2boot/assets
 
 HOT_CORE_OBJS = \
+	$(SRC_DIR)/apu_blargg.o \
 	$(SRC_DIR)/ppu.o \
 	$(SRC_DIR)/tile.o \
-	$(SRC_DIR)/apu.o \
-	$(SRC_DIR)/soundux.o \
-	$(SRC_DIR)/spc700.o \
 	$(SRC_DIR)/cpuops.o \
 	$(SRC_DIR)/cpuexec.o
 

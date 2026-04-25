@@ -358,14 +358,21 @@ int ps2_video_init_once(void)
     g_clut_none.storage_mode = CLUT_STORAGE_MODE1;
     g_clut_none.load_method = CLUT_NO_LOAD;
 
-    graph_initialize(
-        g_frame.address,
-        g_frame.width,
-        g_frame.height,
-        g_frame.psm,
-        0,
-        0
-    );
+    /* INF: graph_set_mode explicit
+     * Em vez de graph_initialize() (que usa defaults do SDK e
+     * costuma cair em INTERLACED + FIELD = flicker em fontes 224p
+     * como SNES), configuramos a região por graph_get_region() e
+     * forçamos GRAPH_MODE_FRAME (mesmo conteúdo nos dois subcampos).
+     */
+    {
+        int region = graph_get_region();
+        int psm_mode = (region == GRAPH_MODE_PAL) ? GRAPH_MODE_PAL : GRAPH_MODE_NTSC;
+        graph_set_mode(GRAPH_MODE_INTERLACED, psm_mode, GRAPH_MODE_FRAME, GRAPH_DISABLE);
+        graph_set_screen(0, 0, g_frame.width, g_frame.height);
+        graph_set_bgcolor(0, 0, 0);
+        graph_set_framebuffer_filtered(g_frame.address, g_frame.width, g_frame.psm, 0, 0);
+        graph_enable_output();
+    }
     ps2_video_apply_display_offset();
 
     packet = packet_init(32, PACKET_NORMAL);
