@@ -152,7 +152,7 @@ O projeto ainda possui vários bugs, mas já está em um estado jogável via emu
 
 Limitações conhecidas no momento:
 
-- o áudio ainda não está funcionando;
+- o áudio funciona porém está instável;
 - podem ocorrer quedas de FPS mesmo com folga de EE;
 - alguns menus ainda apresentam comportamentos incorretos, como confusão na abertura da ROM correta ou no carregamento por USB;
 - algumas animações estão rápidas demais;
