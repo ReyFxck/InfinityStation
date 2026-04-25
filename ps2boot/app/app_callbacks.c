@@ -219,6 +219,13 @@ static bool app_set_pixel_format(const enum retro_pixel_format *fmt)
 static bool environ_cb(unsigned cmd, void *data)
 {
     switch (cmd) {
+    case RETRO_ENVIRONMENT_GET_CAN_DUPE:
+        if (data) {
+            *(bool *)data = true;
+            return true;
+        }
+        return false;
+
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
         return app_set_pixel_format((const enum retro_pixel_format *)data);
 
