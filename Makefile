@@ -103,6 +103,7 @@ ROM_LOADER_OBJS = \
 
 APP_OBJS = \
         ps2boot/app/app_game.o \
+        ps2boot/app/app_save.o \
  ps2boot/app/app_state.o \
  ps2boot/app/app_transition.o \
  ps2boot/app/frontend_config.o \
