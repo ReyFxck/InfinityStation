@@ -396,8 +396,10 @@ void app_callbacks_register(void)
 {
     retro_set_environment(environ_cb);
     retro_set_video_refresh(video_cb);
-    printf("[APPCB] registering audio callbacks\n");
-    retro_set_audio_sample(audio_cb);
+    printf("[APPCB] registering audio callbacks (batch only)\n");
+    /* audio_cb (single-sample) nao eh usado em USE_BLARGG_APU; se fosse
+     * acionado adquiria o semaforo do ring por amostra. Deixe NULL. */
+    retro_set_audio_sample(NULL);
     retro_set_audio_sample_batch(audio_batch_cb);
     printf("[APPCB] audio callbacks registered\n");
     retro_set_input_poll(input_poll_cb);

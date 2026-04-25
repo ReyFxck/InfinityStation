@@ -532,7 +532,9 @@ static void init_sfc_setting(void)
    Settings.JoystickEnabled = false;
    Settings.SoundPlaybackRate = AUDIO_SAMPLE_RATE;
 #ifdef USE_BLARGG_APU
-   Settings.SoundInputRate = AUDIO_SAMPLE_RATE;
+   /* APU nativa do SNES gera 32040 Hz; deixamos o resampler do Blargg
+   * converter para AUDIO_SAMPLE_RATE (32000) que e o que audsrv aceita. */
+   Settings.SoundInputRate = 32040;
 #endif
    Settings.CyclesPercentage = 100;
 
@@ -645,8 +647,7 @@ static void S9xAudioCallback(void)
    {
       if (!audio_out_buffer_overflow_warned && log_cb)
          log_cb(RETRO_LOG_WARN,
-               "Audio output buffer full; clamping samples instead of reallocating mid-frame.
-");
+               "Audio output buffer full; clamping samples instead of reallocating mid-frame.\n");
 
       audio_out_buffer_overflow_warned = true;
       available_samples = buffer_capacity;

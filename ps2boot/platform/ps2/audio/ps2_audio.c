@@ -7,7 +7,7 @@
 
 #include <string.h>
 
-#define PS2_AUDIO_WAIT_SLICE_US 250
+#define PS2_AUDIO_WAIT_SLICE_US 1000
 
 static int g_audio_ring_sema = -1;
 
@@ -304,7 +304,8 @@ static int ps2_audio_backend_queue_all(const int16_t *data, unsigned int frames)
         if (chunk > BACKEND_FEED_BYTES)
             chunk = BACKEND_FEED_BYTES;
 
-        ps2_backend_wait_audio(chunk);
+        /* audsrv_play_audio ja bloqueia ate caber; wait_audio extra so
+         * adicionava um round-trip RPC ao IOP por chunk. */
         SyncDCache((void *)ptr, (void *)(ptr + chunk));
 
         sent = ps2_backend_queue_audio((const int16_t *)ptr, chunk);
@@ -357,16 +358,15 @@ static int ps2_audio_reprime_backend_with_silence(void)
 
 static void ps2_audio_recover_backend_underrun(void)
 {
+    /* Recovery suave: apenas injeta silencio ate o alvo, sem tocar em
+     * audsrv_stop_audio/set_format -- esses sao caros (RPC IOP) e geravam
+     * mais glitch que o proprio underrun. */
     if (g_audio_state != 1 || g_audio_paused)
         return;
 
-    g_audio_resume_armed = 1;
     g_warned_underrun = 0;
-    ps2_audio_fade_backend_volume(g_audio_backend_volume, 0);
-
-    if (ps2_audio_reprime_backend_with_silence() >= 0) {
-        PS2AUDIO_LOG("[PS2AUDIO] backend reprime recovery after underrun\n");
-    }
+    ps2_audio_fill_backend_silence_to_target();
+    PS2AUDIO_LOG("[PS2AUDIO] underrun: silence-pad recovery\n");
 }
 
 
@@ -668,11 +668,12 @@ void ps2_audio_pause(void)
     g_backend_reprime_cooldown = 0;
     g_backend_empty_streak = 0;
 
-    /* pause suave: fade-out, depois re-prime o backend com silencio */
+    /* pause suave: limpa ring EE e completa o que ja esta enfileirado
+     * no audsrv com silencio, SEM stop/set_format (RPCs caras). */
     ps2_audio_clear_ring();
     ps2_audio_reset_stream_state();
     memset(g_menu_silence_block, 0, sizeof(g_menu_silence_block));
-    (void)ps2_audio_reprime_backend_with_silence();
+    ps2_audio_fill_backend_silence_to_target();
 
     g_warned_overrun = 0;
     g_warned_underrun = 0;
