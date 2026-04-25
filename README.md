@@ -152,7 +152,7 @@ The project still has several bugs, but it is already in a playable state throug
 
 Known limitations at the moment:
 
-- audio is still not working;
+- Audio works but is unstable;
 - FPS drops may happen even with EE headroom available;
 - some menus still show incorrect behavior, such as confusion when opening the correct ROM or loading through USB;
 - some animations are currently too fast;
