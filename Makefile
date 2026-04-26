@@ -173,8 +173,8 @@ $(HOT_CORE_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
 HOT_FRONTEND_OBJS = \
 	ps2boot/video/video_core.o \
-	ps2boot/app/app_callbacks.o \
-	ps2boot/app/app_overlay.o
+	ps2boot/app/callbacks.o \
+	ps2boot/app/overlay.o
 
 $(HOT_FRONTEND_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
