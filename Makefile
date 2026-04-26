@@ -94,6 +94,7 @@ ps2boot/platform/ps2/audio/ps2_audio_backend_audsrv.o \
 
 ROM_LOADER_OBJS = \
         ps2boot/rom_loader/rom_loader.o \
+        ps2boot/rom_loader/rom_loader_util.o \
         ps2boot/rom_loader/rom_zip.o \
         ps2boot/rom_loader/miniz/miniz.o \
         ps2boot/rom_loader/miniz/miniz_tdef.o \

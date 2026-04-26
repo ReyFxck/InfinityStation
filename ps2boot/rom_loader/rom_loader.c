@@ -1,4 +1,5 @@
 #include "rom_loader.h"
+#include "rom_loader_util.h"
 #include "rom_zip.h"
 
 #include <stdio.h>
@@ -6,6 +7,11 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+
+/* Short aliases for shared helpers to keep call sites compact. */
+#define is_cdrom_path  rom_loader_util_is_cdrom_path
+#define ext_equals     rom_loader_util_ext_equals
+#define base_name_only rom_loader_util_base_name_only
 
 #define DISC_READ_CHUNK (128 * 1024)
 
@@ -34,65 +40,6 @@ static void *rom_loader_acquire_buffer(size_t size)
 static int rom_loader_uses_persistent_buffer(const void *ptr)
 {
     return ptr && ptr == g_rom_loader_buffer;
-}
-
-static char to_lower_ascii(char c)
-{
-    if (c >= 'A' && c <= 'Z')
-        return (char)(c - 'A' + 'a');
-    return c;
-}
-
-static int is_cdrom_path(const char *path)
-{
-    return path && !strncmp(path, "cdrom0:", 7);
-}
-
-static int ext_equals(const char *path, const char *ext)
-{
-    const char *dot;
-    size_t i;
-
-    if (!path || !ext)
-        return 0;
-
-    dot = strrchr(path, '.');
-    if (!dot)
-        return 0;
-
-    for (i = 0; dot[i] && ext[i]; i++) {
-        if (to_lower_ascii(dot[i]) != to_lower_ascii(ext[i]))
-            return 0;
-    }
-
-    if (ext[i] != '\0')
-        return 0;
-
-    if (dot[i] == '\0')
-        return 1;
-
-    if (dot[i] == ';') /* aceita ISO9660: .SFC;1 / .ZIP;1 */
-        return 1;
-
-    return 0;
-}
-
-static const char *base_name_only(const char *path)
-{
-    const char *a;
-    const char *b;
-    const char *p;
-
-    if (!path)
-        return "";
-
-    a = strrchr(path, '/');
-    b = strrchr(path, '\\');
-    p = a;
-    if (!p || (b && b > p))
-        p = b;
-
-    return p ? (p + 1) : path;
 }
 
 static const char *host_rel_path(const char *path)
