@@ -4,7 +4,6 @@
 *.a
 *.elf
 *.map
-ps2boot/*.elf
 
 # OS / editor leftovers
 *~
@@ -14,20 +13,26 @@ ps2boot/*.elf
 *.bak_*
 *.orig
 *.rej
+*.swp
+*.swo
 
-# Generated assets / scratch
-ps2boot/ui/assets/launcher_logo_rgba
+# IDE / project metadata (intentionally not commited)
+.idea/
+.vscode/
+.cache/
+compile_commands.json
+cscope.*
+tags
 
-# Test ROMs (do not commit copyrighted ROMs)
-ps2boot/assets/*.sfc
-ps2boot/assets/*.smc
-ps2boot/assets/*.swc
-ps2boot/assets/*.fig
-ps2boot/assets/*.zip
+# Test ROMs (do not commit copyrighted ROMs anywhere in the tree)
+*.sfc
+*.smc
+*.swc
+*.fig
 
 # Tooling output
 dist/
 *.iso
-ps2boot/tools/*.iso
-ps2boot/tools/boot_iso_root/
-ps2boot/tools/disc_root/
+tools/*.iso
+tools/boot_iso_root/
+tools/disc_root/
