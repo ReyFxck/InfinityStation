@@ -29,6 +29,7 @@ tags
 *.smc
 *.swc
 *.fig
+*.zip
 
 # Tooling output
 dist/
