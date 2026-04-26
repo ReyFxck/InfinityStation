@@ -302,7 +302,7 @@ static void iso_build_cdrom_file_path(char *out, size_t out_size,
                                       const char *rel_path,
                                       const char *iso_name_raw)
 {
-    const char prefix[] = "cdrom0:\\\\";
+    const char prefix[] = "cdrom0:\\";
     size_t pos = 0;
     size_t i;
 
