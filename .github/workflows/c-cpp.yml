@@ -61,10 +61,16 @@ jobs:
 
       - name: Resolve pinned SHA-256
         id: sha
+        # Pass the workflow_dispatch input through an env var rather
+        # than expanding it directly into the shell script. Direct
+        # ${{ ... }} expansion would let a crafted input close the
+        # surrounding quotes and execute arbitrary commands on the
+        # runner. See https://securitylab.github.com/resources/github-actions-untrusted-input/
+        env:
+          OVERRIDE_SHA: ${{ github.event.inputs.ps2dev_sha256 }}
         run: |
-          override='${{ github.event.inputs.ps2dev_sha256 }}'
-          if [ -n "$override" ]; then
-            echo "sha256=$override" >> "$GITHUB_OUTPUT"
+          if [ -n "$OVERRIDE_SHA" ]; then
+            echo "sha256=$OVERRIDE_SHA" >> "$GITHUB_OUTPUT"
           else
             echo "sha256=$PS2DEV_SHA256_DEFAULT" >> "$GITHUB_OUTPUT"
           fi
