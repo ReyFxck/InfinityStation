@@ -36,6 +36,37 @@ jobs:
             exit 1
           fi
 
+  static-analysis:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cppcheck and shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cppcheck shellcheck
+
+      - name: Run cppcheck
+        # Excludes vendored miniz (third-party). Inline-suppr lets us
+        # silence specific findings with /* cppcheck-suppress ... */
+        # comments when needed without weakening the global ruleset.
+        run: |
+          cppcheck --quiet --enable=warning,performance,portability \
+            --error-exitcode=2 \
+            --suppress=missingIncludeSystem \
+            --suppress='*:ps2boot/rom_loader/vendor/*' \
+            --inline-suppr --std=c11 \
+            -I ps2boot -I ps2boot/rom_loader \
+            -I ps2boot/audio -I ps2boot/video -I ps2boot/input \
+            -I ps2boot/menu -I ps2boot/storage -I ps2boot/debug \
+            -I ps2boot/ui/font -I ps2boot/ui/select_menu -I ps2boot/ui/launcher \
+            ps2boot/
+
+      - name: Run shellcheck
+        run: shellcheck tools/*.sh
+
   build:
     runs-on: ubuntu-latest
     needs: lint
