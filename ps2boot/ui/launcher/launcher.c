@@ -1,7 +1,7 @@
 #include "launcher.h"
 
-#include "launcher_actions.h"
-#include "launcher_render.h"
+#include "actions/actions.h"
+#include "render/render.h"
 
 void launcher_init(void)
 {
