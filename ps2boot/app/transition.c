@@ -19,6 +19,9 @@ static int g_core_initialized = 0;
 
 static void app_transition_refresh_av_info(struct retro_system_av_info *av)
 {
+    if (!av)
+        return;
+
     memset(av, 0, sizeof(*av));
     retro_get_system_av_info(av);
 

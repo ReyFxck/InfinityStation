@@ -137,6 +137,9 @@ static int load_plain_file_stdio(const char *path, void **out_data, size_t *out_
     printf("[DBG] load_plain_file_stdio: fopen('%s')\n", path ? path : "");
     fflush(stdout);
 
+    if (!path)
+        return 0;
+
     fp = fopen(path, "rb");
     if (!fp) {
         printf("[DBG] fopen() falhou para '%s'\n", path ? path : "");
