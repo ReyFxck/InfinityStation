@@ -113,9 +113,8 @@ static int app_game_ensure_save_dir(void)
     if (errno == EEXIST)
         return 1;
 
-    printf("[DBG] app_game_ensure_save_dir: mkdir('%s') failed errno=%d\n",
+    INF_LOG_DBG("app_game_ensure_save_dir: mkdir('%s') failed errno=%d\n",
            APP_GAME_SAVE_DIR, errno);
-    fflush(stdout);
     return 0;
 }
 
@@ -128,8 +127,7 @@ int app_game_sram_autoload(void)
     FILE *fp;
 
     if (!app_game_build_save_path(save_path, sizeof(save_path))) {
-        printf("[DBG] app_game_sram_autoload: no identity path\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_game_sram_autoload: no identity path\n");
         return 0;
     }
 
@@ -137,15 +135,13 @@ int app_game_sram_autoload(void)
     save_data = retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
 
     if (!save_data || save_size == 0) {
-        printf("[DBG] app_game_sram_autoload: no SRAM exposed by core\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_game_sram_autoload: no SRAM exposed by core\n");
         return 0;
     }
 
     fp = fopen(save_path, "rb");
     if (!fp) {
-        printf("[DBG] app_game_sram_autoload: no save file '%s'\n", save_path);
-        fflush(stdout);
+        INF_LOG_DBG("app_game_sram_autoload: no save file '%s'\n", save_path);
         return 0;
     }
 
@@ -157,10 +153,9 @@ int app_game_sram_autoload(void)
         memset((unsigned char *)save_data + read_size, 0, save_size - read_size);
     }
 
-    printf("[DBG] app_game_sram_autoload: loaded '%s' (%u bytes)\n",
+    INF_LOG_DBG("app_game_sram_autoload: loaded '%s' (%u bytes)\n",
            save_path,
            (unsigned)read_size);
-    fflush(stdout);
     return 1;
 }
 
@@ -175,8 +170,7 @@ int app_game_sram_autosave(void)
     FILE *fp;
 
     if (!app_game_build_save_path(save_path, sizeof(save_path))) {
-        printf("[DBG] app_game_sram_autosave: no identity path\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_game_sram_autosave: no identity path\n");
         return 0;
     }
 
@@ -184,8 +178,7 @@ int app_game_sram_autosave(void)
     save_data = retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
 
     if (!save_data || save_size == 0) {
-        printf("[DBG] app_game_sram_autosave: no SRAM exposed by core\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_game_sram_autosave: no SRAM exposed by core\n");
         return 0;
     }
 
@@ -196,8 +189,7 @@ int app_game_sram_autosave(void)
 
     if (used_size == 0) {
         if (unlink(save_path) == 0) {
-            printf("[DBG] app_game_sram_autosave: deleted empty save '%s'\n", save_path);
-            fflush(stdout);
+            INF_LOG_DBG("app_game_sram_autosave: deleted empty save '%s'\n", save_path);
         }
         return 1;
     }
@@ -207,8 +199,7 @@ int app_game_sram_autosave(void)
 
     fp = fopen(save_path, "wb");
     if (!fp) {
-        printf("[DBG] app_game_sram_autosave: fopen('%s') failed\n", save_path);
-        fflush(stdout);
+        INF_LOG_DBG("app_game_sram_autosave: fopen('%s') failed\n", save_path);
         return 0;
     }
 
@@ -216,17 +207,15 @@ int app_game_sram_autosave(void)
     fclose(fp);
 
     if (written != used_size) {
-        printf("[DBG] app_game_sram_autosave: short write '%s' (%u/%u)\n",
+        INF_LOG_DBG("app_game_sram_autosave: short write '%s' (%u/%u)\n",
                save_path,
                (unsigned)written,
                (unsigned)used_size);
-        fflush(stdout);
         return 0;
     }
 
-    printf("[DBG] app_game_sram_autosave: saved '%s' (%u bytes)\n",
+    INF_LOG_DBG("app_game_sram_autosave: saved '%s' (%u bytes)\n",
            save_path,
            (unsigned)used_size);
-    fflush(stdout);
     return 1;
 }

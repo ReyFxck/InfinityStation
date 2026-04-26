@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "miniz/miniz.h"
+#include "common/inf_log.h"
 
 /* Short aliases for shared helpers to keep call sites compact. */
 #define to_lower_ascii rom_loader_util_to_lower_ascii
@@ -487,9 +488,8 @@ int rom_zip_load(const char *zip_path, void **out_data, size_t *out_size,
     memset(&zip, 0, sizeof(zip));
 
     if (!zip_reader_init_path(&zip, zip_path, &zip_data, &zip_size)) {
-        printf("[DBG] rom_zip_load: nao conseguiu abrir zip '%s'\n",
+        INF_LOG_DBG("rom_zip_load: nao conseguiu abrir zip '%s'\n",
                zip_path ? zip_path : "");
-        fflush(stdout);
         return 0;
     }
 
@@ -502,9 +502,8 @@ int rom_zip_load(const char *zip_path, void **out_data, size_t *out_size,
         if (used_mem_reader)
             free(zip_data);
 
-        printf("[DBG] rom_zip_load: nenhuma ROM valida em '%s'\n",
+        INF_LOG_DBG("rom_zip_load: nenhuma ROM valida em '%s'\n",
                zip_path ? zip_path : "");
-        fflush(stdout);
         return 0;
     }
 
@@ -538,12 +537,11 @@ int rom_zip_load(const char *zip_path, void **out_data, size_t *out_size,
         if (used_mem_reader)
             free(zip_data);
 
-        printf("[DBG] rom_zip_load OK: rom='%s' size=%u zip='%s'%s\n",
+        INF_LOG_DBG("rom_zip_load OK: rom='%s' size=%u zip='%s'%s\n",
                out_name ? out_name : "",
                (unsigned)*out_size,
                zip_path ? zip_path : "",
                used_mem_reader ? " [mem-reader]" : " [file-reader]");
-        fflush(stdout);
         return 1;
     }
 
@@ -552,9 +550,8 @@ int rom_zip_load(const char *zip_path, void **out_data, size_t *out_size,
     if (used_mem_reader)
         free(zip_data);
 
-    printf("[DBG] rom_zip_load: nenhuma ROM valida em '%s'\n",
+    INF_LOG_DBG("rom_zip_load: nenhuma ROM valida em '%s'\n",
            zip_path ? zip_path : "");
-    fflush(stdout);
     return 0;
 }
 
@@ -582,9 +579,8 @@ int rom_zip_extract_to_temp_file(const char *zip_path,
     memset(&zip, 0, sizeof(zip));
 
     if (!zip_reader_init_path(&zip, zip_path, &zip_data, &zip_size)) {
-        printf("[DBG] rom_zip_extract_to_temp_file: nao conseguiu abrir zip '%s'\n",
+        INF_LOG_DBG("rom_zip_extract_to_temp_file: nao conseguiu abrir zip '%s'\n",
                zip_path ? zip_path : "");
-        fflush(stdout);
         return 0;
     }
 
@@ -599,9 +595,8 @@ int rom_zip_extract_to_temp_file(const char *zip_path,
 
         out_path[0] = '\0';
 
-        printf("[DBG] rom_zip_extract_to_temp_file: nenhuma ROM extraida de '%s'\n",
+        INF_LOG_DBG("rom_zip_extract_to_temp_file: nenhuma ROM extraida de '%s'\n",
                zip_path ? zip_path : "");
-        fflush(stdout);
         return 0;
     }
 
@@ -634,12 +629,11 @@ int rom_zip_extract_to_temp_file(const char *zip_path,
     if (used_mem_reader)
         free(zip_data);
 
-    printf("[DBG] rom_zip_extract_to_temp_file OK: rom='%s' zip='%s' temp='%s'%s\n",
+    INF_LOG_DBG("rom_zip_extract_to_temp_file OK: rom='%s' zip='%s' temp='%s'%s\n",
            out_name ? out_name : "",
            zip_path ? zip_path : "",
            out_path,
            used_mem_reader ? " [mem-reader]" : " [file-reader]");
-    fflush(stdout);
     return 1;
 
     mz_zip_reader_end(&zip);
@@ -649,8 +643,7 @@ int rom_zip_extract_to_temp_file(const char *zip_path,
 
     out_path[0] = '\0';
 
-    printf("[DBG] rom_zip_extract_to_temp_file: nenhuma ROM extraida de '%s'\n",
+    INF_LOG_DBG("rom_zip_extract_to_temp_file: nenhuma ROM extraida de '%s'\n",
            zip_path ? zip_path : "");
-    fflush(stdout);
     return 0;
 }

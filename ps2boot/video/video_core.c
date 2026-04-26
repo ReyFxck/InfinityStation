@@ -1,6 +1,7 @@
 #include "video_internal.h"
 #include <stdio.h>
 #include <kernel.h>
+#include "common/inf_log.h"
 
 void ps2_video_apply_display_offset(void)
 {
@@ -78,8 +79,7 @@ void ps2_video_soft_reset(void)
     if (!g_video_ready)
         return;
 
-    printf("[DBG] ps2_video_soft_reset: enter\n");
-    fflush(stdout);
+    INF_LOG_DBG("ps2_video_soft_reset: enter\n");
 
     draw_wait_finish();
     dma_wait_fast();
@@ -96,8 +96,7 @@ void ps2_video_soft_reset(void)
 
     packet = packet_init(32, PACKET_NORMAL);
     if (!packet) {
-        printf("[DBG] ps2_video_soft_reset: packet_init failed\n");
-        fflush(stdout);
+        INF_LOG_DBG("ps2_video_soft_reset: packet_init failed\n");
         return;
     }
 
@@ -109,8 +108,7 @@ void ps2_video_soft_reset(void)
     dma_wait_fast();
     packet_free(packet);
 
-    printf("[DBG] ps2_video_soft_reset: exit\n");
-    fflush(stdout);
+    INF_LOG_DBG("ps2_video_soft_reset: exit\n");
 }
 
 void ps2_video_hard_reset(void)

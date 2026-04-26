@@ -212,7 +212,7 @@ static bool app_set_pixel_format(const enum retro_pixel_format *fmt)
     default:
 #if !QUIET_RUNTIME_LOGS
         if (!g_warned_bad_pixel_format) {
-            printf("[APPCB] unsupported pixel format requested: %d\n", (int)*fmt);
+            INF_LOG_INFO("[APPCB] unsupported pixel format requested: %d\n", (int)*fmt);
             g_warned_bad_pixel_format = 1;
         }
 #else
@@ -312,7 +312,7 @@ static bool environ_cb(unsigned cmd, void *data)
 static void video_cb(const void *data, unsigned width, unsigned height, size_t pitch)
 {
     if (!g_logged_video_cb) {
-        printf("[APPCB] first video_cb %ux%u pitch=%u\n", width, height, (unsigned)pitch);
+        INF_LOG_INFO("[APPCB] first video_cb %ux%u pitch=%u\n", width, height, (unsigned)pitch);
         g_logged_video_cb = 1;
     }
 
@@ -337,7 +337,7 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
     if (g_pixel_format != RETRO_PIXEL_FORMAT_RGB565) {
 #if !QUIET_RUNTIME_LOGS
         if (!g_warned_bad_pixel_format) {
-            printf("[APPCB] refusing frame with unsupported pixel format=%d\n",
+            INF_LOG_INFO("[APPCB] refusing frame with unsupported pixel format=%d\n",
                    (int)g_pixel_format);
             g_warned_bad_pixel_format = 1;
         }
@@ -362,7 +362,7 @@ static size_t audio_batch_cb(const int16_t *data, size_t frames)
     size_t written;
 
     if (!g_logged_audio_batch_cb) {
-        printf("[APPCB] first audio_batch_cb frames=%u\n", (unsigned)frames);
+        INF_LOG_INFO("[APPCB] first audio_batch_cb frames=%u\n", (unsigned)frames);
         g_logged_audio_batch_cb = 1;
     }
 
@@ -395,12 +395,12 @@ void app_callbacks_register(void)
 {
     retro_set_environment(environ_cb);
     retro_set_video_refresh(video_cb);
-    printf("[APPCB] registering audio callbacks (batch only)\n");
+    INF_LOG_INFO("[APPCB] registering audio callbacks (batch only)\n");
     /* audio_cb (single-sample) nao eh usado em USE_BLARGG_APU; se fosse
      * acionado adquiria o semaforo do ring por amostra. Deixe NULL. */
     retro_set_audio_sample(NULL);
     retro_set_audio_sample_batch(audio_batch_cb);
-    printf("[APPCB] audio callbacks registered\n");
+    INF_LOG_INFO("[APPCB] audio callbacks registered\n");
     retro_set_input_poll(input_poll_cb);
     retro_set_input_state(input_state_cb);
 }

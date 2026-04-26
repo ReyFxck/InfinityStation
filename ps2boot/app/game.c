@@ -9,6 +9,7 @@
 
 #include "libretro.h"
 #include "ui/launcher/launcher.h"
+#include "common/inf_log.h"
 
 static void *g_loaded_rom_data = NULL;
 static size_t g_loaded_rom_size = 0;
@@ -134,13 +135,11 @@ int app_game_load_selected(void)
 
     memset(&game, 0, sizeof(game));
 
-    printf("[DBG] app_game_load_selected: selected_path='%s'\n",
+    INF_LOG_DBG("app_game_load_selected: selected_path='%s'\n",
            (path && path[0]) ? path : "");
-    fflush(stdout);
 
     if (!(path && path[0])) {
-        printf("[DBG] nenhuma ROM selecionada\n");
-        fflush(stdout);
+        INF_LOG_DBG("nenhuma ROM selecionada\n");
         return 0;
     }
 
@@ -154,8 +153,7 @@ int app_game_load_selected(void)
                              &g_loaded_rom_size,
                              g_loaded_rom_name,
                              sizeof(g_loaded_rom_name))) {
-            printf("[DBG] rom_loader_load() FALHOU: path='%s'\n", path);
-            fflush(stdout);
+            INF_LOG_DBG("rom_loader_load() FALHOU: path='%s'\n", path);
             return 0;
         }
 
@@ -182,13 +180,12 @@ int app_game_load_selected(void)
 
     game.meta = NULL;
 
-    printf("[DBG] app_game_load_selected mode=%s raw_path='%s'\n",
+    INF_LOG_DBG("app_game_load_selected mode=%s raw_path='%s'\n",
            load_mode,
            path);
-    printf("[DBG] retro_game_info.path='%s'\n",
+    INF_LOG_DBG("retro_game_info.path='%s'\n",
            game.path ? game.path : "");
-    printf("[DBG] retro_game_info.size=%u\n", (unsigned)game.size);
-    fflush(stdout);
+    INF_LOG_DBG("retro_game_info.size=%u\n", (unsigned)game.size);
 
     if (retro_load_game(&game)) {
         app_core_apply_runtime_options(cfg->game_reduce_slowdown,
@@ -196,8 +193,7 @@ int app_game_load_selected(void)
                                        cfg->game_frameskip_mode,
                                        cfg->game_frameskip_threshold);
         app_game_sram_autoload();
-        printf("[DBG] retro_load_game() OK\n");
-        fflush(stdout);
+        INF_LOG_DBG("retro_load_game() OK\n");
 
 #ifdef LOAD_FROM_MEMORY
         if (g_loaded_rom_data) {
@@ -210,11 +206,10 @@ int app_game_load_selected(void)
         return 1;
     }
 
-    printf("[DBG] retro_load_game() FALHOU: raw_path='%s' final_path='%s' size=%u\n",
+    INF_LOG_DBG("retro_load_game() FALHOU: raw_path='%s' final_path='%s' size=%u\n",
            path,
            game.path ? game.path : "",
            (unsigned)game.size);
-    fflush(stdout);
 
     app_game_unload_loaded();
     return 0;
