@@ -37,18 +37,11 @@ static double app_overlay_target_fps(void)
     }
 }
 
-static const char *app_overlay_frame_limit_label(void)
-{
-    int mode = ps2_menu_frame_limit_mode();
-
-    switch (mode) {
-    case SELECT_MENU_FRAME_LIMIT_AUTO: return "AUTO";
-    case SELECT_MENU_FRAME_LIMIT_50:   return "50";
-    case SELECT_MENU_FRAME_LIMIT_60:   return "60";
-    case SELECT_MENU_FRAME_LIMIT_OFF:
-    default:                           return "OFF";
-    }
-}
+/*
+ * app_overlay_frame_limit_label removido: era um helper para uma
+ * linha do overlay que nao eh mais renderizada. Se voltar a precisar
+ * basta restaurar a switch contra SELECT_MENU_FRAME_LIMIT_*.
+ */
 
 static unsigned app_overlay_display_hz(void)
 {
