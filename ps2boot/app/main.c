@@ -7,6 +7,7 @@
 
 #include <debug.h>
 #include <kernel.h>
+#include <timer.h>
 
 #include "libretro.h"
 #include "input.h"
@@ -28,10 +29,16 @@ static void app_prof_commit(unsigned run_cycles, unsigned post_cycles, unsigned 
 
 static void die(const char *msg)
 {
+    u64 deadline;
+
     init_scr();
     scr_printf("\n[ERRO] %s\n", msg);
-    SleepThread();
-    while (1) {}
+    scr_printf("\nVoltando ao browser do PS2 em 5s...\n");
+
+    deadline = GetTimerSystemTime() + (u64)kBUSCLK * 5;
+    while (GetTimerSystemTime() < deadline) { }
+
+    LoadExecPS2("rom0:OSDSYS", 0, NULL);
 }
 
 static void app_runtime_finish_frame(void)
