@@ -1,4 +1,4 @@
-#include "select_menu_pages_internal.h"
+#include "pages_internal.h"
 
 void select_menu_pages_draw_main_page(const select_menu_state_t *state)
 {

@@ -7,7 +7,7 @@
 
 #include "menu.h"
 #include "video.h"
-#include "ui/select_menu/select_menu_state.h"
+#include "ui/select_menu/state/state.h"
 
 
 static unsigned g_fps_display = 0;

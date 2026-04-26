@@ -1,4 +1,4 @@
-#include "select_menu_actions_internal.h"
+#include "actions_internal.h"
 
 void select_menu_actions_handle_main(uint32_t pressed)
 {

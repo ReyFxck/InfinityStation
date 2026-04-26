@@ -2,7 +2,7 @@
 #define SELECT_MENU_ACTIONS_H
 
 #include <stdint.h>
-#include "select_menu_state.h"
+#include "state.h"
 
 void select_menu_actions_init(void);
 int select_menu_actions_is_open(void);

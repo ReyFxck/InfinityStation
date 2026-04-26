@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <libpad.h>
 
-#include "select_menu_actions.h"
+#include "actions.h"
 
 int select_menu_wrap_index(int v, int count);
 void select_menu_cycle_frame_limit(int dir);

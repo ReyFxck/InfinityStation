@@ -1,4 +1,4 @@
-#include "select_menu_pages_internal.h"
+#include "pages_internal.h"
 #include <stdio.h>
 
 void select_menu_pages_draw_video_page(const select_menu_state_t *state)
