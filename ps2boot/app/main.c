@@ -12,14 +12,7 @@
 #include "ps2_input.h"
 #include "ps2_audio.h"
 #include "ps2_video.h"
-#include <stdio.h>
-
-#define QUIET_RUNTIME_LOGS 1
-
-#if QUIET_RUNTIME_LOGS
-#undef printf
-#define printf(...) ((void)0)
-#endif
+#include "common/inf_log.h"
 
 __attribute__((weak)) int select_menu_actions_game_vsync_enabled(void);
 
