@@ -22,7 +22,7 @@
 
 #include "libretro_core_options.h"
 #include "app_core_options.h"
-#include "ps2_audio.h"
+#include "audio.h"
 
 #include <stdio.h>
 #if defined(__mips__) && !defined(PSP)

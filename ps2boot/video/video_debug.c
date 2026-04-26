@@ -1,4 +1,4 @@
-#include "ps2_video_internal.h"
+#include "video_internal.h"
 
 static void dbg_draw_string(unsigned x, unsigned y, const char *s)
 {

@@ -3,7 +3,7 @@
 #include <graph.h>
 #include <stdint.h>
 
-#include "ps2_launcher_video.h"
+#include "launcher_video.h"
 
 extern const unsigned int launcher_bg_ntsc_width;
 extern const unsigned int launcher_bg_ntsc_height;

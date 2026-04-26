@@ -1,4 +1,4 @@
-#include "ps2_disc.h"
+#include "disc.h"
 
 #include <sifrpc.h>
 #include <loadfile.h>

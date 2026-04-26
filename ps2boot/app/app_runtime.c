@@ -2,13 +2,13 @@
 
 #include "app_state.h"
 #include "app_overlay.h"
-#include "ps2_audio.h"
-#include "ps2_video.h"
+#include "audio.h"
+#include "video.h"
 
 #include <libpad.h>
 #include <time.h>
 
-#include "ps2_menu.h"
+#include "menu.h"
 
 #define APP_MENU_SELECT_HOLD_SECONDS 2
 #define APP_MENU_SELECT_HOLD_TICKS ((clock_t)(APP_MENU_SELECT_HOLD_SECONDS * CLOCKS_PER_SEC))

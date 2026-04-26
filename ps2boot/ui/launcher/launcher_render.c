@@ -6,9 +6,9 @@
 #include "launcher_font.h"
 #include "font/browser_font.h"
 
-#include "ps2_video.h"
-#include "ps2_video_internal.h"
-#include "ps2_launcher_video.h"
+#include "video.h"
+#include "video_internal.h"
+#include "launcher_video.h"
 
 #include "launcher_pages.h"
 #include "launcher_background.h"

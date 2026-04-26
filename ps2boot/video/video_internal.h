@@ -1,9 +1,9 @@
 #ifndef PS2_VIDEO_INTERNAL_H
 #define PS2_VIDEO_INTERNAL_H
 
-#include "ps2_video.h"
-#include "ps2_debug_font.h"
-#include "ps2_menu.h"
+#include "video.h"
+#include "debug_font.h"
+#include "menu.h"
 
 #include <string.h>
 #include <stdint.h>

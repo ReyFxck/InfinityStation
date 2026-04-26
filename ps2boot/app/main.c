@@ -9,9 +9,9 @@
 #include <kernel.h>
 
 #include "libretro.h"
-#include "ps2_input.h"
-#include "ps2_audio.h"
-#include "ps2_video.h"
+#include "input.h"
+#include "audio.h"
+#include "video.h"
 #include "common/inf_log.h"
 
 __attribute__((weak)) int select_menu_actions_game_vsync_enabled(void);

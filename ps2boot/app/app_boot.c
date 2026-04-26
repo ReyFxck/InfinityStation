@@ -11,11 +11,11 @@
 #include <string.h>
 
 #include "libretro.h"
-#include "ps2_video.h"
-#include "ps2_input.h"
-#include "ps2_menu.h"
-#include "ps2_audio.h"
-#include "ps2_disc.h"
+#include "video.h"
+#include "input.h"
+#include "menu.h"
+#include "audio.h"
+#include "disc.h"
 
 /* INF: símbolos exportados por ps2boot/irx/usb_irx_blob.S */
 extern unsigned char _usbd_irx_start[];

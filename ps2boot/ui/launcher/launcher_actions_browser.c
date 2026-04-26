@@ -1,5 +1,5 @@
 #include "launcher_actions_internal.h"
-#include "ps2_input.h"
+#include "input.h"
 #include "rom_loader/rom_loader.h"
 
 enum {

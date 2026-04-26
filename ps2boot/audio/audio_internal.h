@@ -1,12 +1,12 @@
 #ifndef PS2_AUDIO_INTERNAL_H
 #define PS2_AUDIO_INTERNAL_H
 
-#include "ps2_audio.h"
+#include "audio.h"
 
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
-#include "ps2_audio_backend.h"
+#include "audio_backend.h"
 
 #define QUIET_PS2AUDIO_LOGS 1
 #if QUIET_PS2AUDIO_LOGS

@@ -1,6 +1,6 @@
 #include "launcher_actions_internal.h"
 
-#include "ps2_input.h"
+#include "input.h"
 
 static int g_launcher_input_armed = 0;
 

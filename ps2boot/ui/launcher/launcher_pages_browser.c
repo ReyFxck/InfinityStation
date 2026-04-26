@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "ps2_launcher_video.h"
+#include "launcher_video.h"
 #include "font/browser_font.h"
 #include "common/inf_paths.h"
 #include "launcher_pages_internal.h"

@@ -2,7 +2,7 @@
 
 #include "select_menu_actions.h"
 #include "select_menu_render.h"
-#include "ps2_video.h"
+#include "video.h"
 
 void select_menu_init(void)
 {

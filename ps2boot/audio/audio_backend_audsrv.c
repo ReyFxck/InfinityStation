@@ -1,5 +1,5 @@
-#include "ps2_audio_backend.h"
-#include "ps2_audio_internal.h"
+#include "audio_backend.h"
+#include "audio_internal.h"
 
 #include <sifrpc.h>
 #include <sifcmd.h>

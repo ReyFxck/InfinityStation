@@ -1,6 +1,6 @@
 #include "select_menu_render.h"
 
-#include "ps2_video.h"
+#include "video.h"
 #include "select_menu_pages.h"
 
 void select_menu_render(const select_menu_state_t *state,

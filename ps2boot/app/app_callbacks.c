@@ -7,10 +7,10 @@
 #include <string.h>
 
 #include "libretro.h"
-#include "ps2_video.h"
-#include "ps2_input.h"
+#include "video.h"
+#include "input.h"
 #include "app_overlay.h"
-#include "ps2_audio.h"
+#include "audio.h"
 #include "common/inf_log.h"
 
 /* QUIET_RUNTIME_LOGS used to be defined here; logging is now controlled

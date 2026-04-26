@@ -1,7 +1,7 @@
 #include "select_menu_actions_internal.h"
 #include "frontend_config.h"
 
-#include "ps2_video.h"
+#include "video.h"
 
 void select_menu_actions_handle_video(uint32_t pressed)
 {

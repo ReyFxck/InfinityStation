@@ -2,7 +2,7 @@
 #define SELECT_MENU_PAGES_INTERNAL_H
 
 #include "select_menu_pages.h"
-#include "ps2_video.h"
+#include "video.h"
 #include "select_menu_theme.h"
 #include "font/select_menu_font.h"
 

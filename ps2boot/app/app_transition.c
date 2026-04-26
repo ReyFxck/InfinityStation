@@ -10,8 +10,8 @@
 #include <string.h>
 
 #include "libretro.h"
-#include "ps2_video.h"
-#include "ps2_audio.h"
+#include "video.h"
+#include "audio.h"
 #include <debug.h>
 #include <stdio.h>
 

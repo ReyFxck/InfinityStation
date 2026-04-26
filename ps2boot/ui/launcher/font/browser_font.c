@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#include "ps2_launcher_video.h"
+#include "launcher_video.h"
 #include "browser_font_9x15_data.h"
 #include "browser_font_symbol.h"
 

@@ -1,4 +1,4 @@
-#include "ps2_video_internal.h"
+#include "video_internal.h"
 
 static void ps2_video_menu_clear_visible(void)
 {

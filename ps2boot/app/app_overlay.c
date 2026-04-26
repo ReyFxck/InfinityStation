@@ -5,8 +5,8 @@
 #include <time.h>
 #include <graph.h>
 
-#include "ps2_menu.h"
-#include "ps2_video.h"
+#include "menu.h"
+#include "video.h"
 #include "ui/select_menu/select_menu_state.h"
 
 
