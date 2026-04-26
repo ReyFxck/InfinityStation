@@ -26,6 +26,12 @@ typedef struct
     R.Right = MIN(A.Right, B.Right); \
 }
 
+/* INF: 'int' (em vez do 'int32_t' do upstream snes9x2005) eh
+ * obrigatorio aqui: o protocolo de qsort exige
+ * 'int (*)(const void *, const void *)', e no toolchain do PS2 EE
+ * (mips64r5900el-ps2-elf-gcc) 'int32_t' eh tipado como 'long int',
+ * que o C trata como tipo distinto e quebra com
+ * '-Wincompatible-pointer-types' (gcc 14+ promove a erro). */
 static int IntCompare(const void* d1, const void* d2)
 {
    return *(uint32_t*) d1 - *(uint32_t*) d2;
