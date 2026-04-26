@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      ps2dev_sha256:
+        description: |
+          Override the pinned PS2DEV tarball SHA-256. Use this when
+          intentionally upgrading the toolchain. Get the new value from
+          https://github.com/ps2dev/ps2dev/releases/expanded_assets/latest
+          (ps2dev-ubuntu-latest.tar.gz).
+        required: false
+        default: ""
 
 jobs:
   lint:
@@ -17,10 +26,12 @@ jobs:
       - name: Reject unresolved merge conflict markers
         run: |
           # Look for canonical merge conflict markers anywhere in the
-          # tracked tree. The grep itself contains them in source, so
-          # we wrap each marker in a regex character class to avoid
-          # matching this very file.
-          if git grep -nE '^[<]{7} |^[=]{7}$|^[>]{7} ' -- . ':!.github/workflows/c-cpp.yml'; then
+          # tracked tree. Exclude this workflow file because the
+          # documentation/comments below contain the marker characters
+          # in regex character classes ([<]{7} etc.) — those would not
+          # match the regex itself, but the exclusion is a safety net.
+          if git grep -nE '^[<]{7} |^[=]{7}$|^[>]{7} ' \
+              -- . ':!.github/workflows/c-cpp.yml'; then
             echo "::error::Unresolved merge conflict markers found." >&2
             exit 1
           fi
@@ -32,30 +43,68 @@ jobs:
     env:
       PS2DEV: /usr/local/ps2dev
       PS2SDK: /usr/local/ps2dev/ps2sdk
-      PS2DEV_RELEASE: v1.3.0
+      # PS2DEV publishes prebuilt toolchains only on the rolling
+      # `latest` release tag — the versioned tags (v1.1, v1.2.0,
+      # v1.3.0) ship 183-byte placeholder tarballs, not real binaries.
+      # See https://github.com/ps2dev/ps2dev/releases for confirmation.
+      #
+      # To get reproducibility we therefore pin by SHA-256 of the
+      # tarball, not by tag. When upstream publishes a new build, this
+      # check will fail loudly and a maintainer must update the value
+      # below intentionally (or pass a new sha via workflow_dispatch).
+      PS2DEV_URL: https://github.com/ps2dev/ps2dev/releases/download/latest/ps2dev-ubuntu-latest.tar.gz
+      PS2DEV_SHA256_DEFAULT: e31a5272dad8d4e9e79ef3ad45a7f977e05ad0e74102fcaea0b74e7cf3f19dc9
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve pinned SHA-256
+        id: sha
+        # Pass the workflow_dispatch input through an env var rather
+        # than expanding it directly into the shell script. Direct
+        # ${{ ... }} expansion would let a crafted input close the
+        # surrounding quotes and execute arbitrary commands on the
+        # runner. See https://securitylab.github.com/resources/github-actions-untrusted-input/
+        env:
+          OVERRIDE_SHA: ${{ github.event.inputs.ps2dev_sha256 }}
+        run: |
+          if [ -n "$OVERRIDE_SHA" ]; then
+            echo "sha256=$OVERRIDE_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha256=$PS2DEV_SHA256_DEFAULT" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Cache PS2DEV toolchain
         id: cache-ps2dev
         uses: actions/cache@v4
         with:
           path: /usr/local/ps2dev
-          # Cache key includes the pinned release so a new toolchain
-          # version automatically invalidates the old cache.
-          key: ${{ runner.os }}-ps2dev-${{ env.PS2DEV_RELEASE }}-v2
+          # Cache key includes the pinned sha256: any change to the
+          # expected toolchain hash automatically invalidates the cache.
+          key: ${{ runner.os }}-ps2dev-${{ steps.sha.outputs.sha256 }}
 
-      - name: Install pinned PS2DEV toolchain
+      - name: Download and verify PS2DEV toolchain
         if: steps.cache-ps2dev.outputs.cache-hit != 'true'
+        env:
+          EXPECTED_SHA256: ${{ steps.sha.outputs.sha256 }}
         run: |
+          set -eo pipefail
           sudo mkdir -p "$PS2DEV"
           sudo chown -R "$USER:$USER" "$PS2DEV"
-          curl -fL \
-            "https://github.com/ps2dev/ps2dev/releases/download/${PS2DEV_RELEASE}/ps2dev-ubuntu-latest.tar.gz" \
-            -o /tmp/ps2dev.tar.gz
+          curl -fL "$PS2DEV_URL" -o /tmp/ps2dev.tar.gz
+          actual_sha256="$(sha256sum /tmp/ps2dev.tar.gz | cut -d' ' -f1)"
+          if [ "$actual_sha256" != "$EXPECTED_SHA256" ]; then
+            echo "::error::PS2DEV tarball SHA-256 mismatch." >&2
+            echo "  expected: $EXPECTED_SHA256" >&2
+            echo "  actual:   $actual_sha256" >&2
+            echo "Upstream likely published a new toolchain. Update" >&2
+            echo "PS2DEV_SHA256_DEFAULT in .github/workflows/c-cpp.yml" >&2
+            echo "after reviewing the new release." >&2
+            exit 1
+          fi
           tar -xzf /tmp/ps2dev.tar.gz --strip-components=1 -C "$PS2DEV"
+          rm -f /tmp/ps2dev.tar.gz
 
       - name: Export PS2DEV environment
         run: |
@@ -70,7 +119,7 @@ jobs:
         run: |
           echo "PS2DEV=$PS2DEV"
           echo "PS2SDK=$PS2SDK"
-          ee-gcc --version
+          mips64r5900el-ps2-elf-gcc --version | head -1
 
       - name: Make help
         run: make help

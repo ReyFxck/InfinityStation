@@ -56,13 +56,9 @@ InfinityStation is a frontend/launcher in development for running an SNES core o
 make help
 make clean
 make rebuild
-make V=1
-make push
-make push-android
-make push-win WIN_OUT_DIR=/path
-make iso
-make iso ISO_ROMS_DIR=/path
-make iso-push ISO_ROMS_DIR=/path
+make v
+make push out=<dest_folder>
+make iso [roms=<roms_folder>] [out=<dest_folder>]
 ```
 
 ### Quick summary
@@ -70,12 +66,13 @@ make iso-push ISO_ROMS_DIR=/path
 - `make help` — shows the available commands.
 - `make clean` — removes leftovers from previous builds.
 - `make rebuild` — cleans and rebuilds the project.
-- `make V=1` — builds with verbose output.
-- `make push` / `make push-android` — copies the ELF to the configured Android directory.
-- `make push-win WIN_OUT_DIR=/path` — copies the ELF to a directory on Windows.
+- `make v` — builds with verbose output (full compiler invocations).
+- `make push out=<dest_folder>` — copies the ELF to `<dest_folder>` (works for both Android (`/sdcard/ps2`) and Windows (`/mnt/c/...`) paths).
 - `make iso` — generates a test ISO.
-- `make iso ISO_ROMS_DIR=/path` — generates an ISO including ROMs from the specified folder.
-- `make iso-push ISO_ROMS_DIR=/path` — generates the ISO and copies it to the configured destination.
+- `make iso roms=<roms_folder>` — generates an ISO including ROMs from `<roms_folder>`.
+- `make iso roms=<roms_folder> out=<dest_folder>` — generates the ISO and copies it to `<dest_folder>`.
+
+Legacy targets (`make push-android`, `make push-win WIN_OUT_DIR=...`, `make iso-push ISO_ROMS_DIR=...`) keep working for existing scripts but are no longer shown in `make help`.
 
 ## Testing methods
 
@@ -91,7 +88,7 @@ make iso-push ISO_ROMS_DIR=/path
   ```
 - To include ROMs in the image:
   ```bash
-  make iso ISO_ROMS_DIR=/path/to/roms
+  make iso roms=/path/to/roms
   ```
 
 ### 3. Emulator testing
