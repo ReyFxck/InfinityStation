@@ -102,16 +102,16 @@ ROM_LOADER_OBJS = \
         ps2boot/rom_loader/vendor/miniz/miniz_zip.o
 
 APP_OBJS = \
-        ps2boot/app/app_game.o \
-        ps2boot/app/app_save.o \
- ps2boot/app/app_state.o \
- ps2boot/app/app_transition.o \
- ps2boot/app/frontend_config.o \
-        ps2boot/app/app_launcher.o \
-        ps2boot/app/app_runtime.o \
-        ps2boot/app/app_overlay.o \
-        ps2boot/app/app_boot.o \
-        ps2boot/app/app_callbacks.o
+        ps2boot/app/game.o \
+        ps2boot/app/save.o \
+        ps2boot/app/state.o \
+        ps2boot/app/transition.o \
+        ps2boot/app/frontend_config.o \
+        ps2boot/app/launcher.o \
+        ps2boot/app/runtime.o \
+        ps2boot/app/overlay.o \
+        ps2boot/app/boot.o \
+        ps2boot/app/callbacks.o
 
 SELECT_MENU_OBJS = \
         ps2boot/ui/select_menu/actions/main.o \
@@ -159,7 +159,7 @@ EE_OBJS = \
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
 EE_CFLAGS += -O3 -G0 -DLAGFIX -DLOAD_FROM_MEMORY -DUSE_BLARGG_APU
 EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/vendor -Ips2boot/rom_loader/vendor/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
-EE_CFLAGS += -Ips2boot/app -Ips2boot/audio -Ips2boot/video -Ips2boot/input -Ips2boot/menu -Ips2boot/storage -Ips2boot/debug -Ips2boot/irx -Ips2boot/ui/font
+EE_CFLAGS += -Ips2boot/audio -Ips2boot/video -Ips2boot/input -Ips2boot/menu -Ips2boot/storage -Ips2boot/debug -Ips2boot/irx -Ips2boot/ui/font
 EE_CFLAGS += -Ips2boot/ui/select_menu -Ips2boot/ui/select_menu/state -Ips2boot/ui/select_menu/render -Ips2boot/ui/select_menu/pages -Ips2boot/ui/select_menu/actions -Ips2boot/ui/select_menu/font
 
 HOT_CORE_OBJS = \

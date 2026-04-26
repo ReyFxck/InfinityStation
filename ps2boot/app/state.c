@@ -1,4 +1,4 @@
-#include "app_state.h"
+#include "state.h"
 
 static app_mode_t g_app_mode = APP_MODE_BOOT;
 static app_request_t g_app_request = APP_REQUEST_NONE;

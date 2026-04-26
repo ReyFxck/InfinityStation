@@ -1,7 +1,7 @@
-#include "app_runtime.h"
+#include "runtime.h"
 
-#include "app_state.h"
-#include "app_overlay.h"
+#include "state.h"
+#include "overlay.h"
 #include "audio.h"
 #include "video.h"
 

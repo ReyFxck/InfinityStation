@@ -1,6 +1,6 @@
 #include "actions_internal.h"
-#include "frontend_config.h"
-#include "app_core_options.h"
+#include "app/frontend_config.h"
+#include "app/core_options.h"
 
 static const frontend_config_t *cfg_get(void)
 {

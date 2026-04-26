@@ -21,7 +21,7 @@
 #endif
 
 #include "libretro_core_options.h"
-#include "app_core_options.h"
+#include "app/core_options.h"
 #include "audio.h"
 
 #include <stdio.h>
