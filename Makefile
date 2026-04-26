@@ -161,7 +161,12 @@ EE_OBJS = \
         $(EXTRA_OBJS)
 
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
-EE_CFLAGS += -O3 -G0 -DLAGFIX -DLOAD_FROM_MEMORY -DUSE_BLARGG_APU
+# INF: default -O2; HOT_CORE_OBJS / HOT_FRONTEND_OBJS abaixo
+# adicionam -O3 -fomit-frame-pointer apenas nos hot paths reais
+# (apu/ppu/cpuexec do core + present/packets/callbacks/overlay do
+# frontend). -O3 global cresce binario e raramente ajuda fora
+# de loops bem-comportados.
+EE_CFLAGS += -O2 -G0 -DLAGFIX -DLOAD_FROM_MEMORY -DUSE_BLARGG_APU
 EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/vendor -Ips2boot/rom_loader/vendor/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 EE_CFLAGS += -Ips2boot/audio -Ips2boot/video -Ips2boot/input -Ips2boot/menu -Ips2boot/storage -Ips2boot/debug -Ips2boot/irx -Ips2boot/ui/font
 EE_CFLAGS += -Ips2boot/ui/select_menu -Ips2boot/ui/select_menu/state -Ips2boot/ui/select_menu/render -Ips2boot/ui/select_menu/pages -Ips2boot/ui/select_menu/actions -Ips2boot/ui/select_menu/font
