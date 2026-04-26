@@ -159,10 +159,20 @@ static void app_store_core_variables(const struct retro_variable *vars)
         const char *final_value;
         app_core_var_t *dst = &g_core_vars[g_core_var_count];
 
-        snprintf(dst->key, sizeof(dst->key), "%s", vars[i].key);
+        if (!INF_SNPRINTF_OK(dst->key, sizeof(dst->key), "%s", vars[i].key)) {
+            /* Trunca a chave -> ignora a entrada inteira: uma chave parcial
+             * vai bater com a entrada errada quando o core consultar. */
+            dst->key[0] = '\0';
+            i++;
+            continue;
+        }
         app_parse_default_value(vars[i].value, parsed_default, sizeof(parsed_default));
         final_value = app_core_override_value(dst->key, parsed_default);
-        snprintf(dst->value, sizeof(dst->value), "%s", final_value ? final_value : "");
+        if (!INF_SNPRINTF_OK(dst->value, sizeof(dst->value), "%s",
+                             final_value ? final_value : "")) {
+            /* Valor truncado -> usa string vazia em vez de um valor partido. */
+            dst->value[0] = '\0';
+        }
 
         g_core_var_count++;
         i++;
