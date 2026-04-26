@@ -1,5 +1,6 @@
 #include "browser_internal.h"
 #include "rom_loader/rom_loader.h"
+#include "common/inf_log.h"
 
 
 static int launcher_browser_is_host_path(const char *path)
@@ -51,10 +52,13 @@ static void launcher_browser_host_join(char *out, size_t out_size,
     }
 
     rel = launcher_browser_host_rel_base(base);
-    if (!rel[0])
-        snprintf(out, out_size, "host:%s", entry_name);
-    else
-        snprintf(out, out_size, "host:%s/%s", rel, entry_name);
+    if (!rel[0]) {
+        if (!INF_SNPRINTF_OK(out, out_size, "host:%s", entry_name))
+            out[0] = '\0';
+    } else {
+        if (!INF_SNPRINTF_OK(out, out_size, "host:%s/%s", rel, entry_name))
+            out[0] = '\0';
+    }
 }
 
 static void launcher_browser_disc_build_cdrom_path(char *out, size_t out_size, const char *base, const char *entry_name)
@@ -131,10 +135,13 @@ static void launcher_browser_disc_join(char *out, size_t out_size,
     }
 
     rel = launcher_browser_disc_rel_base(base);
-    if (!rel[0])
-        snprintf(out, out_size, "disc:/%s", entry_name);
-    else
-        snprintf(out, out_size, "disc:/%s/%s", rel, entry_name);
+    if (!rel[0]) {
+        if (!INF_SNPRINTF_OK(out, out_size, "disc:/%s", entry_name))
+            out[0] = '\0';
+    } else {
+        if (!INF_SNPRINTF_OK(out, out_size, "disc:/%s/%s", rel, entry_name))
+            out[0] = '\0';
+    }
 }
 
 static void launcher_browser_build_full_path(char *out, size_t out_size,

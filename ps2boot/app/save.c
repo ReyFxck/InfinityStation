@@ -1,6 +1,7 @@
 #include "save.h"
 
 #include "game.h"
+#include "common/inf_log.h"
 #include "common/inf_paths.h"
 #include "libretro.h"
 
@@ -95,7 +96,12 @@ static int app_game_build_save_path(char *out, size_t out_size)
     if (!stem[0])
         return 0;
 
-    snprintf(out, out_size, APP_GAME_SAVE_DIR "/%s" APP_GAME_SAVE_EXT, stem);
+    if (!INF_SNPRINTF_OK(out, out_size,
+                         APP_GAME_SAVE_DIR "/%s" APP_GAME_SAVE_EXT, stem)) {
+        out[0] = '\0';
+        return 0;
+    }
+
     return 1;
 }
 

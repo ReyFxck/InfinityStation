@@ -1,6 +1,7 @@
 #include "browser_internal.h"
 #include "rom_loader/rom_loader.h"
 #include "disc.h"
+#include "common/inf_log.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -79,10 +80,13 @@ static void launcher_browser_host_join(char *out, size_t out_size,
     }
 
     rel = launcher_browser_host_rel_base(base);
-    if (!rel[0])
-        snprintf(out, out_size, "host:%s", name);
-    else
-        snprintf(out, out_size, "host:%s/%s", rel, name);
+    if (!rel[0]) {
+        if (!INF_SNPRINTF_OK(out, out_size, "host:%s", name))
+            out[0] = '\0';
+    } else {
+        if (!INF_SNPRINTF_OK(out, out_size, "host:%s/%s", rel, name))
+            out[0] = '\0';
+    }
 }
 
 static unsigned int iso_le32(const unsigned char *p)
@@ -284,10 +288,14 @@ static void iso_build_disc_dir_path(char *out, size_t out_size,
     if (!out || out_size == 0)
         return;
 
-    if (!rel_path || !rel_path[0])
-        snprintf(out, out_size, "disc:/%s", name ? name : "");
-    else
-        snprintf(out, out_size, "disc:/%s/%s", rel_path, name ? name : "");
+    if (!rel_path || !rel_path[0]) {
+        if (!INF_SNPRINTF_OK(out, out_size, "disc:/%s", name ? name : ""))
+            out[0] = '\0';
+    } else {
+        if (!INF_SNPRINTF_OK(out, out_size, "disc:/%s/%s",
+                             rel_path, name ? name : ""))
+            out[0] = '\0';
+    }
 }
 
 static void iso_build_cdrom_file_path(char *out, size_t out_size,
@@ -441,15 +449,19 @@ void launcher_browser_path_join(char *out, size_t out_size,
         return;
 
     if (!base || !base[0]) {
-        snprintf(out, out_size, "%s", name ? name : "");
+        if (!INF_SNPRINTF_OK(out, out_size, "%s", name ? name : ""))
+            out[0] = '\0';
         return;
     }
 
     len = strlen(base);
-    if (len > 0 && (base[len - 1] == '/' || base[len - 1] == ':'))
-        snprintf(out, out_size, "%s%s", base, name ? name : "");
-    else
-        snprintf(out, out_size, "%s/%s", base, name ? name : "");
+    if (len > 0 && (base[len - 1] == '/' || base[len - 1] == ':')) {
+        if (!INF_SNPRINTF_OK(out, out_size, "%s%s", base, name ? name : ""))
+            out[0] = '\0';
+    } else {
+        if (!INF_SNPRINTF_OK(out, out_size, "%s/%s", base, name ? name : ""))
+            out[0] = '\0';
+    }
 }
 
 int launcher_browser_open_scan_dir(const char *path)

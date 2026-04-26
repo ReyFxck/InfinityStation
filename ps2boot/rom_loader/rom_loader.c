@@ -1,6 +1,7 @@
 #include "rom_loader.h"
 #include "rom_loader_util.h"
 #include "rom_zip.h"
+#include "common/inf_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -225,15 +226,24 @@ static int load_host_file_with_fallbacks(const char *path, void **out_data, size
     if (!rp[0])
         return 0;
 
-    snprintf(rel, sizeof(rel), "%s", rp);
-    snprintf(base, sizeof(base), "%s", base_name_only(rp));
+    /* Se o path nao cabe no buffer de trabalho nao podemos confiar
+     * em nenhum dos candidatos: cada um produziria uma string
+     * truncada que poderia coincidir com um arquivo existente
+     * (ou pior, ler outro). Aborta limpo. */
+    if (!INF_SNPRINTF_OK(rel, sizeof(rel), "%s", rp))
+        return 0;
+    if (!INF_SNPRINTF_OK(base, sizeof(base), "%s", base_name_only(rp)))
+        return 0;
 
-    snprintf(c1, sizeof(c1), "host:./%s", rel);
-    snprintf(c2, sizeof(c2), "host:%s", rel);
-    snprintf(c3, sizeof(c3), "./%s", rel);
-    snprintf(c4, sizeof(c4), "%s", rel);
-    snprintf(c5, sizeof(c5), "host:./%s", base);
-    snprintf(c6, sizeof(c6), "%s", base);
+    /* Os buffers c1..c6 sao maiores que rel/base com folga para os
+     * prefixos, mas mantemos o check por consistencia: candidato
+     * truncado vira "" e try_candidate o ignora. */
+    if (!INF_SNPRINTF_OK(c1, sizeof(c1), "host:./%s", rel)) c1[0] = '\0';
+    if (!INF_SNPRINTF_OK(c2, sizeof(c2), "host:%s", rel))   c2[0] = '\0';
+    if (!INF_SNPRINTF_OK(c3, sizeof(c3), "./%s", rel))      c3[0] = '\0';
+    if (!INF_SNPRINTF_OK(c4, sizeof(c4), "%s", rel))        c4[0] = '\0';
+    if (!INF_SNPRINTF_OK(c5, sizeof(c5), "host:./%s", base)) c5[0] = '\0';
+    if (!INF_SNPRINTF_OK(c6, sizeof(c6), "%s", base))       c6[0] = '\0';
 
     if (try_candidate(c1, out_data, out_size)) return 1;
     if (strcmp(c2, c1) && try_candidate(c2, out_data, out_size)) return 1;
