@@ -201,15 +201,25 @@ Contribuições são bem-vindas. Para colaborar:
 
 ## Licença e avisos legais
 
-Este repositório reúne código próprio e componentes derivados ou integrados de projetos de terceiros.
+O InfinityStation, como um todo, é distribuído sob a **GNU General Public
+License, versão 2 ou (a seu critério) qualquer versão posterior** — veja o
+arquivo [`LICENSE`](LICENSE) na raiz do repositório.
 
-Antes de redistribuir, reutilizar ou relicenciar qualquer parte do projeto, consulte:
+Este repositório também integra componentes derivados ou incorporados de
+projetos de terceiros, sob suas próprias licenças (compatíveis). Antes de
+redistribuir, reutilizar ou relicenciar qualquer parte do projeto, consulte:
 
-- o arquivo `copyright`;
+- o arquivo `LICENSE` (licença geral do projeto);
+- o arquivo `copyright` (atribuições de terceiros);
 - os créditos do repositório;
 - os cabeçalhos e avisos presentes nos arquivos herdados.
 
-Isso ajuda a evitar confusão entre o código original do projeto e os componentes externos incorporados.
+A obra agregada é GPLv2-or-later porque essa é a licença mais restritiva
+entre as combinadas aqui (`ndssfc` e o código de frontend do libretro).
+Cada componente mantém sua licença original quando aplicável.
+
+> **Observação:** não envie *dumps* de ROMs com direitos autorais para
+> este repositório, nem em issues / pull requests.
 
 ## Créditos
 
