@@ -56,13 +56,9 @@ InfinityStation é um frontend/launcher em desenvolvimento para executar um núc
 make help
 make clean
 make rebuild
-make V=1
-make push
-make push-android
-make push-win WIN_OUT_DIR=/caminho
-make iso
-make iso ISO_ROMS_DIR=/pasta
-make iso-push ISO_ROMS_DIR=/pasta
+make v
+make push out=<pasta_destino>
+make iso [roms=<pasta_de_roms>] [out=<pasta_destino>]
 ```
 
 ### Resumo rápido
@@ -70,12 +66,13 @@ make iso-push ISO_ROMS_DIR=/pasta
 - `make help` — mostra os comandos disponíveis.
 - `make clean` — remove resíduos de builds anteriores.
 - `make rebuild` — limpa e recompila o projeto.
-- `make V=1` — compila com saída detalhada.
-- `make push` / `make push-android` — copia o ELF para o diretório configurado no Android.
-- `make push-win WIN_OUT_DIR=/caminho` — copia o ELF para um diretório no Windows.
+- `make v` — compila com saída detalhada (mostra os comandos completos do compilador).
+- `make push out=<pasta_destino>` — copia o ELF para `<pasta_destino>` (funciona tanto para caminhos Android (`/sdcard/ps2`) quanto Windows (`/mnt/c/...`)).
 - `make iso` — gera uma ISO de teste.
-- `make iso ISO_ROMS_DIR=/pasta` — gera uma ISO incluindo ROMs da pasta informada.
-- `make iso-push ISO_ROMS_DIR=/pasta` — gera a ISO e copia para o destino configurado.
+- `make iso roms=<pasta_de_roms>` — gera uma ISO incluindo ROMs da pasta informada.
+- `make iso roms=<pasta_de_roms> out=<pasta_destino>` — gera a ISO e copia para `<pasta_destino>`.
+
+Alvos legados (`make push-android`, `make push-win WIN_OUT_DIR=...`, `make iso-push ISO_ROMS_DIR=...`) continuam funcionando para scripts existentes mas não aparecem mais em `make help`.
 
 ## Formas de teste
 
@@ -91,7 +88,7 @@ make iso-push ISO_ROMS_DIR=/pasta
   ```
 - Para incluir ROMs na imagem:
   ```bash
-  make iso ISO_ROMS_DIR=/pasta/com/roms
+  make iso roms=/pasta/com/roms
   ```
 
 ### 3. Teste em emulador

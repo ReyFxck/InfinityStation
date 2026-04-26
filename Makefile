@@ -238,31 +238,71 @@ endif
 
 .DEFAULT_GOAL := $(EE_BIN)
 
-.PHONY: help push push-android push-win clean rebuild
+# --------------------------------------------------------------
+# User-facing make interface.
+#
+# Preferred (lowercase) form:
+#   make                      # compila
+#   make v                    # compila com saida detalhada
+#   make clean                # remove ELF e .o/.d
+#   make rebuild              # clean + build
+#   make push  out=<pasta>    # copia o ELF para <pasta>
+#   make iso  [roms=<pasta>] [out=<pasta>]
+#                             # gera ISO; copia para <pasta> se 'out=' dado
+#
+# Aliases legados (push-android, push-win, iso-push, WIN_OUT_DIR=,
+# ISO_ROMS_DIR=) continuam funcionando para nao quebrar scripts
+# existentes mas nao aparecem mais em 'make help'.
+# --------------------------------------------------------------
+
+.PHONY: help v push iso iso-push clean rebuild push-android push-win
+
+# Lowercase user knobs (the new public interface). Use 'override'-friendly
+# names so they don't conflict with internal vars.
+out  ?=
+roms ?=
+
+# Map lowercase 'roms=' onto the existing ISO_ROMS_DIR plumbing.
+ifneq ($(strip $(roms)),)
+override ISO_ROMS_DIR := $(roms)
+endif
+
+# Resolve the push destination once.
+#   1. 'out=<pasta>'         (preferred)
+#   2. WIN_OUT_DIR (legacy)
+#   3. ANDROID_OUT_DIR fallback only for the legacy push-android target
+PUSH_DEST = $(strip $(if $(strip $(out)),$(out),$(WIN_OUT_DIR)))
+
 help:
 	@echo "InfinityStation"
 	@echo
-	@printf "  %-20s %s\n" "make" "Compila o projeto"
-	@printf "  %-20s %s\n" "make clean" "Remove arquivos gerados"
-	@printf "  %-20s %s\n" "make rebuild" "Limpa e recompila"
-	@printf "  %-20s %s\n" "make V=1" "Mostra os comandos completos do compilador"
-	@printf "  %-20s %s\n" "make help" "Mostra esta ajuda"
-	@printf "  %-20s %s\n" "make push" "Copia o ELF para o destino padrao (Android)"
-	@printf "  %-20s %s\n" "make push-android" "Copia o ELF para $(ANDROID_OUT_DIR)"
-	@printf "  %-20s %s\n" "make push-win" "Copia o ELF para WIN_OUT_DIR"
-	@printf "  %-20s %s\n" "make push-win WIN_OUT_DIR=/caminho" "Define a pasta de destino no Windows"
+	@printf "  %-40s %s\n" "make"                                   "Compila o projeto"
+	@printf "  %-40s %s\n" "make v"                                 "Compila com saida detalhada"
+	@printf "  %-40s %s\n" "make clean"                             "Remove arquivos gerados"
+	@printf "  %-40s %s\n" "make rebuild"                           "Limpa e recompila"
+	@printf "  %-40s %s\n" "make push out=<pasta>"                  "Copia o ELF para <pasta>"
+	@printf "  %-40s %s\n" "make iso [roms=<pasta>] [out=<pasta>]"  "Gera ISO; se 'out=' dado, copia tambem"
+	@printf "  %-40s %s\n" "make help"                              "Mostra esta ajuda"
 	@echo
-	@printf "  %-20s %s\n" "ANDROID_OUT_DIR" "$(ANDROID_OUT_DIR)"
-	@printf "  %-20s %s\n" "WIN_OUT_DIR" "$(if $(WIN_OUT_DIR),$(WIN_OUT_DIR),<nao definido>)"
-	@printf "  %-20s %s\n" "EE_BIN" "$(EE_BIN)"
+	@printf "  %-40s %s\n" "EE_BIN"   "$(EE_BIN)"
+	@printf "  %-40s %s\n" "ISO_OUT"  "$(ISO_OUT)"
 
-	@printf " %-32s %s\n" "make iso" "Gera uma ISO de teste com o ELF atual"
-	@printf " %-32s %s\n" "make iso ISO_ROMS_DIR=/pasta" "Gera ISO e inclui ROMs da pasta"
-	@printf " %-32s %s\n" "make iso-push ISO_ROMS_DIR=/pasta" "Gera ISO e copia para ANDROID_OUT_DIR"
-	@printf " %-32s %s\n" "ISO_OUT" "../dist/InfinityStation-roms-test.iso"
-	@printf " %-32s %s\n" "ISO_ROMS_DIR" "<vazio = sem ROMs>"
-push: push-android
+# 'make v' just re-invokes make with V=1 set so the underlying recipe
+# echoes the full compiler invocation. Equivalent to 'make V=1'.
+v:
+	@$(MAKE) V=1 $(EE_BIN)
 
+push: $(EE_BIN)
+	@if [ -z "$(PUSH_DEST)" ]; then \
+		echo "ERRO: passe 'out=<pasta>'. Exemplos:"; \
+		echo '  make push out=/sdcard/ps2'; \
+		echo '  make push out="/mnt/c/Users/SeuNome/Desktop/ps2"'; \
+		exit 1; \
+	fi
+	@mkdir -p "$(PUSH_DEST)"
+	@cp -fv "$(EE_BIN)" "$(PUSH_DEST)/"
+
+# Legacy aliases. Kept working but no longer shown by 'make help'.
 push-android: $(EE_BIN)
 	@mkdir -p "$(ANDROID_OUT_DIR)"
 	@cp -fv "$(EE_BIN)" "$(ANDROID_OUT_DIR)/"
@@ -335,9 +375,14 @@ iso: iso-root
 		-o "$(ISO_OUT)" \
 		"$(ISO_ROOT_DIR)"
 	@echo "[iso] $(ISO_OUT)"
+	@if [ -n "$(strip $(out))" ]; then \
+		mkdir -p "$(out)"; \
+		cp -f "$(ISO_OUT)" "$(out)/"; \
+		echo "[iso] copiada para $(out)/"; \
+	fi
 
-iso-push: iso
-	@mkdir -p "$(ANDROID_OUT_DIR)"
-	@cp -f "$(ISO_OUT)" "$(ANDROID_OUT_DIR)/"
-	@echo "[iso-push] copiada para $(ANDROID_OUT_DIR)/"
+# Legacy alias. 'make iso-push' still works for existing scripts; if
+# 'out=' is not provided, falls back to ANDROID_OUT_DIR like before.
+iso-push:
+	@$(MAKE) iso out="$(if $(strip $(out)),$(out),$(ANDROID_OUT_DIR))"
 
