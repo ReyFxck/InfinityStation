@@ -1,5 +1,5 @@
-#include "ps2_video_internal.h"
-#include "ps2_debug_font.h"
+#include "video_internal.h"
+#include "debug_font.h"
 
 static uint16_t *g_dbg_target = NULL;
 static unsigned g_dbg_target_stride = 0;

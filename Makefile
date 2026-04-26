@@ -58,18 +58,18 @@ COMM_OBJS = $(COMM_SRCS:.c=.o)
 
 BASE_OBJS = \
         ps2boot/app/main.o \
-        ps2boot/platform/ps2/video/ps2_video.o \
-        ps2boot/platform/ps2/video/ps2_video_core.o \
-        ps2boot/platform/ps2/video/ps2_video_menu.o \
-        ps2boot/platform/ps2/video/ps2_video_debug.o \
- ps2boot/platform/ps2/debug/ps2_debug_font.o \
-        ps2boot/platform/ps2/video/ps2_video_color.o \
-        ps2boot/platform/ps2/video/ps2_launcher_video.o \
-        ps2boot/platform/ps2/input/ps2_input.o \
-        ps2boot/platform/ps2/menu/ps2_menu.o \
-    ps2boot/platform/ps2/audio/ps2_audio.o \
-ps2boot/platform/ps2/audio/ps2_audio_backend_audsrv.o \
- ps2boot/platform/ps2/storage/ps2_disc.o \
+        ps2boot/video/video.o \
+        ps2boot/video/video_core.o \
+        ps2boot/video/video_menu.o \
+        ps2boot/video/video_debug.o \
+        ps2boot/debug/debug_font.o \
+        ps2boot/video/video_color.o \
+        ps2boot/video/launcher_video.o \
+        ps2boot/input/input.o \
+        ps2boot/menu/menu.o \
+        ps2boot/audio/audio.o \
+        ps2boot/audio/audio_backend_audsrv.o \
+        ps2boot/storage/disc.o \
         ps2boot/ui/select_menu/select_menu.o \
         ps2boot/ui/select_menu/select_menu_actions.o \
         ps2boot/ui/select_menu/select_menu_render.o \
@@ -142,8 +142,8 @@ LAUNCHER_OBJS = \
         ps2boot/ui/launcher/launcher_bg_pal_data.o
 
 VIDEO_EXTRA_OBJS = \
-        ps2boot/platform/ps2/video/ps2_video_ui.o \
-        ps2boot/platform/ps2/video/ps2_video_launcher_target.o
+        ps2boot/video/video_ui.o \
+        ps2boot/video/video_launcher_target.o
 
 EXTRA_OBJS = \
         $(ROM_LOADER_OBJS) \
@@ -159,7 +159,7 @@ EE_OBJS = \
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
 EE_CFLAGS += -O3 -G0 -DLAGFIX -DLOAD_FROM_MEMORY -DUSE_BLARGG_APU
 EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/vendor -Ips2boot/rom_loader/vendor/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
-EE_CFLAGS += -Ips2boot/app -Ips2boot/platform/ps2 -Ips2boot/platform/ps2/audio -Ips2boot/platform/ps2/video -Ips2boot/platform/ps2/input -Ips2boot/platform/ps2/menu -Ips2boot/platform/ps2/storage -Ips2boot/platform/ps2/debug -Ips2boot/irx -Ips2boot/ui/font
+EE_CFLAGS += -Ips2boot/app -Ips2boot/audio -Ips2boot/video -Ips2boot/input -Ips2boot/menu -Ips2boot/storage -Ips2boot/debug -Ips2boot/irx -Ips2boot/ui/font
 
 HOT_CORE_OBJS = \
 	$(SRC_DIR)/apu_blargg.o \
@@ -171,7 +171,7 @@ HOT_CORE_OBJS = \
 $(HOT_CORE_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
 HOT_FRONTEND_OBJS = \
-	ps2boot/platform/ps2/video/ps2_video_core.o \
+	ps2boot/video/video_core.o \
 	ps2boot/app/app_callbacks.o \
 	ps2boot/app/app_overlay.o
 

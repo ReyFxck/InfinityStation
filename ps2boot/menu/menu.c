@@ -1,4 +1,4 @@
-#include "ps2_menu.h"
+#include "menu.h"
 #include "ui/select_menu/select_menu.h"
 
 void ps2_menu_init(void)

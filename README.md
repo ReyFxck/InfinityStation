@@ -129,8 +129,8 @@ Makefile              # build, push, and ISO generation
 - `ps2boot/ui/select_menu/`  
   In-game menu and related pages.
 
-- `ps2boot/platform/ps2/`  
-  PS2-specific platform code, including audio, debug, input, menu, storage, and video modules.
+- `ps2boot/audio/`, `ps2boot/video/`, `ps2boot/input/`, `ps2boot/menu/`, `ps2boot/storage/`, `ps2boot/debug/`  
+  PS2-specific platform code split by subsystem.
 
 - `ps2boot/rom_loader/`  
   ROM loader and ZIP support, including `miniz` integration.

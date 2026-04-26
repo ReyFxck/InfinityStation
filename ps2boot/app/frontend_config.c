@@ -1,5 +1,5 @@
 #include "frontend_config.h"
-#include "ps2_video.h"
+#include "video.h"
 
 static frontend_config_t g_frontend_config;
 static int g_frontend_config_inited = 0;

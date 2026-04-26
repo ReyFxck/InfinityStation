@@ -1,4 +1,4 @@
-#include "ps2_video_internal.h"
+#include "video_internal.h"
 
 void ps2_video_launcher_begin_frame(uint16_t clear_color)
 {

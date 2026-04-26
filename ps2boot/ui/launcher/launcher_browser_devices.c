@@ -6,7 +6,7 @@
 #include <loadfile.h>
 #include <libmc.h>
 #include "rom_loader/rom_loader.h"
-#include "ps2_disc.h"
+#include "disc.h"
 
 #define LAUNCHER_BROWSER_MC_LIST_MAX 256
 #define HOST_PROBE_BACKOFF_REFRESHES 15

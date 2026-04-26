@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#include "ps2_input.h"
+#include "input.h"
 #include "ui/launcher/launcher.h"
 
 static int g_launcher_bootstrapped = 0;

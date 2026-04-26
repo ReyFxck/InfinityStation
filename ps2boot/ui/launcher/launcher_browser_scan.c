@@ -1,6 +1,6 @@
 #include "launcher_browser_internal.h"
 #include "rom_loader/rom_loader.h"
-#include "ps2_disc.h"
+#include "disc.h"
 
 #include <ctype.h>
 #include <stdio.h>

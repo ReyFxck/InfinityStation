@@ -1,5 +1,5 @@
-#include "ps2_video_internal.h"
-#include "../../../app/app_overlay.h"
+#include "video_internal.h"
+#include "app_overlay.h"
 #include <stdio.h>
 #include <kernel.h>
 

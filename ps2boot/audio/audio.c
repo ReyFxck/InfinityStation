@@ -1,5 +1,5 @@
-#include "ps2_audio_internal.h"
-#include "ps2_audio_backend.h"
+#include "audio_internal.h"
+#include "audio_backend.h"
 
 #include <tamtypes.h>
 #include <kernel.h>

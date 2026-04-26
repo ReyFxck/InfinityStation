@@ -1,4 +1,4 @@
-#include "ps2_video_internal.h"
+#include "video_internal.h"
 
 int g_video_ready = 0;
 int g_lut_ready = 0;

@@ -1,6 +1,6 @@
-#include "ps2_launcher_video.h"
-#include "ps2_video.h"
-#include "ps2_video_internal.h"
+#include "launcher_video.h"
+#include "video.h"
+#include "video_internal.h"
 
 #include <string.h>
 #include <kernel.h>

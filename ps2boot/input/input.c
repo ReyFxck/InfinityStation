@@ -1,4 +1,4 @@
-#include "ps2_input.h"
+#include "input.h"
 
 #include <tamtypes.h>
 #include <kernel.h>
