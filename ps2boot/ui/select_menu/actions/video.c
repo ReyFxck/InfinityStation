@@ -1,4 +1,4 @@
-#include "select_menu_actions_internal.h"
+#include "actions_internal.h"
 #include "frontend_config.h"
 
 #include "video.h"

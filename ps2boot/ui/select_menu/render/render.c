@@ -1,7 +1,7 @@
-#include "select_menu_render.h"
+#include "render.h"
 
 #include "video.h"
-#include "select_menu_pages.h"
+#include "pages.h"
 
 void select_menu_render(const select_menu_state_t *state,
                         const select_menu_view_state_t *view_state)

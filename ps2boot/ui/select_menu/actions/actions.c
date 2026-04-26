@@ -1,4 +1,4 @@
-#include "select_menu_actions_internal.h"
+#include "actions_internal.h"
 
 int select_menu_wrap_index(int v, int count)
 {

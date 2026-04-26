@@ -1,7 +1,7 @@
 #include "select_menu.h"
 
-#include "select_menu_actions.h"
-#include "select_menu_render.h"
+#include "actions.h"
+#include "render.h"
 #include "video.h"
 
 void select_menu_init(void)

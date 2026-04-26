@@ -1,4 +1,4 @@
-#include "select_menu_pages_internal.h"
+#include "pages_internal.h"
 #include <stdio.h>
 
 static const char *frame_limit_label(int mode)

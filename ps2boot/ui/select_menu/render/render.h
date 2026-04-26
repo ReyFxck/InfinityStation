@@ -1,7 +1,7 @@
 #ifndef SELECT_MENU_RENDER_H
 #define SELECT_MENU_RENDER_H
 
-#include "select_menu_state.h"
+#include "state.h"
 
 typedef struct {
     int display_x;

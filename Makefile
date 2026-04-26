@@ -71,10 +71,10 @@ BASE_OBJS = \
         ps2boot/audio/audio_backend_audsrv.o \
         ps2boot/storage/disc.o \
         ps2boot/ui/select_menu/select_menu.o \
-        ps2boot/ui/select_menu/select_menu_actions.o \
-        ps2boot/ui/select_menu/select_menu_render.o \
-        ps2boot/ui/select_menu/select_menu_pages.o \
-        ps2boot/ui/select_menu/font/select_menu_font.o \
+        ps2boot/ui/select_menu/actions/actions.o \
+        ps2boot/ui/select_menu/render/render.o \
+        ps2boot/ui/select_menu/pages/pages.o \
+        ps2boot/ui/select_menu/font/font.o \
         ps2boot/ui/launcher/launcher.o \
         ps2boot/ui/launcher/launcher_actions.o \
  ps2boot/ui/launcher/launcher_state.o \
@@ -114,16 +114,16 @@ APP_OBJS = \
         ps2boot/app/app_callbacks.o
 
 SELECT_MENU_OBJS = \
-        ps2boot/ui/select_menu/select_menu_actions_main.o \
-        ps2boot/ui/select_menu/select_menu_actions_video.o \
- ps2boot/ui/select_menu/select_menu_state.o \
-        ps2boot/ui/select_menu/select_menu_actions_game.o \
-        ps2boot/ui/select_menu/select_menu_pages_main.o \
-        ps2boot/ui/select_menu/select_menu_pages_video.o \
-        ps2boot/ui/select_menu/select_menu_pages_game.o \
-        ps2boot/ui/select_menu/select_menu_pages_common.o \
-        ps2boot/ui/select_menu/select_menu_pages_icons.o \
-        ps2boot/ui/select_menu/select_menu_pages_layout.o
+        ps2boot/ui/select_menu/actions/main.o \
+        ps2boot/ui/select_menu/actions/video.o \
+        ps2boot/ui/select_menu/state/state.o \
+        ps2boot/ui/select_menu/actions/game.o \
+        ps2boot/ui/select_menu/pages/main.o \
+        ps2boot/ui/select_menu/pages/video.o \
+        ps2boot/ui/select_menu/pages/game.o \
+        ps2boot/ui/select_menu/pages/common.o \
+        ps2boot/ui/select_menu/pages/icons.o \
+        ps2boot/ui/select_menu/pages/layout.o
 
 LAUNCHER_OBJS = \
         ps2boot/ui/launcher/launcher_pages_main.o \
@@ -160,6 +160,7 @@ EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/i
 EE_CFLAGS += -O3 -G0 -DLAGFIX -DLOAD_FROM_MEMORY -DUSE_BLARGG_APU
 EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/vendor -Ips2boot/rom_loader/vendor/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 EE_CFLAGS += -Ips2boot/app -Ips2boot/audio -Ips2boot/video -Ips2boot/input -Ips2boot/menu -Ips2boot/storage -Ips2boot/debug -Ips2boot/irx -Ips2boot/ui/font
+EE_CFLAGS += -Ips2boot/ui/select_menu -Ips2boot/ui/select_menu/state -Ips2boot/ui/select_menu/render -Ips2boot/ui/select_menu/pages -Ips2boot/ui/select_menu/actions -Ips2boot/ui/select_menu/font
 
 HOT_CORE_OBJS = \
 	$(SRC_DIR)/apu_blargg.o \

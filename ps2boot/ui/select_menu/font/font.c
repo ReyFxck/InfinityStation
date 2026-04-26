@@ -1,4 +1,4 @@
-#include "select_menu_font.h"
+#include "font.h"
 #include "video.h"
 #include "select_menu_font_data.h"
 

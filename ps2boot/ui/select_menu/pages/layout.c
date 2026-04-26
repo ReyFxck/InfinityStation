@@ -1,4 +1,4 @@
-#include "select_menu_pages_internal.h"
+#include "pages_internal.h"
 
 void select_menu_pages_draw_header_line(unsigned y, uint16_t color)
 {
