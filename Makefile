@@ -76,17 +76,17 @@ BASE_OBJS = \
         ps2boot/ui/select_menu/pages/pages.o \
         ps2boot/ui/select_menu/font/font.o \
         ps2boot/ui/launcher/launcher.o \
-        ps2boot/ui/launcher/launcher_actions.o \
- ps2boot/ui/launcher/launcher_state.o \
-        ps2boot/ui/launcher/launcher_render.o \
-        ps2boot/ui/launcher/launcher_font.o \
-        ps2boot/ui/launcher/launcher_pages.o \
-        ps2boot/ui/launcher/launcher_logo.o \
-        ps2boot/ui/launcher/launcher_logo_data.o \
-        ps2boot/ui/launcher/launcher_browser.o \
-        ps2boot/ui/launcher/launcher_browser_devices.o \
-        ps2boot/ui/launcher/launcher_browser_scan.o \
-        ps2boot/ui/launcher/launcher_browser_sort.o \
+        ps2boot/ui/launcher/actions/actions.o \
+        ps2boot/ui/launcher/state/state.o \
+        ps2boot/ui/launcher/render/render.o \
+        ps2boot/ui/launcher/font/font.o \
+        ps2boot/ui/launcher/pages/pages.o \
+        ps2boot/ui/launcher/logo/logo.o \
+        ps2boot/ui/launcher/logo/logo_data.o \
+        ps2boot/ui/launcher/browser/browser.o \
+        ps2boot/ui/launcher/browser/devices.o \
+        ps2boot/ui/launcher/browser/scan.o \
+        ps2boot/ui/launcher/browser/sort.o \
     ps2boot/irx/audsrv_blob.o \
     ps2boot/irx/usb_irx_blob.o \
         $(CORE_SRCS:.c=.o) \
@@ -126,20 +126,20 @@ SELECT_MENU_OBJS = \
         ps2boot/ui/select_menu/pages/layout.o
 
 LAUNCHER_OBJS = \
-        ps2boot/ui/launcher/launcher_pages_main.o \
-        ps2boot/ui/launcher/launcher_pages_browser.o \
-        ps2boot/ui/launcher/launcher_pages_options.o \
- ps2boot/ui/launcher/launcher_pages_credits.o \
-        ps2boot/ui/launcher/launcher_actions_main.o \
-        ps2boot/ui/launcher/launcher_actions_browser.o \
-        ps2boot/ui/launcher/launcher_actions_options.o \
-        ps2boot/ui/launcher/launcher_browser_state.o \
-        ps2boot/ui/launcher/launcher_browser_open.o \
-        ps2boot/ui/launcher/launcher_browser_nav.o \
+        ps2boot/ui/launcher/pages/main.o \
+        ps2boot/ui/launcher/pages/browser.o \
+        ps2boot/ui/launcher/pages/options.o \
+        ps2boot/ui/launcher/pages/credits.o \
+        ps2boot/ui/launcher/actions/main.o \
+        ps2boot/ui/launcher/actions/browser.o \
+        ps2boot/ui/launcher/actions/options.o \
+        ps2boot/ui/launcher/browser/browser_state.o \
+        ps2boot/ui/launcher/browser/open.o \
+        ps2boot/ui/launcher/browser/nav.o \
         ps2boot/ui/launcher/font/browser_font.o \
-        ps2boot/ui/launcher/launcher_background.o \
-        ps2boot/ui/launcher/launcher_bg_ntsc_data.o \
-        ps2boot/ui/launcher/launcher_bg_pal_data.o
+        ps2boot/ui/launcher/background/background.o \
+        ps2boot/ui/launcher/background/bg_ntsc_data.o \
+        ps2boot/ui/launcher/background/bg_pal_data.o
 
 VIDEO_EXTRA_OBJS = \
         ps2boot/video/video_ui.o \
