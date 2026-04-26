@@ -267,13 +267,17 @@ endif
 # User-facing make interface.
 #
 # Preferred (lowercase) form:
-#   make                      # compila
-#   make v                    # compila com saida detalhada
-#   make clean                # remove ELF e .o/.d
-#   make rebuild              # clean + build
-#   make push  out=<pasta>    # copia o ELF para <pasta>
-#   make iso  [roms=<pasta>] [out=<pasta>]
-#                             # gera ISO; copia para <pasta> se 'out=' dado
+#   make                                 # compila
+#   make v                               # compila com saida detalhada
+#   make clean                           # remove ELF e .o/.d
+#   make rebuild                         # clean + build
+#   make push out=<pasta>                # copia o ELF para <pasta>
+#   make iso                             # gera ISO sem ROMs
+#   make iso roms=<pasta>                # gera ISO com ROMs
+#   make iso roms=<pasta> out=<pasta>    # gera ISO + copia pra <pasta>
+#
+# Importante: NAO digite os colchetes ([ ]). Eles aparecem na
+# documentacao apenas para indicar argumentos opcionais.
 #
 # Aliases legados (push-android, push-win, iso-push, WIN_OUT_DIR=,
 # ISO_ROMS_DIR=) continuam funcionando para nao quebrar scripts
@@ -301,16 +305,23 @@ PUSH_DEST = $(strip $(if $(strip $(out)),$(out),$(WIN_OUT_DIR)))
 help:
 	@echo "InfinityStation"
 	@echo
-	@printf "  %-40s %s\n" "make"                                   "Compila o projeto"
-	@printf "  %-40s %s\n" "make v"                                 "Compila com saida detalhada"
-	@printf "  %-40s %s\n" "make clean"                             "Remove arquivos gerados"
-	@printf "  %-40s %s\n" "make rebuild"                           "Limpa e recompila"
-	@printf "  %-40s %s\n" "make push out=<pasta>"                  "Copia o ELF para <pasta>"
-	@printf "  %-40s %s\n" "make iso [roms=<pasta>] [out=<pasta>]"  "Gera ISO; se 'out=' dado, copia tambem"
-	@printf "  %-40s %s\n" "make help"                              "Mostra esta ajuda"
+	@printf "  %-44s %s\n" "make"                                       "Compila o projeto"
+	@printf "  %-44s %s\n" "make v"                                     "Compila com saida detalhada"
+	@printf "  %-44s %s\n" "make clean"                                 "Remove arquivos gerados"
+	@printf "  %-44s %s\n" "make rebuild"                               "Limpa e recompila"
+	@printf "  %-44s %s\n" "make push out=<pasta>"                      "Copia o ELF para <pasta>"
+	@printf "  %-44s %s\n" "make iso"                                   "Gera ISO sem ROMs"
+	@printf "  %-44s %s\n" "make iso roms=<pasta>"                      "Gera ISO com ROMs"
+	@printf "  %-44s %s\n" "make iso roms=<pasta> out=<pasta>"          "Gera ISO e copia pra <pasta>"
+	@printf "  %-44s %s\n" "make help"                                  "Mostra esta ajuda"
 	@echo
-	@printf "  %-40s %s\n" "EE_BIN"   "$(EE_BIN)"
-	@printf "  %-40s %s\n" "ISO_OUT"  "$(ISO_OUT)"
+	@echo "Exemplos:"
+	@echo "  make push out=/sdcard/ps2"
+	@echo "  make iso roms=/sdcard/roms_snes"
+	@echo "  make iso roms=/sdcard/roms_snes out=/sdcard/ps2"
+	@echo
+	@printf "  %-44s %s\n" "EE_BIN"   "$(EE_BIN)"
+	@printf "  %-44s %s\n" "ISO_OUT"  "$(ISO_OUT)"
 
 # 'make v' just re-invokes make with V=1 set so the underlying recipe
 # echoes the full compiler invocation. Equivalent to 'make V=1'.
