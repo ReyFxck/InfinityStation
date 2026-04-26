@@ -14,6 +14,7 @@
 #include "audio.h"
 #include <debug.h>
 #include <stdio.h>
+#include "common/inf_log.h"
 
 static int g_core_initialized = 0;
 
@@ -31,54 +32,44 @@ static void app_transition_refresh_av_info(struct retro_system_av_info *av)
 
 static void app_transition_core_init_once(void)
 {
-    printf("[DBG] app_transition_core_init_once: enter initialized=%d\n", g_core_initialized);
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_core_init_once: enter initialized=%d\n", g_core_initialized);
 
     if (g_core_initialized) {
-        printf("[DBG] app_transition_core_init_once: skip already initialized\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_core_init_once: skip already initialized\n");
         return;
     }
 
     app_callbacks_register();
-    printf("[DBG] app_transition_core_init_once: before retro_init\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_core_init_once: before retro_init\n");
 
     retro_init();
 
-    printf("[DBG] app_transition_core_init_once: after retro_init\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_core_init_once: after retro_init\n");
 
     app_boot_log_core_info();
     g_core_initialized = 1;
 
-    printf("[DBG] app_transition_core_init_once: exit initialized=%d\n", g_core_initialized);
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_core_init_once: exit initialized=%d\n", g_core_initialized);
 }
 
 static void app_transition_core_deinit_if_needed(void)
 {
-    printf("[DBG] app_transition_core_deinit_if_needed: enter initialized=%d\n", g_core_initialized);
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_core_deinit_if_needed: enter initialized=%d\n", g_core_initialized);
 
     if (!g_core_initialized) {
-        printf("[DBG] app_transition_core_deinit_if_needed: skip not initialized\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_core_deinit_if_needed: skip not initialized\n");
         return;
     }
 
-    printf("[DBG] app_transition_core_deinit_if_needed: before retro_deinit\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_core_deinit_if_needed: before retro_deinit\n");
 
     retro_deinit();
 
-    printf("[DBG] app_transition_core_deinit_if_needed: after retro_deinit\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_core_deinit_if_needed: after retro_deinit\n");
 
     g_core_initialized = 0;
 
-    printf("[DBG] app_transition_core_deinit_if_needed: exit initialized=%d\n", g_core_initialized);
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_core_deinit_if_needed: exit initialized=%d\n", g_core_initialized);
 }
 
 void app_transition_prepare(uint32_t *prev_buttons)
@@ -109,57 +100,48 @@ static void app_transition_flush_black_frame(void)
 
 static int app_transition_try_load_selected_game(struct retro_system_av_info *av)
 {
-    printf("[DBG] app_transition_try_load_selected_game: enter\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_try_load_selected_game: enter\n");
 
     app_transition_core_init_once();
 
-    printf("[DBG] app_transition_try_load_selected_game: before app_game_load_selected\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_try_load_selected_game: before app_game_load_selected\n");
 
     if (!app_game_load_selected()) {
-        printf("[DBG] app_transition_try_load_selected_game: app_game_load_selected FAILED\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_try_load_selected_game: app_game_load_selected FAILED\n");
         return 0;
     }
 
-    printf("[DBG] app_transition_try_load_selected_game: app_game_load_selected OK\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_try_load_selected_game: app_game_load_selected OK\n");
 
     app_transition_refresh_av_info(av);
 
-    printf("[DBG] app_transition_try_load_selected_game: exit fps=%.3f\n",
+    INF_LOG_DBG("app_transition_try_load_selected_game: exit fps=%.3f\n",
            av ? av->timing.fps : 0.0);
-    fflush(stdout);
     return 1;
 }
 
 static int app_transition_recover_full_core_reload(struct retro_system_av_info *av,
     uint32_t *prev_buttons)
 {
-    printf("[DBG] app_transition_recover_full_core_reload: enter\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_recover_full_core_reload: enter\n");
 
     app_transition_core_deinit_if_needed();
     app_transition_prepare(prev_buttons);
     app_transition_flush_black_frame();
 
     if (!app_transition_try_load_selected_game(av)) {
-        printf("[DBG] app_transition_recover_full_core_reload: FAILED\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_recover_full_core_reload: FAILED\n");
         return 0;
     }
 
-    printf("[DBG] app_transition_recover_full_core_reload: success\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_recover_full_core_reload: success\n");
     return 1;
 }
 
 void app_transition_load_selected_game(struct retro_system_av_info *av,
     void (*die_fn)(const char *msg))
 {
-    printf("[DBG] app_transition_load_selected_game: enter\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_load_selected_game: enter\n");
 
     if (!app_transition_try_load_selected_game(av)) {
         if (die_fn)
@@ -167,48 +149,38 @@ void app_transition_load_selected_game(struct retro_system_av_info *av,
         return;
     }
 
-    printf("[DBG] app_transition_load_selected_game: exit\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_load_selected_game: exit\n");
 }
 
 void app_transition_restart_game(struct retro_system_av_info *av,
     uint32_t *prev_buttons,
     void (*die_fn)(const char *msg))
 {
-    printf("[DBG] app_transition_restart_game: enter initialized=%d\n", g_core_initialized);
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_restart_game: enter initialized=%d\n", g_core_initialized);
 
     ps2_audio_pause();
 
     if (g_core_initialized) {
-        printf("[DBG] app_transition_restart_game: before app_game_sram_autosave\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_restart_game: before app_game_sram_autosave\n");
         app_game_sram_autosave();
-        printf("[DBG] app_transition_restart_game: after app_game_sram_autosave\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_restart_game: after app_game_sram_autosave\n");
 
-        printf("[DBG] app_transition_restart_game: before retro_unload_game\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_restart_game: before retro_unload_game\n");
         retro_unload_game();
-        printf("[DBG] app_transition_restart_game: after retro_unload_game\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_restart_game: after retro_unload_game\n");
     }
 
-    printf("[DBG] app_transition_restart_game: before app_game_unload_loaded\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_restart_game: before app_game_unload_loaded\n");
     app_game_unload_loaded();
-    printf("[DBG] app_transition_restart_game: after app_game_unload_loaded\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_restart_game: after app_game_unload_loaded\n");
 
     /* manter o core inicializado entre trocas para evitar fragmentacao */
     app_transition_prepare(prev_buttons);
 
-    printf("[DBG] app_transition_restart_game: before app_transition_try_load_selected_game\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_restart_game: before app_transition_try_load_selected_game\n");
 
     if (!app_transition_try_load_selected_game(av)) {
-        printf("[DBG] app_transition_restart_game: fast reload failed, trying full core reload\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_restart_game: fast reload failed, trying full core reload\n");
 
         if (!app_transition_recover_full_core_reload(av, prev_buttons)) {
             if (die_fn)
@@ -217,8 +189,7 @@ void app_transition_restart_game(struct retro_system_av_info *av,
         }
     }
 
-    printf("[DBG] app_transition_restart_game: after app_transition_try_load_selected_game\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_restart_game: after app_transition_try_load_selected_game\n");
 
     app_overlay_reset_timing();
     if (av->timing.fps > 1.0)
@@ -227,8 +198,7 @@ void app_transition_restart_game(struct retro_system_av_info *av,
     ps2_audio_resume();
     app_state_set_mode(APP_MODE_GAME);
 
-    printf("[DBG] app_transition_restart_game: exit\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_restart_game: exit\n");
 }
 
 
@@ -238,30 +208,23 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
     int *saved_launcher_y,
     void (*die_fn)(const char *msg))
 {
-    printf("[DBG] app_transition_open_launcher_and_reload: enter initialized=%d\n", g_core_initialized);
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_open_launcher_and_reload: enter initialized=%d\n", g_core_initialized);
 
     ps2_audio_pause();
 
     if (g_core_initialized) {
-        printf("[DBG] app_transition_open_launcher_and_reload: before app_game_sram_autosave\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_open_launcher_and_reload: before app_game_sram_autosave\n");
         app_game_sram_autosave();
-        printf("[DBG] app_transition_open_launcher_and_reload: after app_game_sram_autosave\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_open_launcher_and_reload: after app_game_sram_autosave\n");
 
-        printf("[DBG] app_transition_open_launcher_and_reload: before retro_unload_game\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_open_launcher_and_reload: before retro_unload_game\n");
         retro_unload_game();
-        printf("[DBG] app_transition_open_launcher_and_reload: after retro_unload_game\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_open_launcher_and_reload: after retro_unload_game\n");
     }
 
-    printf("[DBG] app_transition_open_launcher_and_reload: before app_game_unload_loaded\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_open_launcher_and_reload: before app_game_unload_loaded\n");
     app_game_unload_loaded();
-    printf("[DBG] app_transition_open_launcher_and_reload: after app_game_unload_loaded\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_open_launcher_and_reload: after app_game_unload_loaded\n");
 
     /* manter o core inicializado entre trocas para evitar fragmentacao */
     app_transition_prepare(prev_buttons);
@@ -271,21 +234,17 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
 
     app_state_set_mode(APP_MODE_LAUNCHER);
 
-    printf("[DBG] app_transition_open_launcher_and_reload: before app_launcher_run\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_open_launcher_and_reload: before app_launcher_run\n");
     ps2_audio_pump();
     app_launcher_run(prev_buttons);
-    printf("[DBG] app_transition_open_launcher_and_reload: after app_launcher_run\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_open_launcher_and_reload: after app_launcher_run\n");
 
     ps2_video_set_offsets(*saved_launcher_x, *saved_launcher_y);
 
-    printf("[DBG] app_transition_open_launcher_and_reload: before app_transition_try_load_selected_game\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_open_launcher_and_reload: before app_transition_try_load_selected_game\n");
 
     if (!app_transition_try_load_selected_game(av)) {
-        printf("[DBG] app_transition_open_launcher_and_reload: fast reload failed, trying full core reload\n");
-        fflush(stdout);
+        INF_LOG_DBG("app_transition_open_launcher_and_reload: fast reload failed, trying full core reload\n");
 
         if (!app_transition_recover_full_core_reload(av, prev_buttons)) {
             if (die_fn)
@@ -294,8 +253,7 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
         }
     }
 
-    printf("[DBG] app_transition_open_launcher_and_reload: after app_transition_try_load_selected_game\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_open_launcher_and_reload: after app_transition_try_load_selected_game\n");
 
     app_overlay_reset_timing();
     if (av->timing.fps > 1.0)
@@ -304,7 +262,6 @@ void app_transition_open_launcher_and_reload(struct retro_system_av_info *av,
     ps2_audio_resume();
     app_state_set_mode(APP_MODE_GAME);
 
-    printf("[DBG] app_transition_open_launcher_and_reload: exit\n");
-    fflush(stdout);
+    INF_LOG_DBG("app_transition_open_launcher_and_reload: exit\n");
 }
 

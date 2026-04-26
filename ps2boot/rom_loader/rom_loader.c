@@ -64,35 +64,30 @@ static int read_disc_file_once(const char *path, void **out_data, size_t *out_si
 
     total = 0;
 
-    printf("[DBG] read_disc_file_once: open('%s')\n", path ? path : "");
-    fflush(stdout);
+    INF_LOG_DBG("read_disc_file_once: open('%s')\n", path ? path : "");
 
     fd = open(path, O_RDONLY);
     if (fd < 0) {
-        printf("[DBG] open() falhou para '%s' fd=%d\n", path ? path : "", fd);
-        fflush(stdout);
+        INF_LOG_DBG("open() falhou para '%s' fd=%d\n", path ? path : "", fd);
         return 0;
     }
 
     file_size = lseek(fd, 0, SEEK_END);
     if (file_size <= 0) {
-        printf("[DBG] lseek(SEEK_END) retornou %d para '%s'\n", file_size, path ? path : "");
-        fflush(stdout);
+        INF_LOG_DBG("lseek(SEEK_END) retornou %d para '%s'\n", file_size, path ? path : "");
         close(fd);
         return 0;
     }
 
     if (lseek(fd, 0, SEEK_SET) < 0) {
-        printf("[DBG] lseek(SEEK_SET) falhou para '%s'\n", path ? path : "");
-        fflush(stdout);
+        INF_LOG_DBG("lseek(SEEK_SET) falhou para '%s'\n", path ? path : "");
         close(fd);
         return 0;
     }
 
     buf = (unsigned char *)rom_loader_acquire_buffer((size_t)file_size);
     if (!buf) {
-        printf("[DBG] rom_loader_acquire_buffer(%d) falhou para '%s'\n", file_size, path ? path : "");
-        fflush(stdout);
+        INF_LOG_DBG("rom_loader_acquire_buffer(%d) falhou para '%s'\n", file_size, path ? path : "");
         close(fd);
         return 0;
     }
@@ -107,9 +102,8 @@ static int read_disc_file_once(const char *path, void **out_data, size_t *out_si
 
         got = read(fd, buf + total, want);
         if (got <= 0) {
-            printf("[DBG] read() falhou/encerrou em %d de %d para '%s' got=%d\n",
+            INF_LOG_DBG("read() falhou/encerrou em %d de %d para '%s' got=%d\n",
                    total, file_size, path ? path : "", got);
-            fflush(stdout);
             close(fd);
             return 0;
         }
@@ -122,9 +116,8 @@ static int read_disc_file_once(const char *path, void **out_data, size_t *out_si
     *out_data = buf;
     *out_size = (size_t)file_size;
 
-    printf("[DBG] read_disc_file_once OK: size=%u path='%s'\n",
+    INF_LOG_DBG("read_disc_file_once OK: size=%u path='%s'\n",
            (unsigned)*out_size, path ? path : "");
-    fflush(stdout);
     return 1;
 }
 
@@ -135,45 +128,39 @@ static int load_plain_file_stdio(const char *path, void **out_data, size_t *out_
     size_t read_bytes;
     void *buf;
 
-    printf("[DBG] load_plain_file_stdio: fopen('%s')\n", path ? path : "");
-    fflush(stdout);
+    INF_LOG_DBG("load_plain_file_stdio: fopen('%s')\n", path ? path : "");
 
     if (!path)
         return 0;
 
     fp = fopen(path, "rb");
     if (!fp) {
-        printf("[DBG] fopen() falhou para '%s'\n", path ? path : "");
-        fflush(stdout);
+        INF_LOG_DBG("fopen() falhou para '%s'\n", path ? path : "");
         return 0;
     }
 
     if (fseek(fp, 0, SEEK_END) != 0) {
-        printf("[DBG] fseek(SEEK_END) falhou para '%s'\n", path ? path : "");
-        fflush(stdout);
+        INF_LOG_DBG("fseek(SEEK_END) falhou para '%s'\n", path ? path : "");
         fclose(fp);
         return 0;
     }
 
     file_size = ftell(fp);
     if (file_size <= 0) {
-        printf("[DBG] ftell() retornou %ld para '%s'\n", file_size, path ? path : "");
-        fflush(stdout);
+        INF_LOG_DBG("ftell() retornou %ld para '%s'\n", file_size, path ? path : "");
         fclose(fp);
         return 0;
     }
 
     if (fseek(fp, 0, SEEK_SET) != 0) {
-        printf("[DBG] fseek(SEEK_SET) falhou para '%s'\n", path ? path : "");
-        fflush(stdout);
+        INF_LOG_DBG("fseek(SEEK_SET) falhou para '%s'\n", path ? path : "");
         fclose(fp);
         return 0;
     }
 
     buf = rom_loader_acquire_buffer((size_t)file_size);
     if (!buf) {
-        printf("[DBG] rom_loader_acquire_buffer(%ld) falhou para '%s'\n", file_size, path ? path : "");
-        fflush(stdout);
+        INF_LOG_DBG("rom_loader_acquire_buffer(%ld) falhou para '%s'\n", file_size, path ? path : "");
         fclose(fp);
         return 0;
     }
@@ -182,18 +169,16 @@ static int load_plain_file_stdio(const char *path, void **out_data, size_t *out_
     fclose(fp);
 
     if (read_bytes != (size_t)file_size) {
-        printf("[DBG] fread curto: leu=%u esperado=%u path='%s'\n",
+        INF_LOG_DBG("fread curto: leu=%u esperado=%u path='%s'\n",
                (unsigned)read_bytes, (unsigned)file_size, path ? path : "");
-        fflush(stdout);
         return 0;
     }
 
     *out_data = buf;
     *out_size = (size_t)file_size;
 
-    printf("[DBG] load_plain_file_stdio OK: size=%u path='%s'\n",
+    INF_LOG_DBG("load_plain_file_stdio OK: size=%u path='%s'\n",
            (unsigned)*out_size, path ? path : "");
-    fflush(stdout);
     return 1;
 }
 
@@ -210,8 +195,7 @@ static int try_candidate(const char *candidate, void **out_data, size_t *out_siz
     if (!candidate || !candidate[0])
         return 0;
 
-    printf("[DBG] tentativa host candidate='%s'\n", candidate);
-    fflush(stdout);
+    INF_LOG_DBG("tentativa host candidate='%s'\n", candidate);
     return load_plain_file_once(candidate, out_data, out_size);
 }
 
@@ -273,8 +257,7 @@ int rom_loader_load(const char *path, void **out_data, size_t *out_size,
                     char *out_name, size_t out_name_size)
 {
     if (!path || !path[0] || !out_data || !out_size) {
-        printf("[DBG] rom_loader_load: argumentos invalidos\n");
-        fflush(stdout);
+        INF_LOG_DBG("rom_loader_load: argumentos invalidos\n");
         return 0;
     }
 
@@ -283,15 +266,13 @@ int rom_loader_load(const char *path, void **out_data, size_t *out_size,
     if (out_name && out_name_size > 0)
         out_name[0] = '\0';
 
-    printf("[DBG] rom_loader_load: path='%s'\n", path);
-    fflush(stdout);
+    INF_LOG_DBG("rom_loader_load: path='%s'\n", path);
 
     if (ext_equals(path, ".zip"))
         return rom_zip_load(path, out_data, out_size, out_name, out_name_size);
 
     if (!rom_loader_is_supported(path)) {
-        printf("[DBG] rom_loader_load: extensao nao suportada '%s'\n", path);
-        fflush(stdout);
+        INF_LOG_DBG("rom_loader_load: extensao nao suportada '%s'\n", path);
         return 0;
     }
 
@@ -310,8 +291,7 @@ int rom_loader_load(const char *path, void **out_data, size_t *out_size,
         semi = strrchr(out_name, ';');
         if (semi)
             *semi = '\0';
-        printf("[DBG] rom_loader_load: out_name='%s'\n", out_name);
-        fflush(stdout);
+        INF_LOG_DBG("rom_loader_load: out_name='%s'\n", out_name);
     }
 
     return 1;

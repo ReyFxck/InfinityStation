@@ -30,6 +30,7 @@
 #if defined(__mips__) && !defined(PSP)
 #include <kernel.h>
 #include <malloc.h>
+#include "ps2boot/common/inf_log.h"
 #endif
 
 static void app_gfx_prof_reset_frame(void) {}
@@ -739,8 +740,7 @@ void retro_init(void)
 {
    struct retro_log_callback log;
 
-   printf("[DBG] retro_init: enter\n");
-   fflush(stdout);
+   INF_LOG_DBG("retro_init: enter\n");
    enum retro_pixel_format rgb565;
    bool achievements = true;
 
@@ -772,14 +772,12 @@ void retro_init(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;
 
-   printf("[DBG] retro_init: exit\n");
-   fflush(stdout);
+   INF_LOG_DBG("retro_init: exit\n");
 }
 
 void retro_deinit(void)
 {
-   printf("[DBG] retro_deinit: enter\n");
-   fflush(stdout);
+   INF_LOG_DBG("retro_deinit: enter\n");
 
    if (Settings.SPC7110)
       Del7110Gfx();
@@ -811,8 +809,7 @@ void retro_deinit(void)
    retro_audio_latency        = 0;
    update_audio_latency       = false;
 
-   printf("[DBG] retro_deinit: exit\n");
-   fflush(stdout);
+   INF_LOG_DBG("retro_deinit: exit\n");
 }
 
 uint32_t S9xReadJoypad(int32_t port)
@@ -1414,16 +1411,14 @@ static void init_descriptors(void)
 
 bool retro_load_game(const struct retro_game_info* game)
 {
-   printf("[DBG] retro_load_game: enter game=%p path='%s' size=%u data=%p\n",
+   INF_LOG_DBG("retro_load_game: enter game=%p path='%s' size=%u data=%p\n",
          (const void*)game,
          (game && game->path) ? game->path : "",
          (unsigned)((game) ? game->size : 0),
          (game) ? game->data : NULL);
-   fflush(stdout);
 
    if (!game) {
-      printf("[DBG] retro_load_game: fail null game\n");
-      fflush(stdout);
+      INF_LOG_DBG("retro_load_game: fail null game\n");
       return false;
    }
 
@@ -1437,21 +1432,18 @@ bool retro_load_game(const struct retro_game_info* game)
    if (!LoadROM(game->path))
 #endif
    {
-      printf("[DBG] retro_load_game: LoadROM FAILED\n");
-      fflush(stdout);
+      INF_LOG_DBG("retro_load_game: LoadROM FAILED\n");
       return false;
    }
 
-   printf("[DBG] retro_load_game: LoadROM OK\n");
-   fflush(stdout);
+   INF_LOG_DBG("retro_load_game: LoadROM OK\n");
 
    Settings.FrameTime = (Settings.PAL ? Settings.FrameTimePAL : Settings.FrameTimeNTSC);
 
    retro_set_audio_buff_status_cb();
    if (!audio_out_buffer_init())
    {
-      printf("[DBG] retro_load_game: audio_out_buffer_init FAILED\n");
-      fflush(stdout);
+      INF_LOG_DBG("retro_load_game: audio_out_buffer_init FAILED\n");
 
       if (environ_cb)
          environ_cb(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, NULL);
@@ -1467,8 +1459,7 @@ bool retro_load_game(const struct retro_game_info* game)
    S9xSetPlaybackRate(Settings.SoundPlaybackRate);
 #endif
 
-   printf("[DBG] retro_load_game: exit success\n");
-   fflush(stdout);
+   INF_LOG_DBG("retro_load_game: exit success\n");
 
    return true;
 }
