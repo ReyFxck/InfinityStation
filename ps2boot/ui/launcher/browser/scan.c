@@ -315,17 +315,17 @@ static void iso_build_cdrom_file_path(char *out, size_t out_size,
     if (rel_path && rel_path[0]) {
         for (i = 0; rel_path[i] && pos + 1 < out_size; i++) {
             char c = rel_path[i];
-            out[pos++] = (c == '/') ? '\\\\' : c;
+            out[pos++] = (c == '/') ? '\\' : c;
         }
 
         if (pos + 1 < out_size)
-            out[pos++] = '\\\\';
+            out[pos++] = '\\';
     }
 
     if (iso_name_raw) {
         for (i = 0; iso_name_raw[i] && pos + 1 < out_size; i++) {
             char c = iso_name_raw[i];
-            out[pos++] = (c == '/') ? '\\\\' : c;
+            out[pos++] = (c == '/') ? '\\' : c;
         }
     }
 

@@ -11,5 +11,6 @@ int launcher_actions_should_start_game(void);
 void launcher_actions_clear_start_request(void);
 const char *launcher_actions_selected_path(void);
 const char *launcher_actions_selected_label(void);
+void launcher_actions_open_browser_page(void);
 
 #endif

@@ -188,6 +188,20 @@ HOT_FRONTEND_OBJS = \
 
 $(HOT_FRONTEND_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
+# INF: warnings tratados como erro APENAS em codigo nosso
+# (ps2boot/* fora de irx/ e rom_loader/vendor/, mais libretro.o).
+# Snes9x core (source/*) e libretro-common ficam no nivel
+# herdado do PS2SDK porque sao codigo de terceiros e geram
+# warnings que nao queremos corrigir downstream.
+INF_OUR_OBJS := $(filter ps2boot/%,$(BASE_OBJS) $(EXTRA_OBJS))
+INF_OUR_OBJS := $(filter-out ps2boot/rom_loader/vendor/%,$(INF_OUR_OBJS))
+INF_OUR_OBJS := $(filter-out ps2boot/irx/%,$(INF_OUR_OBJS))
+INF_OUR_OBJS += $(CORE_DIR)/libretro.o
+
+$(INF_OUR_OBJS): EE_CFLAGS += -Wall -Wextra -Werror \
+    -Wmissing-prototypes -Wstrict-prototypes \
+    -Wno-unused-parameter -Wno-sign-compare
+
 EE_LIBS += -L$(PS2SDK)/ports/lib -lps2_drivers  -ldebug -lpacket -ldraw -lgraph -ldma -lpad -lmtap -lmc -lpatches -liopreboot -laudsrv -lcdvd
 
 EXTRA_TARGETS = $(EE_BIN)

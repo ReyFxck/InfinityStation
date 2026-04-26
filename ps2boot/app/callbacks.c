@@ -31,7 +31,6 @@ static unsigned g_frame_count = 0;
 static int g_logged_video_cb = 0;
 static int g_warned_bad_pixel_format = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
-static int g_logged_audio_cb = 0;
 static int g_logged_audio_batch_cb = 0;
 static void (*g_audio_buffer_status_cb)(bool, unsigned, bool) = NULL;
 
@@ -349,21 +348,14 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
     ps2_video_present_rgb565(data, width, height, pitch);
 }
 
-static void audio_cb(int16_t left, int16_t right)
-{
-    int16_t tmp[2] = { left, right };
-
-    if (!g_logged_audio_cb) {
-        printf("[APPCB] first audio_cb L=%d R=%d\n", left, right);
-        g_logged_audio_cb = 1;
-    }
-
-    if (!app_audio_accepts_core_audio())
-        return;
-
-    ps2_audio_push_samples(tmp, 1);
-    app_audio_report_buffer_status();
-}
+/*
+ * audio_cb (single-sample callback) nao eh registrado: USE_BLARGG_APU
+ * gera audio em batch. O callback unitario adquiria o semaforo do ring
+ * por amostra. Codigo removido junto com o flag g_logged_audio_cb pra
+ * evitar warning -Wunused-function. Se algum dia precisar voltar, o
+ * caller esta em app_callbacks_register chamando retro_set_audio_sample
+ * com NULL.
+ */
 
 static size_t audio_batch_cb(const int16_t *data, size_t frames)
 {

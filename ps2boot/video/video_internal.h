@@ -84,6 +84,12 @@ void ps2_video_prof_commit(
     unsigned height
 );
 
+/* Acessores das duas linhas de profile (preenchidas em ps2_video_prof_commit).
+ * Atualmente nao consumidas; deixadas como API publica do modulo para um
+ * eventual overlay de debug ler sem fazer extern manual. */
+const char *ps2_video_prof_get_line1(void);
+const char *ps2_video_prof_get_line2(void);
+
 /* video_cache.c */
 int  ps2_video_cache_can_reuse_256(const uint16_t *src, unsigned width, unsigned height);
 void ps2_video_cache_store_256(const uint16_t *src, unsigned width, unsigned height);
@@ -107,5 +113,6 @@ void ps2_video_packets_redraw_last(unsigned width, unsigned height, unsigned wai
 void dbg_overlay(void);
 void menu_tint_blue(void);
 void ps2_video_menu_put_pixel_store(unsigned x, unsigned y, uint16_t color);
+uint16_t ps2_video_menu_get_pixel(unsigned x, unsigned y);
 
 #endif
