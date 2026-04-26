@@ -4,7 +4,7 @@ int g_video_ready = 0;
 int g_lut_ready = 0;
 int g_video_off_x = 0;
 int g_video_off_y = 0;
-int g_aspect_mode = PS2_ASPECT_4_3;
+int g_aspect_mode = PS2_ASPECT_FULL;
 
 framebuffer_t g_frame;
 zbuffer_t g_z;

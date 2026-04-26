@@ -367,7 +367,7 @@ int ps2_video_init_once(void)
     {
         int region = graph_get_region();
         int psm_mode = (region == GRAPH_MODE_PAL) ? GRAPH_MODE_PAL : GRAPH_MODE_NTSC;
-        graph_set_mode(GRAPH_MODE_INTERLACED, psm_mode, GRAPH_MODE_FRAME, GRAPH_DISABLE);
+        graph_set_mode(GRAPH_MODE_INTERLACED, psm_mode, GRAPH_MODE_FIELD, GRAPH_DISABLE); /* P17: era FRAME, cortava metade */
         graph_set_screen(0, 0, g_frame.width, g_frame.height);
         graph_set_bgcolor(0, 0, 0);
         graph_set_framebuffer_filtered(g_frame.address, g_frame.width, g_frame.psm, 0, 0);

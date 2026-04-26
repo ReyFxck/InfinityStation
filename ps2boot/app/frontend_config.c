@@ -9,7 +9,7 @@ void frontend_config_init_defaults(void)
     if (g_frontend_config_inited)
         return;
 
-    g_frontend_config.aspect = PS2_ASPECT_4_3;
+    g_frontend_config.aspect = PS2_ASPECT_FULL;
     g_frontend_config.display_x = 0;
     g_frontend_config.display_y = 0;
     g_frontend_config.show_fps = 0;

@@ -5,7 +5,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define PS2_CORE_AUDIO_RATE 32000u
+/* P15: 22050 alivia ~30% do APU mixing em fases pesadas (caverna).
+ * audsrv suporta 22050 nativamente (find_upsampler LUT). */
+#define PS2_CORE_AUDIO_RATE 22050u
 
 int ps2_audio_init_once(void);
 void ps2_audio_shutdown(void);

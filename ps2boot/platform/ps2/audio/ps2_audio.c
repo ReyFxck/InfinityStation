@@ -19,6 +19,9 @@ static int g_logged_first_push = 0;
 static int g_audio_paused = 0;
 static int g_audio_resume_armed = 0;
 static unsigned int g_audio_backend_volume = PS2_AUDIO_BACKEND_VOLUME;
+/* Ultimo frame enviado ao backend; usado pelo anti-click ramp. */
+static int16_t g_last_sample_l = 0;
+static int16_t g_last_sample_r = 0;
 static int g_backend_reprime_cooldown = 0;
 static int g_backend_empty_streak = 0;
 
@@ -319,6 +322,13 @@ static int ps2_audio_backend_queue_all(const int16_t *data, unsigned int frames)
         total_sent += sent;
     }
 
+    /* Track last frame so anti-click ramp can fade from it. */
+    if (data && frames > 0 && total_sent > 0) {
+        unsigned int last_idx = (frames - 1) * PS2_AUDIO_CHANNELS;
+        g_last_sample_l = data[last_idx + 0];
+        g_last_sample_r = data[last_idx + 1];
+    }
+
     return total_sent;
 }
 
@@ -356,6 +366,32 @@ static int ps2_audio_reprime_backend_with_silence(void)
 }
 
 
+static void ps2_audio_send_anti_click_ramp(void)
+{
+    /* Ramp linear do ultimo sample real ate 0 ao longo de 32 frames
+     * (~1ms @ 32kHz) para evitar click ao injetar silencio. */
+    static int16_t ramp[32 * PS2_AUDIO_CHANNELS] __attribute__((aligned(16)));
+    const int frames = 32;
+    int i;
+    int last_l = g_last_sample_l;
+    int last_r = g_last_sample_r;
+
+    if (last_l == 0 && last_r == 0)
+        return;
+
+    for (i = 0; i < frames; i++) {
+        int gain = ((frames - i) * 256) / frames; /* 256 -> 0 */
+        ramp[i * PS2_AUDIO_CHANNELS + 0] = (int16_t)((last_l * gain) >> 8);
+        ramp[i * PS2_AUDIO_CHANNELS + 1] = (int16_t)((last_r * gain) >> 8);
+    }
+    (void)ps2_audio_backend_queue_all(ramp, frames);
+
+    /* Proxima ramp comeca de zero (silencio) ate ter sample real de novo. */
+    g_last_sample_l = 0;
+    g_last_sample_r = 0;
+}
+
+
 static void ps2_audio_recover_backend_underrun(void)
 {
     /* Recovery suave: apenas injeta silencio ate o alvo, sem tocar em
@@ -365,6 +401,7 @@ static void ps2_audio_recover_backend_underrun(void)
         return;
 
     g_warned_underrun = 0;
+    ps2_audio_send_anti_click_ramp();
     ps2_audio_fill_backend_silence_to_target();
     PS2AUDIO_LOG("[PS2AUDIO] underrun: silence-pad recovery\n");
 }
@@ -673,6 +710,7 @@ void ps2_audio_pause(void)
     ps2_audio_clear_ring();
     ps2_audio_reset_stream_state();
     memset(g_menu_silence_block, 0, sizeof(g_menu_silence_block));
+    ps2_audio_send_anti_click_ramp();
     ps2_audio_fill_backend_silence_to_target();
 
     g_warned_overrun = 0;
