@@ -279,7 +279,9 @@ push-win: $(EE_BIN)
 clean:
 	@echo "[clean] removendo binario e objetos..."
 	@rm -f "$(EE_BIN)"
-	@find . -type f \( -name '*.o' -o -name '*.d' \) -delete
+	@find ps2boot $(SRC_DIR) $(COMM_DIR) -type f \
+	    \( -name '*.o' -o -name '*.d' \) -delete 2>/dev/null || true
+	@rm -f "$(CORE_DIR)"/libretro.o "$(CORE_DIR)"/libretro.d
 	@echo "[clean] ok"
 
 rebuild: clean
