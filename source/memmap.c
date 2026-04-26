@@ -258,9 +258,6 @@ static char* Safe(const char* s)
 /**********************************************************************************************/
 bool S9xInitMemory(void)
 {
-   printf("[DBG] S9xInitMemory: enter\n");
-   fflush(stdout);
-
    /* DS2 DMA notes: These would do well to be allocated with 32 extra bytes
       so they can be 32-byte aligned. [Neb] */
    Memory.RAM   = (uint8_t*) calloc(0x20000, 1);
@@ -285,8 +282,6 @@ bool S9xInitMemory(void)
 
    if (!Memory.RAM || !Memory.SRAM || !Memory.VRAM || !Memory.ROM || !Memory.BSRAM || !IPPU.TileCache [TILE_2BIT] || !IPPU.TileCache [TILE_4BIT] || !IPPU.TileCache [TILE_8BIT] || !IPPU.TileCached [TILE_2BIT] || !IPPU.TileCached [TILE_4BIT] ||  !IPPU.TileCached [TILE_8BIT])
    {
-      printf("[DBG] S9xInitMemory: allocation failure\n");
-      fflush(stdout);
       S9xDeinitMemory();
       return false;
    }
@@ -305,20 +300,12 @@ bool S9xInitMemory(void)
    SuperFX.nRomBanks = (2 * 1024 * 1024) / (32 * 1024);
    SuperFX.pvRom = (uint8_t*) Memory.ROM;
 
-   printf("[DBG] S9xInitMemory: exit success RAM=%p ROM=%p VRAM=%p SRAM=%p BSRAM=%p\n",
-          Memory.RAM, Memory.ROM, Memory.VRAM, Memory.SRAM, Memory.BSRAM);
-   fflush(stdout);
-
    return true;
 }
 
 void S9xDeinitMemory(void)
 {
    int t;
-
-   printf("[DBG] S9xDeinitMemory: enter RAM=%p ROM=%p VRAM=%p SRAM=%p BSRAM=%p\n",
-          Memory.RAM, Memory.ROM, Memory.VRAM, Memory.SRAM, Memory.BSRAM);
-   fflush(stdout);
    if (Memory.RAM)
    {
       free(Memory.RAM);
@@ -368,10 +355,6 @@ void S9xDeinitMemory(void)
    /* Ensure that we free the static char
     * array allocated by Safe() */
    Safe(NULL);
-
-   printf("[DBG] S9xDeinitMemory: exit RAM=%p ROM=%p VRAM=%p SRAM=%p BSRAM=%p\n",
-          Memory.RAM, Memory.ROM, Memory.VRAM, Memory.SRAM, Memory.BSRAM);
-   fflush(stdout);
 }
 
 #ifndef LOAD_FROM_MEMORY
@@ -642,16 +625,6 @@ bool LoadROM(
       )
 {
    int32_t hi_score, lo_score;
-
-#ifdef LOAD_FROM_MEMORY
-   printf("[DBG] LoadROM: enter memory path='%s' size=%u data=%p\n",
-          (game && game->path) ? game->path : "",
-          (unsigned)((game) ? game->size : 0),
-          (game) ? game->data : NULL);
-#else
-   printf("[DBG] LoadROM: enter file path='%s'\n", filename ? filename : "");
-#endif
-   fflush(stdout);
    int32_t TotalFileSize = 0;
    bool Interleaved = false;
    bool Tales = false;
@@ -691,11 +664,8 @@ again:
 #else
    TotalFileSize = FileLoader(Memory.ROM, filename, MAX_ROM_SIZE);
 
-   if (!TotalFileSize) {
-      printf("[DBG] LoadROM: FileLoader FAILED\n");
-      fflush(stdout);
+   if (!TotalFileSize)
       return false; /* it ends here */
-   }
    CheckForIPSPatch(filename, Memory.HeaderCount != 0, &TotalFileSize);
 #endif
    /* fix hacked games here. */
@@ -1012,13 +982,6 @@ again:
    S9xInitCheatData();
    S9xApplyCheats();
    S9xReset();
-
-   printf("[DBG] LoadROM: exit success size=%u HiROM=%d LoROM=%d\n",
-          (unsigned)Memory.CalculatedSize,
-          Memory.HiROM ? 1 : 0,
-          Memory.LoROM ? 1 : 0);
-   fflush(stdout);
-
    return true;
 }
 

@@ -23,6 +23,7 @@
 #include "libretro_core_options.h"
 #include "app/core_options.h"
 #include "app/core_prof.h"
+#include "app/apu_extra.h"
 #include "audio.h"
 
 #include <stdio.h>
