@@ -60,6 +60,10 @@ BASE_OBJS = \
         ps2boot/app/main.o \
         ps2boot/video/video.o \
         ps2boot/video/video_core.o \
+        ps2boot/video/video_packets.o \
+        ps2boot/video/video_present.o \
+        ps2boot/video/video_prof.o \
+        ps2boot/video/video_cache.o \
         ps2boot/video/video_menu.o \
         ps2boot/video/video_debug.o \
         ps2boot/debug/debug_font.o \
@@ -172,7 +176,8 @@ HOT_CORE_OBJS = \
 $(HOT_CORE_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
 
 HOT_FRONTEND_OBJS = \
-	ps2boot/video/video_core.o \
+	ps2boot/video/video_present.o \
+	ps2boot/video/video_packets.o \
 	ps2boot/app/callbacks.o \
 	ps2boot/app/overlay.o
 

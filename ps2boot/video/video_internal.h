@@ -62,6 +62,48 @@ void ps2_video_apply_display_offset(void);
 void ps2_video_present_ui_fixed_rgb565(const void *data, unsigned width, unsigned height, size_t pitch);
 void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync);
 
+/* video_prof.c */
+static inline unsigned ps2_video_prof_read_count(void)
+{
+    unsigned value;
+    __asm__ __volatile__("mfc0 %0, $9" : "=r"(value));
+    return value;
+}
+
+static inline unsigned ps2_video_prof_delta(unsigned t1, unsigned t0)
+{
+    return (unsigned)(t1 - t0);
+}
+
+void ps2_video_prof_commit(
+    unsigned cvt_cycles,
+    unsigned ovl_cycles,
+    unsigned backend_cycles,
+    unsigned total_cycles,
+    unsigned width,
+    unsigned height
+);
+
+/* video_cache.c */
+int  ps2_video_cache_can_reuse_256(const uint16_t *src, unsigned width, unsigned height);
+void ps2_video_cache_store_256(const uint16_t *src, unsigned width, unsigned height);
+void ps2_video_cache_invalidate(void);
+
+/* video_packets.c */
+int  ps2_video_packets_init(void);
+void ps2_video_packets_reset(int hard);
+int  ps2_video_packets_last_upload_valid(void);
+void ps2_video_packets_hard_reset_redraw_textures(const uint16_t *src);
+void ps2_video_packets_upload_and_draw(
+    const uint16_t *upload,
+    unsigned upload_width,
+    unsigned upload_height,
+    unsigned width,
+    unsigned height,
+    unsigned wait_vblanks
+);
+void ps2_video_packets_redraw_last(unsigned width, unsigned height, unsigned wait_vblanks);
+
 void dbg_overlay(void);
 void menu_tint_blue(void);
 void ps2_video_menu_put_pixel_store(unsigned x, unsigned y, uint16_t color);
