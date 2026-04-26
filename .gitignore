@@ -1,66 +1,33 @@
+# Build artifacts
 *.o
-*.elf
+*.d
 *.a
+*.elf
 *.map
-ps2boot/smw.sfc
+ps2boot/*.elf
+
+# OS / editor leftovers
 *~
 .DS_Store
+*.bak
+*.bak.*
+*.bak_*
+*.orig
+*.rej
 
-# temp experiment files
-*.pre_*
-*.fix_*
-*.big_logo
-*.no_blend_backup
+# Generated assets / scratch
 ps2boot/ui/assets/launcher_logo_rgba
 
-# temp patch backup files
-*.exit_direct_fix
-*.exit_return_fix
-*.restart_game_fix
-*.restart_order_fix
-*.hw_real_fix
-*.page_fix
-*.align_tweak
-*.auto_center_fix
-*.circle_band_fix
-*.circle_bigger_fix
-*.color_fix2
-*.color_tune_fix
-*.cross_circle_fix
-*.footer_center_fix
-*.footer_down_fix
-*.footer_gray_fix
-*.footer_inline_fix
-*.footer_text_up_fix
-*.footer_words_up2
-*.footer_ytext_fix
-*.gray_fix_real
-*.icon_colors_restore
-*.menu_header_tweak
-*.ps_icons_color_fix
-*.ps_icons_fix
-*.rb_swap_fix
-*.restore_colors_fix
-*.restore_footer_positions
-*.select_color_fix
-*.visual_center_fix
+# Test ROMs (do not commit copyrighted ROMs)
+ps2boot/assets/*.sfc
+ps2boot/assets/*.smc
+ps2boot/assets/*.swc
+ps2boot/assets/*.fig
+ps2boot/assets/*.zip
 
-# temp patch backups
-*_fix
-*.no_shadow_test
-*.close_black_test
-*.select_button_patch
-*.bak
-*.bak_*
-*.bak.*
+# Tooling output
+dist/
+*.iso
 ps2boot/tools/*.iso
 ps2boot/tools/boot_iso_root/
 ps2boot/tools/disc_root/
-<<<<<<< Updated upstream
-=======
-ps2boot/ui/assets/launcher_logo_rgba
-
-dist/
-ps2boot/*.elf
-*.iso
->>>>>>> Stashed changes

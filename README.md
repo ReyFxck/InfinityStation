@@ -201,15 +201,25 @@ Contributions are welcome. To help:
 
 ## License and legal notices
 
-This repository combines original code and components derived from or integrated with third-party projects.
+InfinityStation as a whole is distributed under the **GNU General Public
+License, version 2 or (at your option) any later version** — see the
+[`LICENSE`](LICENSE) file at the root of the repository.
 
-Before redistributing, reusing, or relicensing any part of the project, check:
+This repository also bundles components derived from or integrated with
+third-party projects under their own (compatible) licenses. Before
+redistributing, reusing, or relicensing any part of the project, check:
 
-- the `copyright` file;
+- the `LICENSE` file (project-wide license);
+- the `copyright` file (third-party attributions);
 - the repository credits;
 - the headers and notices present in inherited files.
 
-This helps avoid confusion between the project's original code and the external components included in it.
+The aggregate work is GPLv2-or-later because that is the most restrictive
+of the licenses combined here (`ndssfc` and the libretro frontend code).
+Individual components keep their original licenses where applicable.
+
+> **Note:** do not commit copyrighted ROM dumps to this repository or
+> attach them in issues / pull requests.
 
 ## Credits
 

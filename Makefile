@@ -94,6 +94,7 @@ ps2boot/platform/ps2/audio/ps2_audio_backend_audsrv.o \
 
 ROM_LOADER_OBJS = \
         ps2boot/rom_loader/rom_loader.o \
+        ps2boot/rom_loader/rom_loader_util.o \
         ps2boot/rom_loader/rom_zip.o \
         ps2boot/rom_loader/miniz/miniz.o \
         ps2boot/rom_loader/miniz/miniz_tdef.o \
@@ -278,7 +279,9 @@ push-win: $(EE_BIN)
 clean:
 	@echo "[clean] removendo binario e objetos..."
 	@rm -f "$(EE_BIN)"
-	@find . -type f \( -name '*.o' -o -name '*.d' \) -delete
+	@find ps2boot $(SRC_DIR) $(COMM_DIR) -type f \
+	    \( -name '*.o' -o -name '*.d' \) -delete 2>/dev/null || true
+	@rm -f "$(CORE_DIR)"/libretro.o "$(CORE_DIR)"/libretro.d
 	@echo "[clean] ok"
 
 rebuild: clean

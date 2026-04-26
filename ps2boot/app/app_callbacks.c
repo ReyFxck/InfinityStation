@@ -11,14 +11,11 @@
 #include "ps2_input.h"
 #include "app_overlay.h"
 #include "ps2_audio.h"
+#include "common/inf_log.h"
 
-/* QUIET_RUNTIME_LOGS_BEGIN */
-#define QUIET_RUNTIME_LOGS 1
-#if QUIET_RUNTIME_LOGS
-#undef printf
-#define printf(...) ((void)0)
-#endif
-/* QUIET_RUNTIME_LOGS_END */
+/* QUIET_RUNTIME_LOGS used to be defined here; logging is now controlled
+ * globally via INF_LOG_LEVEL in common/inf_log.h. */
+#define QUIET_RUNTIME_LOGS (INF_LOG_LEVEL == 0)
 
 #define DEBUG_OVERLAY 0
 #define APP_MAX_CORE_VARS 32

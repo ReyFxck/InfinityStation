@@ -8,12 +8,31 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reject unresolved merge conflict markers
+        run: |
+          # Look for canonical merge conflict markers anywhere in the
+          # tracked tree. The grep itself contains them in source, so
+          # we wrap each marker in a regex character class to avoid
+          # matching this very file.
+          if git grep -nE '^[<]{7} |^[=]{7}$|^[>]{7} ' -- . ':!.github/workflows/c-cpp.yml'; then
+            echo "::error::Unresolved merge conflict markers found." >&2
+            exit 1
+          fi
+
   build:
     runs-on: ubuntu-latest
+    needs: lint
 
     env:
       PS2DEV: /usr/local/ps2dev
       PS2SDK: /usr/local/ps2dev/ps2sdk
+      PS2DEV_RELEASE: v1.3.0
 
     steps:
       - name: Checkout
@@ -24,14 +43,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /usr/local/ps2dev
-          key: ${{ runner.os }}-ps2dev-prebuilt-v1
+          # Cache key includes the pinned release so a new toolchain
+          # version automatically invalidates the old cache.
+          key: ${{ runner.os }}-ps2dev-${{ env.PS2DEV_RELEASE }}-v2
 
-      - name: Install prebuilt PS2DEV toolchain
+      - name: Install pinned PS2DEV toolchain
         if: steps.cache-ps2dev.outputs.cache-hit != 'true'
         run: |
           sudo mkdir -p "$PS2DEV"
           sudo chown -R "$USER:$USER" "$PS2DEV"
-          curl -L https://github.com/ps2dev/ps2dev/releases/download/latest/ps2dev-ubuntu-latest.tar.gz -o /tmp/ps2dev.tar.gz
+          curl -fL \
+            "https://github.com/ps2dev/ps2dev/releases/download/${PS2DEV_RELEASE}/ps2dev-ubuntu-latest.tar.gz" \
+            -o /tmp/ps2dev.tar.gz
           tar -xzf /tmp/ps2dev.tar.gz --strip-components=1 -C "$PS2DEV"
 
       - name: Export PS2DEV environment
