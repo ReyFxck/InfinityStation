@@ -1,6 +1,6 @@
-#include "app_boot.h"
+#include "boot.h"
 #include <stdio.h>
-#include "app_launcher.h"
+#include "launcher.h"
 
 #include <debug.h>
 #include <sifrpc.h>

@@ -1,6 +1,6 @@
-#include "app_save.h"
+#include "save.h"
 
-#include "app_game.h"
+#include "game.h"
 #include "common/inf_paths.h"
 #include "libretro.h"
 

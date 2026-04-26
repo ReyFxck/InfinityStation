@@ -1,5 +1,5 @@
 #include "video_internal.h"
-#include "app_overlay.h"
+#include "app/overlay.h"
 #include <stdio.h>
 #include <kernel.h>
 

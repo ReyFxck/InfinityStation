@@ -1,11 +1,11 @@
-#include "app_transition.h"
+#include "transition.h"
 
-#include "app_boot.h"
-#include "app_callbacks.h"
-#include "app_game.h"
-#include "app_overlay.h"
-#include "app_launcher.h"
-#include "app_state.h"
+#include "boot.h"
+#include "callbacks.h"
+#include "game.h"
+#include "overlay.h"
+#include "launcher.h"
+#include "state.h"
 
 #include <string.h>
 

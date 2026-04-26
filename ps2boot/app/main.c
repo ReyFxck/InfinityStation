@@ -1,9 +1,9 @@
-#include "app_boot.h"
-#include "app_game.h"
-#include "app_runtime.h"
-#include "app_overlay.h"
-#include "app_state.h"
-#include "app_transition.h"
+#include "boot.h"
+#include "game.h"
+#include "runtime.h"
+#include "overlay.h"
+#include "state.h"
+#include "transition.h"
 
 #include <debug.h>
 #include <kernel.h>

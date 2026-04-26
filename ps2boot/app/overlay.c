@@ -1,4 +1,4 @@
-#include "app_overlay.h"
+#include "overlay.h"
 
 #include <stdio.h>
 #include <string.h>

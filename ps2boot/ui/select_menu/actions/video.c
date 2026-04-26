@@ -1,5 +1,5 @@
 #include "actions_internal.h"
-#include "frontend_config.h"
+#include "app/frontend_config.h"
 
 #include "video.h"
 

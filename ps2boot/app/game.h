@@ -4,6 +4,6 @@
 int app_game_load_selected(void);
 void app_game_unload_loaded(void);
 const char *app_game_loaded_identity_path(void);
-#include "app_save.h"
+#include "save.h"
 
 #endif

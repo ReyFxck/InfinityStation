@@ -1,5 +1,5 @@
-#include "app_callbacks.h"
-#include "app_state.h"
+#include "callbacks.h"
+#include "state.h"
 
 #include <stdbool.h>
 #include <stdarg.h>
@@ -9,7 +9,7 @@
 #include "libretro.h"
 #include "video.h"
 #include "input.h"
-#include "app_overlay.h"
+#include "overlay.h"
 #include "audio.h"
 #include "common/inf_log.h"
 

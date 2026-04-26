@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "app_game.h"
+#include "game.h"
 #include "frontend_config.h"
-#include "app_core_options.h"
+#include "core_options.h"
 #include "rom_loader/rom_loader.h"
 #include "common/inf_paths.h"
 
