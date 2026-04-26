@@ -17,7 +17,7 @@
 #include "ps2_audio.h"
 #include "ps2_disc.h"
 
-/* INF: símbolos exportados por ps2boot/assets/usb_irx_blob.S */
+/* INF: símbolos exportados por ps2boot/irx/usb_irx_blob.S */
 extern unsigned char _usbd_irx_start[];
 extern unsigned char _usbd_irx_end[];
 extern unsigned char _bdm_irx_start[];

@@ -87,8 +87,8 @@ ps2boot/platform/ps2/audio/ps2_audio_backend_audsrv.o \
         ps2boot/ui/launcher/launcher_browser_devices.o \
         ps2boot/ui/launcher/launcher_browser_scan.o \
         ps2boot/ui/launcher/launcher_browser_sort.o \
-    ps2boot/assets/audsrv_blob.o \
-    ps2boot/assets/usb_irx_blob.o \
+    ps2boot/irx/audsrv_blob.o \
+    ps2boot/irx/usb_irx_blob.o \
         $(CORE_SRCS:.c=.o) \
   $(COMM_OBJS)
 
@@ -96,10 +96,10 @@ ROM_LOADER_OBJS = \
         ps2boot/rom_loader/rom_loader.o \
         ps2boot/rom_loader/rom_loader_util.o \
         ps2boot/rom_loader/rom_zip.o \
-        ps2boot/rom_loader/miniz/miniz.o \
-        ps2boot/rom_loader/miniz/miniz_tdef.o \
-        ps2boot/rom_loader/miniz/miniz_tinfl.o \
-        ps2boot/rom_loader/miniz/miniz_zip.o
+        ps2boot/rom_loader/vendor/miniz/miniz.o \
+        ps2boot/rom_loader/vendor/miniz/miniz_tdef.o \
+        ps2boot/rom_loader/vendor/miniz/miniz_tinfl.o \
+        ps2boot/rom_loader/vendor/miniz/miniz_zip.o
 
 APP_OBJS = \
         ps2boot/app/app_game.o \
@@ -158,8 +158,8 @@ EE_OBJS = \
 
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
 EE_CFLAGS += -O3 -G0 -DLAGFIX -DLOAD_FROM_MEMORY -DUSE_BLARGG_APU
-EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
-EE_CFLAGS += -Ips2boot/app -Ips2boot/platform/ps2 -Ips2boot/platform/ps2/audio -Ips2boot/platform/ps2/video -Ips2boot/platform/ps2/input -Ips2boot/platform/ps2/menu -Ips2boot/platform/ps2/storage -Ips2boot/platform/ps2/debug -Ips2boot/assets
+EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/vendor -Ips2boot/rom_loader/vendor/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
+EE_CFLAGS += -Ips2boot/app -Ips2boot/platform/ps2 -Ips2boot/platform/ps2/audio -Ips2boot/platform/ps2/video -Ips2boot/platform/ps2/input -Ips2boot/platform/ps2/menu -Ips2boot/platform/ps2/storage -Ips2boot/platform/ps2/debug -Ips2boot/irx -Ips2boot/ui/font
 
 HOT_CORE_OBJS = \
 	$(SRC_DIR)/apu_blargg.o \
