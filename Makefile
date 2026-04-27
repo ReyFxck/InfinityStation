@@ -141,9 +141,7 @@ LAUNCHER_OBJS = \
         ps2boot/ui/launcher/browser/open.o \
         ps2boot/ui/launcher/browser/nav.o \
         ps2boot/ui/launcher/font/browser_font.o \
-        ps2boot/ui/launcher/background/background.o \
-        ps2boot/ui/launcher/background/bg_ntsc_data.o \
-        ps2boot/ui/launcher/background/bg_pal_data.o
+        ps2boot/ui/launcher/background/background.o
 
 VIDEO_EXTRA_OBJS = \
         ps2boot/video/video_ui.o \

@@ -170,8 +170,14 @@ static void launcher_render_static_base(int kind)
 
 static void launcher_begin_cached_frame(int kind)
 {
-    if (!g_launcher_static_cache_valid || g_launcher_static_cache_kind != kind)
-        launcher_render_static_base(kind);
+    /* The launcher background is now an animated starfield (see
+     * background.c), so the cache for the "static" base has to be
+     * rebuilt every frame to advance the stars. The glass panel and
+     * credit overlay are still cheap CPU-side draws, so the rebuild
+     * stays well under one millisecond. The cache is preserved so
+     * the per-frame memcpy from g_launcher_static_cache into
+     * g_launcher_upload is still a single bulk copy. */
+    launcher_render_static_base(kind);
 
     g_ui_target_launcher = 1;
 
