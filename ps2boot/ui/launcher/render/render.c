@@ -144,16 +144,16 @@ static int launcher_static_kind_for_page(int page)
 
 static void launcher_render_static_base(int kind)
 {
-    /* Builds the per-frame "non-page" layer directly into the upload
-     * buffer. There is no longer a separate static cache: now that the
-     * starfield BG (background.c) animates every frame, the cache had
-     * to be rebuilt every frame anyway, so the two memcpys it implied
-     * (~1.1 MB / frame) plus the cache buffer itself (~573 KB of bss)
-     * were pure waste. Drawing straight into g_launcher_upload removes
-     * both. */
+    /* Builds the per-frame UI layer directly into the upload buffer.
+     * The starfield background no longer rasterizes here: stars are
+     * issued as GS sprite primitives by launcher_video_end_frame(),
+     * drawn UNDER the upload texture (which is now transparent in
+     * regions that put_pixel never touches). All we do here is
+     * advance the star simulation and draw the (still software-
+     * rasterized) panel + credits into the upload buffer. */
     ps2_launcher_video_begin_frame(0);
 
-    launcher_background_draw();
+    launcher_background_advance();
 
     if (kind == LAUNCHER_STATIC_KIND_MAIN)
         draw_glass_panel(180, 125, 280, 220);
