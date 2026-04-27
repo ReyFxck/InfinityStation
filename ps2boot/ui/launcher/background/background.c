@@ -137,22 +137,6 @@ static uint16_t star_color_rgb565(uint8_t palette, uint32_t brightness_q8)
                       ((b & 0xF8u) >> 3));
 }
 
-static void launcher_starfield_clear(void)
-{
-    unsigned x;
-    unsigned y;
-
-    /* Pure black background, as requested. We avoid memset on the
-     * upload buffer directly because put_pixel() runs the configured
-     * color-conversion path, keeping the framebuffer format
-     * consistent with how the rest of the launcher writes pixels. */
-    for (y = 0; y < PS2_LAUNCHER_HEIGHT; y++) {
-        for (x = 0; x < PS2_LAUNCHER_WIDTH; x++) {
-            ps2_launcher_video_put_pixel(x, y, 0x0000);
-        }
-    }
-}
-
 static void launcher_starfield_step_and_draw(void)
 {
     const int32_t  cx = (int32_t)(PS2_LAUNCHER_WIDTH  / 2);
@@ -224,9 +208,15 @@ static void launcher_starfield_step_and_draw(void)
 
 void launcher_background_draw(void)
 {
+    /* The caller (launcher_render_static_base) just ran
+     * ps2_launcher_video_begin_frame(0), which already cleared the
+     * upload buffer to black. Doing a second full-screen clear here
+     * was costing ~286 720 extra pixel writes per frame and spiked
+     * EE usage to ~36% for what is otherwise a static menu. The
+     * starfield only needs to plot the ~256 visible stars on top of
+     * the framebuffer the caller already prepared. */
     if (!g_stars_initialized)
         launcher_starfield_init();
 
-    launcher_starfield_clear();
     launcher_starfield_step_and_draw();
 }
