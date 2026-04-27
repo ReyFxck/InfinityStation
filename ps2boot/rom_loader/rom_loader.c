@@ -9,12 +9,20 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <libcdvd.h>
+
 /* Short aliases for shared helpers to keep call sites compact. */
 #define is_cdrom_path  rom_loader_util_is_cdrom_path
 #define ext_equals     rom_loader_util_ext_equals
 #define base_name_only rom_loader_util_base_name_only
 
 #define DISC_READ_CHUNK (128 * 1024)
+#define ISO_SECTOR_SIZE 2048
+
+static int rom_loader_is_cdlba_path(const char *path)
+{
+    return path && !strncmp(path, "cdlba:", 6);
+}
 
 static unsigned char *g_rom_loader_buffer = NULL;
 static size_t g_rom_loader_buffer_size = 0;
@@ -182,8 +190,118 @@ static int load_plain_file_stdio(const char *path, void **out_data, size_t *out_
     return 1;
 }
 
+/* Parse a 'cdlba:LSN:SIZE:NAME' URI into its numeric fields. The trailing
+ * NAME is informational (used by the launcher only), so we accept any
+ * value — even an empty one. Returns 1 on success, 0 on a malformed URI. */
+static int rom_loader_parse_cdlba(const char *path,
+                                  unsigned int *out_lsn,
+                                  unsigned int *out_size)
+{
+    const char *p;
+    unsigned int lsn = 0;
+    unsigned int size = 0;
+
+    if (!rom_loader_is_cdlba_path(path))
+        return 0;
+
+    p = path + 6;
+    if (!*p)
+        return 0;
+
+    while (*p >= '0' && *p <= '9') {
+        lsn = lsn * 10u + (unsigned int)(*p - '0');
+        p++;
+    }
+    if (*p != ':')
+        return 0;
+    p++;
+
+    while (*p >= '0' && *p <= '9') {
+        size = size * 10u + (unsigned int)(*p - '0');
+        p++;
+    }
+    if (*p != ':')
+        return 0;
+
+    if (out_lsn)  *out_lsn = lsn;
+    if (out_size) *out_size = size;
+    return 1;
+}
+
+static int rom_loader_cdlba_read_sectors(unsigned int lsn,
+                                         unsigned int sector_count,
+                                         unsigned char *buf)
+{
+    sceCdRMode mode;
+
+    memset(&mode, 0, sizeof(mode));
+    mode.trycount   = 0;
+    mode.spindlctrl = SCECdSpinNom;
+    mode.datapattern = SCECdSecS2048;
+    mode.pad        = 0;
+
+    if (!sceCdRead(lsn, sector_count, buf, &mode))
+        return 0;
+
+    sceCdSync(0);
+    return 1;
+}
+
+static int load_cdlba_file_once(const char *path, void **out_data, size_t *out_size)
+{
+    unsigned int lsn = 0;
+    unsigned int size = 0;
+    unsigned char *buf;
+
+    if (!rom_loader_parse_cdlba(path, &lsn, &size)) {
+        INF_LOG_DBG("load_cdlba_file_once: URI malformada '%s'\n",
+               path ? path : "");
+        return 0;
+    }
+
+    if (size == 0) {
+        INF_LOG_DBG("load_cdlba_file_once: tamanho zero lsn=%u\n", lsn);
+        return 0;
+    }
+
+    {
+        unsigned int padded_size;
+        unsigned int sector_count;
+
+        sector_count = (size + ISO_SECTOR_SIZE - 1) / ISO_SECTOR_SIZE;
+        padded_size  = sector_count * ISO_SECTOR_SIZE;
+
+        /* sceCdRead writes whole sectors; we acquire a sector-aligned
+         * buffer big enough for the padded read, then expose the real
+         * file length to the caller (the trailing slack is harmless
+         * for the SNES core, which trims based on out_size). */
+        buf = (unsigned char *)rom_loader_acquire_buffer((size_t)padded_size);
+        if (!buf) {
+            INF_LOG_DBG("load_cdlba_file_once: buffer %u bytes falhou\n",
+                   padded_size);
+            return 0;
+        }
+
+        if (!rom_loader_cdlba_read_sectors(lsn, sector_count, buf)) {
+            INF_LOG_DBG("load_cdlba_file_once: sceCdRead falhou lsn=%u sectors=%u\n",
+                   lsn, sector_count);
+            return 0;
+        }
+
+        *out_data = buf;
+        *out_size = (size_t)size;
+
+        INF_LOG_DBG("load_cdlba_file_once OK: lsn=%u size=%u sectors=%u\n",
+               lsn, size, sector_count);
+        return 1;
+    }
+}
+
 static int load_plain_file_once(const char *path, void **out_data, size_t *out_size)
 {
+    if (rom_loader_is_cdlba_path(path))
+        return load_cdlba_file_once(path, out_data, out_size);
+
     if (is_cdrom_path(path))
         return read_disc_file_once(path, out_data, out_size);
 
@@ -323,8 +441,27 @@ int rom_loader_load(const char *path, void **out_data, size_t *out_size,
     }
 
     if (out_name && out_name_size > 0) {
+        const char *src;
         char *semi;
-        strncpy(out_name, base_name_only(path), out_name_size - 1);
+
+        /* For cdlba: URIs the trailing 'NAME' field carries the pretty
+         * Joliet/PVD filename; everything before it is metadata we
+         * don't want to surface to the libretro core. */
+        if (rom_loader_is_cdlba_path(path)) {
+            const char *p = path + 6;
+            int colons = 0;
+
+            while (*p && colons < 2) {
+                if (*p == ':')
+                    colons++;
+                p++;
+            }
+            src = p;
+        } else {
+            src = base_name_only(path);
+        }
+
+        strncpy(out_name, src, out_name_size - 1);
         out_name[out_name_size - 1] = '\0';
         semi = strrchr(out_name, ';');
         if (semi)

@@ -401,6 +401,10 @@ iso-root: $(EE_BIN) iso-check
 		echo "[iso-root] ISO_ROMS_DIR vazio; ISO sera criada sem ROMs"; \
 	fi
 
+# -J / -joliet-long add a Supplementary Volume Descriptor with the
+# original (UCS-2) filenames intact. The launcher reads the SVD when
+# present so users see e.g. "Super Mario World 2 - Yoshi's Island"
+# instead of the truncated PVD form 'SUPER_MARIO_WORLD_2___YOSHI.SFC'.
 iso: iso-root
 	@mkdir -p "$$(dirname "$(ISO_OUT)")"
 	@xorriso -as mkisofs \
@@ -408,6 +412,7 @@ iso: iso-root
 		-sysid PLAYSTATION \
 		-iso-level 2 \
 		-full-iso9660-filenames \
+		-J -joliet-long \
 		-o "$(ISO_OUT)" \
 		"$(ISO_ROOT_DIR)"
 	@echo "[iso] $(ISO_OUT)"

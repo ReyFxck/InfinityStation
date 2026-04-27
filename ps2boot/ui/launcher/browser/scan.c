@@ -11,6 +11,10 @@
 #include <libcdvd.h>
 
 #define ISO_SECTOR_SIZE 2048
+#define ISO_MAX_VD_SCAN  16
+#define ISO_VD_TYPE_PVD  1
+#define ISO_VD_TYPE_SVD  2
+#define ISO_VD_TYPE_TERM 255
 
 typedef struct iso_dir_info
 {
@@ -18,6 +22,13 @@ typedef struct iso_dir_info
     unsigned int size;
     int is_dir;
 } iso_dir_info_t;
+
+/* When > 0, the directory walker treats name records as Joliet UCS-2BE
+ * and decodes the low byte of each pair as ASCII (non-ASCII -> '?').
+ * The PVD walker keeps the legacy single-byte path. The same record
+ * format is used by both volume descriptors, only name encoding
+ * differs. */
+static int g_iso_use_joliet = 0;
 
 static int launcher_browser_is_host_path(const char *path)
 {
@@ -135,8 +146,19 @@ static void iso_extract_name_raw(const unsigned char *rec, char *out, size_t out
         return;
     }
 
-    for (i = 0; i < len && j + 1 < out_size; i++)
-        out[j++] = (char)src[i];
+    if (g_iso_use_joliet) {
+        /* UCS-2BE: pairs of bytes, take the low byte when the high byte
+         * is zero, otherwise emit '?'. Names from common toolchains
+         * (xorriso, mkisofs, genisoimage) are pure ASCII for ROM dumps. */
+        for (i = 0; i + 1 < len && j + 1 < out_size; i += 2) {
+            unsigned char hi = src[i];
+            unsigned char lo = src[i + 1];
+            out[j++] = (hi == 0) ? (char)lo : '?';
+        }
+    } else {
+        for (i = 0; i < len && j + 1 < out_size; i++)
+            out[j++] = (char)src[i];
+    }
 
     out[j] = '\0';
 }
@@ -175,19 +197,73 @@ static int iso_read_sector(unsigned int lsn, unsigned char *buf)
     return 1;
 }
 
+static int iso_sector_is_volume_descriptor(const unsigned char *sector)
+{
+    return memcmp(sector + 1, "CD001", 5) == 0;
+}
+
+static int iso_sector_is_joliet_svd(const unsigned char *sector)
+{
+    /* Per ECMA-119/8.5.6 + Joliet spec, escape sequences live in
+     * bytes 88..119 of the SVD. Joliet UCS-2 levels 1/2/3 are
+     * 0x25 0x2F 0x40, 0x25 0x2F 0x43, 0x25 0x2F 0x45 respectively.
+     * Any of them is acceptable; level 3 (M) is the modern default. */
+    const unsigned char *esc = sector + 88;
+    int i;
+
+    if (sector[0] != ISO_VD_TYPE_SVD)
+        return 0;
+
+    for (i = 0; i + 2 < 32; i++) {
+        if (esc[i] == 0x25 && esc[i + 1] == 0x2F &&
+            (esc[i + 2] == 0x40 || esc[i + 2] == 0x43 || esc[i + 2] == 0x45))
+            return 1;
+    }
+
+    return 0;
+}
+
 static int iso_get_root(iso_dir_info_t *out)
 {
     unsigned char sector[ISO_SECTOR_SIZE] __attribute__((aligned(64)));
     const unsigned char *rec;
+    unsigned int lba;
+    int joliet_lba = -1;
+    int pvd_lba = -1;
 
     if (!out)
         return 0;
 
-    if (!iso_read_sector(16, sector))
-        return 0;
+    /* Walk volume descriptors looking for a Joliet SVD; remember the
+     * PVD as a fallback. Stop at the terminator or after a fixed cap
+     * to avoid runaway reads on a malformed disc. */
+    for (lba = 16; lba < 16 + ISO_MAX_VD_SCAN; lba++) {
+        if (!iso_read_sector(lba, sector))
+            break;
 
-    if (sector[0] != 1 || memcmp(sector + 1, "CD001", 5) != 0)
+        if (!iso_sector_is_volume_descriptor(sector))
+            break;
+
+        if (sector[0] == ISO_VD_TYPE_TERM)
+            break;
+
+        if (sector[0] == ISO_VD_TYPE_PVD && pvd_lba < 0)
+            pvd_lba = (int)lba;
+        else if (iso_sector_is_joliet_svd(sector) && joliet_lba < 0)
+            joliet_lba = (int)lba;
+    }
+
+    if (joliet_lba >= 0) {
+        if (!iso_read_sector((unsigned int)joliet_lba, sector))
+            return 0;
+        g_iso_use_joliet = 1;
+    } else if (pvd_lba >= 0) {
+        if (!iso_read_sector((unsigned int)pvd_lba, sector))
+            return 0;
+        g_iso_use_joliet = 0;
+    } else {
         return 0;
+    }
 
     rec = sector + 156;
     out->lsn = iso_le32(rec + 2);
@@ -298,38 +374,25 @@ static void iso_build_disc_dir_path(char *out, size_t out_size,
     }
 }
 
-static void iso_build_cdrom_file_path(char *out, size_t out_size,
-                                      const char *rel_path,
-                                      const char *iso_name_raw)
+/* Disc-resident files are referenced by absolute LBA + size, not by
+ * an ISO 9660 path. The browser already walks the directory records
+ * by sector reads, so we know the file's starting LBA and length
+ * authoritatively. Encoding both into the entry's path lets the ROM
+ * loader read the file via sceCdRead and skip the IOP CDVDFS open()
+ * entirely (which mis-resolves names truncated to >30 chars on legacy
+ * CDVDMAN builds — see rom_loader handling of the cdlba: scheme). */
+static void iso_build_disc_file_path(char *out, size_t out_size,
+                                     unsigned int lsn,
+                                     unsigned int size,
+                                     const char *iso_name_pretty)
 {
-    const char prefix[] = "cdrom0:\\";
-    size_t pos = 0;
-    size_t i;
-
     if (!out || out_size == 0)
         return;
 
-    memcpy(out + pos, prefix, sizeof(prefix) - 1);
-    pos += sizeof(prefix) - 1;
-
-    if (rel_path && rel_path[0]) {
-        for (i = 0; rel_path[i] && pos + 1 < out_size; i++) {
-            char c = rel_path[i];
-            out[pos++] = (c == '/') ? '\\' : c;
-        }
-
-        if (pos + 1 < out_size)
-            out[pos++] = '\\';
-    }
-
-    if (iso_name_raw) {
-        for (i = 0; iso_name_raw[i] && pos + 1 < out_size; i++) {
-            char c = iso_name_raw[i];
-            out[pos++] = (c == '/') ? '\\' : c;
-        }
-    }
-
-    out[pos] = '\0';
+    if (!INF_SNPRINTF_OK(out, out_size, "cdlba:%u:%u:%s",
+                         lsn, size,
+                         iso_name_pretty ? iso_name_pretty : ""))
+        out[0] = '\0';
 }
 
 static int iso_list_dir_filtered(const char *rel_path)
@@ -371,10 +434,14 @@ static int iso_list_dir_filtered(const char *rel_path)
             is_dir = (rec[25] & 0x02) ? 1 : 0;
 
             if (name[0] && (is_dir || rom_loader_is_supported(raw_name) || rom_loader_is_supported(name))) {
-                if (is_dir)
+                if (is_dir) {
                     iso_build_disc_dir_path(full_path, sizeof(full_path), rel_path, name);
-                else
-                    iso_build_cdrom_file_path(full_path, sizeof(full_path), rel_path, raw_name);
+                } else {
+                    unsigned int file_lsn = iso_le32(rec + 2);
+                    unsigned int file_size = iso_le32(rec + 10);
+                    iso_build_disc_file_path(full_path, sizeof(full_path),
+                                             file_lsn, file_size, name);
+                }
 
                 if (!launcher_browser_append_entry(name, full_path, is_dir)) {
                     state->last_error = 1;
