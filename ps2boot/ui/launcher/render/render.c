@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <string.h>
 
 #include "render.h"
 
@@ -19,10 +18,6 @@ enum {
     LAUNCHER_STATIC_KIND_BROWSER = 1,
     LAUNCHER_STATIC_KIND_OPTIONS = 2
 };
-
-static uint16_t g_launcher_static_cache[PS2_LAUNCHER_HEIGHT][PS2_LAUNCHER_WIDTH];
-static int g_launcher_static_cache_valid = 0;
-static int g_launcher_static_cache_kind = LAUNCHER_STATIC_KIND_NONE;
 
 static void launcher_draw_credit_underline(int x, int y, int w, uint16_t color)
 {
@@ -149,6 +144,13 @@ static int launcher_static_kind_for_page(int page)
 
 static void launcher_render_static_base(int kind)
 {
+    /* Builds the per-frame "non-page" layer directly into the upload
+     * buffer. There is no longer a separate static cache: now that the
+     * starfield BG (background.c) animates every frame, the cache had
+     * to be rebuilt every frame anyway, so the two memcpys it implied
+     * (~1.1 MB / frame) plus the cache buffer itself (~573 KB of bss)
+     * were pure waste. Drawing straight into g_launcher_upload removes
+     * both. */
     ps2_launcher_video_begin_frame(0);
 
     launcher_background_draw();
@@ -159,31 +161,13 @@ static void launcher_render_static_base(int kind)
         draw_glass_panel(95, 95, 450, 285);
 
     launcher_draw_credit_overlay();
-
-    memcpy(g_launcher_static_cache,
-           g_launcher_upload,
-           sizeof(g_launcher_static_cache));
-
-    g_launcher_static_cache_valid = 1;
-    g_launcher_static_cache_kind = kind;
 }
 
 static void launcher_begin_cached_frame(int kind)
 {
-    /* The launcher background is now an animated starfield (see
-     * background.c), so the cache for the "static" base has to be
-     * rebuilt every frame to advance the stars. The glass panel and
-     * credit overlay are still cheap CPU-side draws, so the rebuild
-     * stays well under one millisecond. The cache is preserved so
-     * the per-frame memcpy from g_launcher_static_cache into
-     * g_launcher_upload is still a single bulk copy. */
     launcher_render_static_base(kind);
 
     g_ui_target_launcher = 1;
-
-    memcpy(g_launcher_upload,
-           g_launcher_static_cache,
-           sizeof(g_launcher_static_cache));
 }
 
 void launcher_render(const launcher_state_t *state)
