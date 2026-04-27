@@ -1,8 +1,12 @@
 PYTHON ?= python3
 ROMS_DIR ?= ./roms_in
 DISC_ROOT ?= ./disc_root
-DATA_ISO ?= InfinityStation-DVD.iso
-BOOT_ISO ?= InfinityStation-BOOT.iso
+# OPL exige '<GAME_ID>.<NomeBonito>.iso'. Veja Makefile (raiz) e
+# build_bootable_iso.sh para detalhes do mismatch que causa tela branca.
+ISO_GAME_ID ?= SLUS_999.99
+ISO_GAME_NAME ?= InfinityStation
+DATA_ISO ?= $(ISO_GAME_ID).$(ISO_GAME_NAME).iso
+BOOT_ISO ?= $(ISO_GAME_ID).$(ISO_GAME_NAME).iso
 ELF ?= ../ps2snes2005_boot.elf
 
 prepare-disc:
@@ -12,7 +16,8 @@ build-data-iso:
 	./build_disc.sh "$(DISC_ROOT)" "$(DATA_ISO)"
 
 build-boot-iso:
-	./build_bootable_iso.sh "$(ELF)" "$(DISC_ROOT)" "$(BOOT_ISO)"
+	ISO_GAME_ID="$(ISO_GAME_ID)" ISO_GAME_NAME="$(ISO_GAME_NAME)" \
+	  ./build_bootable_iso.sh "$(ELF)" "$(DISC_ROOT)" "$(BOOT_ISO)"
 
 clean-disc:
 	rm -rf "$(DISC_ROOT)" ./boot_iso_root "$(DATA_ISO)" "$(BOOT_ISO)"
