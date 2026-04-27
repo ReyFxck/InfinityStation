@@ -59,6 +59,12 @@ static int app_game_should_preload(const char *path)
     if (!strncmp(path, "host:", 5))
         return 1;
 
+    /* cdlba:LSN:SIZE:NAME paths are read directly via sceCdRead by the
+     * rom loader; the libretro core can't open them itself, so we must
+     * preload the file into RAM and hand the buffer over via game.data. */
+    if (!strncmp(path, "cdlba:", 6))
+        return 1;
+
     return 0;
 #endif
 }
@@ -80,6 +86,15 @@ static void app_game_build_identity_path(const char *selected_path,
 
     if (!selected_path || !selected_path[0])
         return;
+
+    /* cdlba:LSN:SIZE:NAME is an internal URI for sector-based reads;
+     * libretro cores derive save-state/SRAM filenames from game.path,
+     * so we surface a stable, ASCII path of the form "disc:/NAME"
+     * instead of leaking LBA numbers into save filenames. */
+    if (!strncmp(selected_path, "cdlba:", 6) && loaded_name && loaded_name[0]) {
+        snprintf(out, out_size, "disc:/%s", loaded_name);
+        return;
+    }
 
     if (!app_game_ext_equals(selected_path, ".zip") || !loaded_name || !loaded_name[0]) {
         snprintf(out, out_size, "%s", selected_path);

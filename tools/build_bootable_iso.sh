@@ -29,12 +29,16 @@ VER = 1.0
 VMODE = NTSC
 CNF
 
+# -J / -joliet-long emits a Joliet SVD with the original UCS-2 filenames
+# so the launcher renders pretty names; the ELF/SYSTEM.CNF entries on
+# the PVD stay 8.3-clean for the PS2 BIOS boot path, which only reads
+# the Primary Volume Descriptor.
 if command -v xorriso >/dev/null 2>&1; then
-  xorriso -as mkisofs -V INFSTATION_PS2 -o "$ISO_NAME" "$WORK_DIR"
+  xorriso -as mkisofs -V INFSTATION_PS2 -J -joliet-long -o "$ISO_NAME" "$WORK_DIR"
 elif command -v genisoimage >/dev/null 2>&1; then
-  genisoimage -V INFSTATION_PS2 -o "$ISO_NAME" "$WORK_DIR"
+  genisoimage -V INFSTATION_PS2 -J -joliet-long -o "$ISO_NAME" "$WORK_DIR"
 elif command -v mkisofs >/dev/null 2>&1; then
-  mkisofs -V INFSTATION_PS2 -o "$ISO_NAME" "$WORK_DIR"
+  mkisofs -V INFSTATION_PS2 -J -joliet-long -o "$ISO_NAME" "$WORK_DIR"
 else
   echo "nenhum gerador de ISO encontrado (xorriso, genisoimage ou mkisofs)" >&2
   exit 1

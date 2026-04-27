@@ -9,12 +9,17 @@ if [ ! -d "$DISC_ROOT" ]; then
   exit 1
 fi
 
+# -J / -joliet-long add a Joliet Supplementary Volume Descriptor with
+# the original UCS-2 filenames intact, so the launcher (which reads
+# Joliet when present) shows pretty names instead of the truncated
+# uppercase PVD ones ("SUPER_MARIO_WORLD_2___YOSHI.SFC" -> the real
+# "Super Mario World 2 - Yoshi's Island (USA).sfc").
 if command -v xorriso >/dev/null 2>&1; then
-  xorriso -as mkisofs -V INFSTATION_DVD -o "$ISO_NAME" "$DISC_ROOT"
+  xorriso -as mkisofs -V INFSTATION_DVD -J -joliet-long -o "$ISO_NAME" "$DISC_ROOT"
 elif command -v genisoimage >/dev/null 2>&1; then
-  genisoimage -V INFSTATION_DVD -o "$ISO_NAME" "$DISC_ROOT"
+  genisoimage -V INFSTATION_DVD -J -joliet-long -o "$ISO_NAME" "$DISC_ROOT"
 elif command -v mkisofs >/dev/null 2>&1; then
-  mkisofs -V INFSTATION_DVD -o "$ISO_NAME" "$DISC_ROOT"
+  mkisofs -V INFSTATION_DVD -J -joliet-long -o "$ISO_NAME" "$DISC_ROOT"
 else
   echo "nenhum gerador de ISO encontrado (xorriso, genisoimage ou mkisofs)" >&2
   exit 1
