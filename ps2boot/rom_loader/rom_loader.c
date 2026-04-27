@@ -199,12 +199,40 @@ static int try_candidate(const char *candidate, void **out_data, size_t *out_siz
     return load_plain_file_once(candidate, out_data, out_size);
 }
 
+/* Tabela de candidatos para 'host:' do PS2: (prefixo, fonte).
+ * 'fonte' eh 0 = path relativo completo (ex.: 'roms/sub/x.sfc'),
+ * 1 = apenas o nome do arquivo (ex.: 'x.sfc'). A ordem importa:
+ * tentamos do mais especifico (host:./<rel>) ao mais permissivo
+ * (basename direto), parando no primeiro que abrir.
+ *
+ * Adicionar um candidato novo agora eh acrescentar uma linha aqui
+ * (em vez de criar mais uma cascata de strcmp). */
+static const struct {
+    const char *prefix;
+    unsigned    use_base;  /* 0 = rel, 1 = basename */
+} g_host_candidate_table[] = {
+    { "host:./", 0 },
+    { "host:",   0 },
+    { "./",      0 },
+    { "",        0 },
+    { "host:./", 1 },
+    { "",        1 },
+};
+
+#define HOST_CANDIDATE_COUNT \
+    (sizeof(g_host_candidate_table) / sizeof(g_host_candidate_table[0]))
+
+#define HOST_CANDIDATE_BUF_SIZE 576
+
 static int load_host_file_with_fallbacks(const char *path, void **out_data, size_t *out_size)
 {
     char rel[512];
     char base[256];
-    char c1[576], c2[576], c3[576], c4[576], c5[576], c6[576];
+    char tried[HOST_CANDIDATE_COUNT][HOST_CANDIDATE_BUF_SIZE];
+    char buf[HOST_CANDIDATE_BUF_SIZE];
     const char *rp;
+    size_t i, j;
+    unsigned n_tried = 0;
 
     rp = host_rel_path(path);
     if (!rp[0])
@@ -219,22 +247,32 @@ static int load_host_file_with_fallbacks(const char *path, void **out_data, size
     if (!INF_SNPRINTF_OK(base, sizeof(base), "%s", base_name_only(rp)))
         return 0;
 
-    /* Os buffers c1..c6 sao maiores que rel/base com folga para os
-     * prefixos, mas mantemos o check por consistencia: candidato
-     * truncado vira "" e try_candidate o ignora. */
-    if (!INF_SNPRINTF_OK(c1, sizeof(c1), "host:./%s", rel)) c1[0] = '\0';
-    if (!INF_SNPRINTF_OK(c2, sizeof(c2), "host:%s", rel))   c2[0] = '\0';
-    if (!INF_SNPRINTF_OK(c3, sizeof(c3), "./%s", rel))      c3[0] = '\0';
-    if (!INF_SNPRINTF_OK(c4, sizeof(c4), "%s", rel))        c4[0] = '\0';
-    if (!INF_SNPRINTF_OK(c5, sizeof(c5), "host:./%s", base)) c5[0] = '\0';
-    if (!INF_SNPRINTF_OK(c6, sizeof(c6), "%s", base))       c6[0] = '\0';
+    for (i = 0; i < HOST_CANDIDATE_COUNT; i++) {
+        const char *src = g_host_candidate_table[i].use_base ? base : rel;
+        unsigned is_dup = 0;
 
-    if (try_candidate(c1, out_data, out_size)) return 1;
-    if (strcmp(c2, c1) && try_candidate(c2, out_data, out_size)) return 1;
-    if (strcmp(c3, c1) && strcmp(c3, c2) && try_candidate(c3, out_data, out_size)) return 1;
-    if (strcmp(c4, c1) && strcmp(c4, c2) && strcmp(c4, c3) && try_candidate(c4, out_data, out_size)) return 1;
-    if (strcmp(c5, c1) && strcmp(c5, c2) && strcmp(c5, c3) && strcmp(c5, c4) && try_candidate(c5, out_data, out_size)) return 1;
-    if (strcmp(c6, c1) && strcmp(c6, c2) && strcmp(c6, c3) && strcmp(c6, c4) && strcmp(c6, c5) && try_candidate(c6, out_data, out_size)) return 1;
+        if (!INF_SNPRINTF_OK(buf, sizeof(buf), "%s%s",
+                             g_host_candidate_table[i].prefix, src))
+            continue; /* truncated -> skip silently */
+
+        for (j = 0; j < n_tried; j++) {
+            if (!strcmp(buf, tried[j])) {
+                is_dup = 1;
+                break;
+            }
+        }
+        if (is_dup)
+            continue;
+
+        if (try_candidate(buf, out_data, out_size))
+            return 1;
+
+        /* Lembra que tentamos esse buffer para evitar duplicatas
+         * nas iteracoes seguintes (alguns prefixos coincidem com
+         * 'rel'/'base' ja absolutos). */
+        memcpy(tried[n_tried], buf, sizeof(tried[n_tried]));
+        n_tried++;
+    }
 
     return 0;
 }
