@@ -2,20 +2,27 @@
 
 #include <stdint.h>
 
+#include <draw.h>
+#include <draw2d.h>
+#include <draw_types.h>
+
 #include "launcher_video.h"
 
 /* Procedural starfield background.
  *
- * Replaces the previous statically-baked PAL/NTSC RGB565 bitmaps
- * (bg_pal_data.c + bg_ntsc_data.c, ~1.23 MB combined) with a
- * deterministic 3D point cloud of 256 stars drifting calmly toward
- * the camera. Saves the 1.2 MB those bitmaps occupied in the EE
- * .rodata segment without adding noticeable per-frame CPU cost
- * (256 plot operations + a handful of integer ops per star).
+ * Stars are drawn as GS sprite primitives, emitted directly into the
+ * launcher's GS DMA chain (see launcher_video.c). Drawing the stars
+ * on the GS instead of software-rasterizing them into the upload
+ * buffer:
+ *   - moves the per-pixel work off the EE (saves ~ms per frame),
+ *   - lets us layer them BEHIND the UI texture: the texture clears
+ *     to RGB=0,A=0 (transparent) and only put_pixel'd UI elements
+ *     have A=1, so the textured-rect alpha test reveals stars in
+ *     untouched regions.
  *
- * Math is kept entirely in s32 fixed-point so the EE doesn't have to
- * fall back to its (slow) FPU emulation path. The deterministic LCG
- * means the field is identical across boots, no seeding needed.
+ * Math is kept entirely in s32 fixed-point so the EE doesn't fall
+ * back to its (slow) FPU emulation path. The deterministic LCG means
+ * the field is identical across boots, no seeding needed.
  */
 
 #define STAR_COUNT      256
@@ -57,8 +64,7 @@ static int    g_stars_initialized = 0;
 
 /* 32-bit linear-congruential generator (Numerical Recipes constants).
  * Deterministic, no seed needed; produces a balanced distribution of
- * star positions and palette indices. Cheap enough to call multiple
- * times per frame without measurable cost. */
+ * star positions and palette indices. */
 static uint32_t g_lcg_state = 0xDEADBEEFu;
 
 static uint32_t lcg_next(void)
@@ -111,10 +117,14 @@ static void launcher_starfield_init(void)
     g_stars_initialized = 1;
 }
 
-static uint16_t star_color_rgb565(uint8_t palette, uint32_t brightness_q8)
+static void star_color_rgb8(uint8_t palette,
+                            uint32_t brightness_q8,
+                            uint8_t *out_r,
+                            uint8_t *out_g,
+                            uint8_t *out_b)
 {
     /* brightness_q8 is in [0, 256]; treats 256 as "full intensity". */
-    rgb8_t  base;
+    rgb8_t   base;
     uint32_t r;
     uint32_t g;
     uint32_t b;
@@ -131,52 +141,69 @@ static uint16_t star_color_rgb565(uint8_t palette, uint32_t brightness_q8)
     g = ((uint32_t)base.g * brightness_q8) >> 8;
     b = ((uint32_t)base.b * brightness_q8) >> 8;
 
-    /* RGB565: top 5 bits R, middle 6 bits G, low 5 bits B. */
-    return (uint16_t)(((r & 0xF8u) << 8) |
-                      ((g & 0xFCu) << 3) |
-                      ((b & 0xF8u) >> 3));
+    if (r > 255u) r = 255u;
+    if (g > 255u) g = 255u;
+    if (b > 255u) b = 255u;
+
+    *out_r = (uint8_t)r;
+    *out_g = (uint8_t)g;
+    *out_b = (uint8_t)b;
 }
 
-static void launcher_starfield_step_and_draw(void)
+void launcher_background_advance(void)
 {
-    const int32_t  cx = (int32_t)(PS2_LAUNCHER_WIDTH  / 2);
-    const int32_t  cy = (int32_t)(PS2_LAUNCHER_HEIGHT / 2);
-    const uint32_t fb_w = (uint32_t)PS2_LAUNCHER_WIDTH;
-    const uint32_t fb_h = (uint32_t)PS2_LAUNCHER_HEIGHT;
     int i;
 
+    if (!g_stars_initialized)
+        launcher_starfield_init();
+
     for (i = 0; i < STAR_COUNT; i++) {
-        star_t  *s = &g_stars[i];
-        int32_t  z;
-        int32_t  sx;
-        int32_t  sy;
-        uint32_t brightness_q8;
-        uint16_t color;
-        int      big;
+        star_t *s = &g_stars[i];
 
         s->z -= STAR_DRIFT;
-        if (s->z <= STAR_Z_MIN) {
+        if (s->z <= STAR_Z_MIN)
             star_respawn(s);
-        }
+    }
+}
+
+qword_t *launcher_background_emit_packet(qword_t *q)
+{
+    const int32_t cx = (int32_t)(PS2_LAUNCHER_WIDTH  / 2);
+    const int32_t cy = (int32_t)(PS2_LAUNCHER_HEIGHT / 2);
+    int i;
+
+    if (!g_stars_initialized)
+        launcher_starfield_init();
+
+    for (i = 0; i < STAR_COUNT; i++) {
+        star_t        *s = &g_stars[i];
+        int32_t        z;
+        int32_t        sx;
+        int32_t        sy;
+        uint32_t       brightness_q8;
+        uint8_t        rr;
+        uint8_t        gg;
+        uint8_t        bb;
+        int            big;
+        rect_t         rect;
 
         z = s->z;
         if (z <= 0)
-            continue; /* defensive; should not happen after respawn */
+            continue;
 
-        /* Pinhole projection: screen = center + world*focal/z. The
-         * division is integer because focal and z are both well
-         * within s32, and we want the cheap MIPS divu. */
+        /* Pinhole projection: screen = center + world*focal/z. */
         sx = cx + (s->x * STAR_FOCAL) / z;
         sy = cy + (s->y * STAR_FOCAL) / z;
 
         if (sx < 0 || sy < 0)
             continue;
-        if ((uint32_t)sx >= fb_w || (uint32_t)sy >= fb_h)
+        if (sx >= (int32_t)PS2_LAUNCHER_WIDTH ||
+            sy >= (int32_t)PS2_LAUNCHER_HEIGHT)
             continue;
 
-        /* Brightness ramps from ~32 (far) to 256 (near). The mapping
-         * is linear in 1/z which is what gives the "stars getting
-         * brighter as they approach" feel without any FPU. */
+        /* Brightness ramps from ~32 (far) to 256 (near). Mapping is
+         * linear in 1/z which gives the "stars getting brighter as
+         * they approach" feel without any FPU work. */
         if (z >= STAR_Z_MAX) {
             brightness_q8 = 32u;
         } else if (z <= STAR_Z_NEAR) {
@@ -187,36 +214,25 @@ static void launcher_starfield_step_and_draw(void)
             brightness_q8 = 32u + (off * (256u - 32u)) / span;
         }
 
-        color = star_color_rgb565(s->palette, brightness_q8);
-        big   = (z <= STAR_Z_NEAR);
+        star_color_rgb8(s->palette, brightness_q8, &rr, &gg, &bb);
+        big = (z <= STAR_Z_NEAR);
 
-        ps2_launcher_video_put_pixel((unsigned)sx, (unsigned)sy, color);
-        if (big) {
-            /* Draw a 2x2 block for near stars. We already bounds-
-             * checked the top-left, but each neighbor still needs
-             * its own bound check so a star anchored at the right
-             * or bottom edge doesn't wrap. */
-            if ((uint32_t)(sx + 1) < fb_w)
-                ps2_launcher_video_put_pixel((unsigned)(sx + 1), (unsigned)sy, color);
-            if ((uint32_t)(sy + 1) < fb_h)
-                ps2_launcher_video_put_pixel((unsigned)sx, (unsigned)(sy + 1), color);
-            if ((uint32_t)(sx + 1) < fb_w && (uint32_t)(sy + 1) < fb_h)
-                ps2_launcher_video_put_pixel((unsigned)(sx + 1), (unsigned)(sy + 1), color);
-        }
+        rect.v0.x = (float)sx;
+        rect.v0.y = (float)sy;
+        rect.v0.z = 0;
+        rect.v1.x = (float)(sx + (big ? 2 : 1));
+        rect.v1.y = (float)(sy + (big ? 2 : 1));
+        rect.v1.z = 0;
+        rect.color.r = rr;
+        rect.color.g = gg;
+        rect.color.b = bb;
+        /* Opaque: alpha test (set up by launcher_video for the UI
+         * texture) uses NOTEQUAL 0, so non-zero alpha passes. */
+        rect.color.a = 0x80;
+        rect.color.q = 1.0f;
+
+        q = draw_rect_filled(q, 0, &rect);
     }
-}
 
-void launcher_background_draw(void)
-{
-    /* The caller (launcher_render_static_base) just ran
-     * ps2_launcher_video_begin_frame(0), which already cleared the
-     * upload buffer to black. Doing a second full-screen clear here
-     * was costing ~286 720 extra pixel writes per frame and spiked
-     * EE usage to ~36% for what is otherwise a static menu. The
-     * starfield only needs to plot the ~256 visible stars on top of
-     * the framebuffer the caller already prepared. */
-    if (!g_stars_initialized)
-        launcher_starfield_init();
-
-    launcher_starfield_step_and_draw();
+    return q;
 }
