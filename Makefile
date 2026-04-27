@@ -365,10 +365,28 @@ rebuild: clean
 
 
 # ---- ISO helpers ----
+#
+# Open PS2 Loader pinta a tela em branco ("OPL White Screen Debug")
+# quando os tres pontos abaixo nao batem entre si:
+#
+#   1. Nome do arquivo ISO no formato '<GAME_ID>.<NomeBonito>.iso'
+#   2. ELF dentro da ISO chamado exatamente '<GAME_ID>' (sem extensao)
+#   3. SYSTEM.CNF com 'BOOT2 = cdrom0:\<GAME_ID>;1'
+#
+# SLUS_999.99 e' um ID nao alocado pela Sony, comum em homebrew.
+# Para usar outro: 'make iso ISO_GAME_ID=SLPM_625.99 ...'.
+# Tutorial oficial:
+#   https://www.ps2-home.com/forum/viewtopic.php?f=50&t=1040
 ISO_ROOT_DIR ?= dist/iso_root
-ISO_OUT ?= dist/InfinityStation-roms-test.iso
+ISO_GAME_ID ?= SLUS_999.99
+ISO_GAME_NAME ?= InfinityStation
+ISO_OUT ?= dist/$(ISO_GAME_ID).$(ISO_GAME_NAME).iso
 ISO_LABEL ?= INFSTATION
-ISO_BOOT ?= SNESBOOT.ELF
+# ISO_BOOT e' o nome do ELF dentro da ISO. Para passar no OPL ele
+# precisa ser identico ao ISO_GAME_ID; mantemos uma variavel separada
+# caso alguem queira override pra outro fluxo (BIOS-only, EXP-loader
+# etc.) onde a regra do OPL nao se aplica.
+ISO_BOOT ?= $(ISO_GAME_ID)
 ISO_VMODE ?= NTSC
 ISO_ROMS_DIR ?=
 

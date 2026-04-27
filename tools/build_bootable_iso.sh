@@ -3,9 +3,14 @@ set -euo pipefail
 
 ELF_SRC="${1:-../ps2snes2005_boot.elf}"
 DISC_ROOT="${2:-./disc_root}"
-ISO_NAME="${3:-InfinityStation-BOOT.iso}"
+ISO_GAME_ID="${ISO_GAME_ID:-SLUS_999.99}"
+ISO_GAME_NAME="${ISO_GAME_NAME:-InfinityStation}"
+ISO_NAME="${3:-${ISO_GAME_ID}.${ISO_GAME_NAME}.iso}"
 WORK_DIR="./boot_iso_root"
-ELF_NAME="INFST.ELF"
+# Open PS2 Loader exige que o ELF dentro da ISO se chame exatamente
+# como o GAME_ID (sem extensao) e que o BOOT2 do SYSTEM.CNF aponte
+# pra esse mesmo nome — caso contrario pinta a tela branca de debug.
+ELF_NAME="${ISO_GAME_ID}"
 
 if [ ! -f "$ELF_SRC" ]; then
   echo "ELF nao encontrado: $ELF_SRC" >&2
@@ -24,8 +29,8 @@ cp -a "$DISC_ROOT"/. "$WORK_DIR"/
 cp -f "$ELF_SRC" "$WORK_DIR/$ELF_NAME"
 
 cat > "$WORK_DIR/SYSTEM.CNF" <<CNF
-BOOT2 = cdrom0:\\$ELF_NAME;1
-VER = 1.0
+BOOT2 = cdrom0:\\${ELF_NAME};1
+VER = 1.00
 VMODE = NTSC
 CNF
 
