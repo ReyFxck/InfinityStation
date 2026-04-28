@@ -47,7 +47,7 @@
 #define THIRD_COLOR_MASK_RGB555   0x001F
 #define ALPHA_BITS_MASK_RGB555    0x0000
 
-#if defined(PSP)
+#if defined(PSP) || defined(INF_PIXEL_BGR555)
 /* BGR555 format */
 #define BUILD_PIXEL_BGR555(R,G,B) (((int32_t) (B) << 10) | ((int32_t) (G) << 5) | (int32_t) (R))
 #define BUILD_PIXEL2_BGR555(R,G,B) (((int32_t) (B) << 10) | ((int32_t) (G) << 5) | (int32_t) (R))
@@ -57,6 +57,15 @@
 #define MAX_RED_BGR555            31
 #define MAX_GREEN_BGR555          31
 #define MAX_BLUE_BGR555           31
+/*
+ * COLOR_ADD/COLOR_SUB em gfx.h tratam RED_SHIFT_BITS como o shift do
+ * "canal alto" do pixel; em BGR555 esse canal e' o B (bits 10..14).
+ * Mantemos o mesmo nome do path RGB565/RGB555 pra reaproveitar a
+ * macro generica -- a math nao se importa se o nome bate com a cor,
+ * so' com a posicao no bitfield.
+ */
+#define RED_SHIFT_BITS_BGR555     10
+#define GREEN_SHIFT_BITS_BGR555    5
 #define RED_LOW_BIT_MASK_BGR555   0x0001
 #define GREEN_LOW_BIT_MASK_BGR555 0x0020
 #define BLUE_LOW_BIT_MASK_BGR555  0x0400
@@ -84,10 +93,8 @@
 #define MAX_RED_D(F)            CONCAT(MAX_RED_,F)
 #define MAX_BLUE_D(F)           CONCAT(MAX_BLUE_,F)
 #define MAX_GREEN_D(F)          CONCAT(MAX_GREEN_,F)
-#if !defined(PSP)
 #define RED_SHIFT_BITS_D(F)     CONCAT(RED_SHIFT_BITS_, F)
 #define GREEN_SHIFT_BITS_D(F)   CONCAT(GREEN_SHIFT_BITS_, F)
-#endif
 #define RED_LOW_BIT_MASK_D(F)   CONCAT(RED_LOW_BIT_MASK_,F)
 #define BLUE_LOW_BIT_MASK_D(F)  CONCAT(BLUE_LOW_BIT_MASK_,F)
 #define GREEN_LOW_BIT_MASK_D(F) CONCAT(GREEN_LOW_BIT_MASK_,F)
@@ -102,10 +109,8 @@
 #define MAX_RED            MAX_RED_D(PIXEL_FORMAT)
 #define MAX_BLUE           MAX_BLUE_D(PIXEL_FORMAT)
 #define MAX_GREEN          MAX_GREEN_D(PIXEL_FORMAT)
-#if !defined(PSP)
 #define RED_SHIFT_BITS     RED_SHIFT_BITS_D(PIXEL_FORMAT)
 #define GREEN_SHIFT_BITS   GREEN_SHIFT_BITS_D(PIXEL_FORMAT)
-#endif
 #define RED_LOW_BIT_MASK   RED_LOW_BIT_MASK_D(PIXEL_FORMAT)
 #define BLUE_LOW_BIT_MASK  BLUE_LOW_BIT_MASK_D(PIXEL_FORMAT)
 #define GREEN_LOW_BIT_MASK GREEN_LOW_BIT_MASK_D(PIXEL_FORMAT)

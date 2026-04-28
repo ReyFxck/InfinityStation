@@ -8,7 +8,13 @@
 #include <sys/types.h>
 #include <retro_inline.h>
 
-#ifdef PSP
+#if defined(PSP) || defined(INF_PIXEL_BGR555)
+/*
+ * BGR555 = (B<<10)|(G<<5)|R em 15 bits, com bit 15 livre.
+ * No PS2 esse layout casa exatamente com GS_PSMCT16 (PSMCT16 com
+ * TCC=RGB ignora o bit de alpha), entao' o frame do snes9x pode
+ * ser DMA-uploadado direto pra GS sem nenhuma conversao por pixel.
+ */
 #define PIXEL_FORMAT BGR555
 #else
 #define PIXEL_FORMAT RGB565
