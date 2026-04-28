@@ -130,7 +130,7 @@ static void launcher_pages_draw_centered_message(const char *msg,
     if (!msg)
         return;
 
-    text_w = (int)strlen(msg) * (int)glyph_w;
+    text_w = (int)strlen(msg) * (int)(glyph_w + 3);
     x = panel_x + ((panel_w - text_w) / 2) - 15;
 
     browser_font_draw_string_color_sized(x, y, msg, color, glyph_w, glyph_h);
