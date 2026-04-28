@@ -25,6 +25,26 @@ static int16_t g_last_sample_r = 0;
 static int g_backend_reprime_cooldown = 0;
 static int g_backend_empty_streak = 0;
 
+/*
+ * Sinais event-driven pro frameskip auto:
+ *
+ * g_audio_real_underrun_pending: setado pelo sound thread quando o
+ *   backend audsrv ficou abaixo de BACKEND_FEED_BYTES por hysteresis
+ *   completa (~16 ms) -- isto e', o SPU2 esta' a poucos ms de tocar
+ *   silencio. Read-and-clear na proxima chamada de get_buffer_status.
+ *
+ * g_audio_frame_overran: setado pelo main loop apos retro_run quando
+ *   o frame estourou o budget de tempo (1/fps). Mantem o valor ate o
+ *   proximo set; nao limpa em get_buffer_status pra que dois frames
+ *   ruins seguidos disparem dois skips, mas um frame OK depois de um
+ *   ruim ja' libera.
+ *
+ * Ambos sao volatile porque atravessam thread boundaries (sound thread,
+ * main thread, eventualmente IRQ).
+ */
+static volatile int g_audio_real_underrun_pending = 0;
+static volatile int g_audio_frame_overran = 0;
+
 static int g_sound_tid = -1;
 static volatile int g_sound_thread_running = 0;
 static volatile int g_sound_thread_exit = 0;
@@ -172,6 +192,46 @@ static void ps2_audio_finish_resume_if_ready(void)
 }
 
 
+void ps2_audio_internal_signal_real_underrun(void)
+{
+    g_audio_real_underrun_pending = 1;
+}
+
+void ps2_audio_note_frame_budget_overran(int exceeded)
+{
+    g_audio_frame_overran = exceeded ? 1 : 0;
+}
+
+/*
+ * Reporta o estado da fila de audio pro libretro frontend.
+ *
+ * IMPORTANTE: o flag underrun_likely NAO e' baseado num threshold fixo
+ * em cima da profundidade do buffer. Esse approach (legado) sofria de
+ * falso positivo em steady state -- com sound thread mantendo o backend
+ * em torno de BACKEND_QUEUE_TARGET_FRAMES (~64 ms @ 32 kHz) e o SPU2
+ * consumindo continuamente, qualquer threshold "alto o suficiente pra
+ * detectar underrun real" ficava perto demais do steady state e
+ * disparava frameskip auto em quase todo frame, mascarando o EE de
+ * folga (ver PR #41 para o diagnostico completo).
+ *
+ * Aqui usamos dois sinais event-driven, OR'd:
+ *
+ * 1) g_audio_real_underrun_pending: flag que o sound thread liga em
+ *    ps2_audio_recover_backend_underrun. Esse evento so' acontece apos
+ *    AUDIO_UNDERRUN_HYSTERESIS_LOOPS (16 ms) de backend genuinamente
+ *    vazio -- e' inerentemente "real". Read-and-clear aqui pra que o
+ *    frameskip dispare uma vez por evento e nao "trave" ligado.
+ *
+ * 2) g_audio_frame_overran: setado pelo main loop quando retro_run
+ *    estourou o budget de tempo do frame. Sinal preditivo: se o EE
+ *    ja' ficou para tras numa frame, provavelmente vai ficar de novo
+ *    no proximo, e skip evita o cascading slowdown que gera underrun
+ *    real depois.
+ *
+ * occupancy continua calculado em cima do buffer real porque ele e'
+ * usado pelo frameskip "manual" do snes9x2005, e nesse modo o usuario
+ * controla diretamente o threshold de skip.
+ */
 void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underrun_likely)
 {
     unsigned int ring_frames = ps2_audio_ring_buffered_frames();
@@ -179,6 +239,7 @@ void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underr
     unsigned int total_frames;
     unsigned int occ = 0;
     int queued_bytes = 0;
+    int real_underrun;
 
     if ((g_audio_state == 1) && !g_audio_paused) {
         queued_bytes = ps2_backend_queued_bytes();
@@ -200,8 +261,11 @@ void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underr
     if (occupancy)
         *occupancy = occ;
 
+    real_underrun = g_audio_real_underrun_pending;
+    g_audio_real_underrun_pending = 0;
+
     if (underrun_likely)
-        *underrun_likely = (total_frames < BACKEND_UNDERRUN_REPORT_FRAMES);
+        *underrun_likely = (real_underrun || g_audio_frame_overran);
 }
 
 
@@ -399,6 +463,10 @@ static void ps2_audio_recover_backend_underrun(void)
      * mais glitch que o proprio underrun. */
     if (g_audio_state != 1 || g_audio_paused)
         return;
+
+    /* Sinaliza pro frameskip auto que houve underrun real -- read-and-clear
+     * em ps2_audio_get_buffer_status na proxima chamada. */
+    ps2_audio_internal_signal_real_underrun();
 
     g_warned_underrun = 0;
     ps2_audio_send_anti_click_ramp();
@@ -669,6 +737,8 @@ int ps2_audio_init_once(void)
     g_warned_not_ready = 0;
     g_warned_overrun = 0;
     g_warned_underrun = 0;
+    g_audio_real_underrun_pending = 0;
+    g_audio_frame_overran = 0;
     g_audio_state = 1;
     ps2_audio_set_backend_volume(PS2_AUDIO_BACKEND_VOLUME);
 
@@ -715,6 +785,8 @@ void ps2_audio_pause(void)
 
     g_warned_overrun = 0;
     g_warned_underrun = 0;
+    g_audio_real_underrun_pending = 0;
+    g_audio_frame_overran = 0;
     g_logged_first_push = 0;
     ps2_audio_log_state("paused");
 }
@@ -742,6 +814,8 @@ void ps2_audio_resume(void)
     g_warned_not_ready = 0;
     g_warned_overrun = 0;
     g_warned_underrun = 0;
+    g_audio_real_underrun_pending = 0;
+    g_audio_frame_overran = 0;
     g_logged_first_push = 0;
 
     ps2_audio_set_backend_volume(0);
@@ -775,6 +849,8 @@ void ps2_audio_shutdown(void)
     g_warned_not_ready = 0;
     g_warned_overrun = 0;
     g_warned_underrun = 0;
+    g_audio_real_underrun_pending = 0;
+    g_audio_frame_overran = 0;
     g_logged_first_push = 0;
 
     g_sound_thread_running = 0;
