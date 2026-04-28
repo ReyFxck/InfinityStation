@@ -249,7 +249,6 @@ void ps2_video_packets_upload_and_draw(
     const texrect_t *base_rect;
     texrect_t rect;
     packet_t *tex_packet;
-    packet_t *draw_packet;
     unsigned upload_bytes = upload_width * upload_height * sizeof(uint16_t);
 
     /*
@@ -276,15 +275,33 @@ void ps2_video_packets_upload_and_draw(
     g_tex = g_tex_slots[tex_slot];
     g_tex_slot_next = (g_tex_slot_next + 1u) % PS2_VIDEO_TEX_SLOTS;
     tex_packet = g_tex_packets[tex_slot];
-    draw_packet = g_draw_packets[tex_slot];
 
-    if (!tex_packet || !draw_packet)
+    if (!tex_packet)
         return;
 
     base_rect = ps2_video_get_rect_template();
 
     SyncDCache((void *)upload, (void *)((const unsigned char *)upload + upload_bytes));
 
+    /*
+     * Tudo num chain DMA so': transferencia da textura + texflush +
+     * setup do GS + draw rect + finish. Antes era 2 DMAs separados
+     * (chain pra textura, normal pro draw), com dma_wait_fast() no
+     * meio pra serializar o canal GIF -- esse wait estourava o EE em
+     * ~0.5-1 ms/frame esperando a textura ser entregue ao GS antes de
+     * disparar o draw.
+     *
+     * Agora todos os GIFtags vao no mesmo source-chain com tags
+     * DMATAG_CNT/DMATAG_END, e o DMAC processa em sequencia sem
+     * intervencao do EE. Continua tendo serializacao no canal GIF
+     * (PATH3), so' que ela acontece no DMAC, nao bloqueando a EE.
+     *
+     * Tex_packet ja' e' grande o suficiente: alocacao de 512x256
+     * PSMCT16 + 256 qwords slack ~= 16640 qwords. O chain real usa
+     * so' os DMA tags de header (textura vai por DMATAG_REF lendo
+     * direto do buffer source, nao copiada pra dentro do packet),
+     * mais o chunk de draw, que rara passa de ~80 qwords.
+     */
     q = tex_packet->data;
     q = draw_texture_transfer(
         q,
@@ -295,57 +312,79 @@ void ps2_video_packets_upload_and_draw(
         g_tex.address,
         g_tex.width
     );
-    q = draw_texture_flush(q);
-    dma_wait_fast();
-    dma_channel_send_chain(DMA_CHANNEL_GIF, tex_packet->data, q - tex_packet->data, 0, 0);
+
+    /*
+     * Substitui draw_texture_flush por uma versao "CNT" (continua a
+     * cadeia em vez de DMATAG_END), pra a cadeia seguir pro draw rect
+     * abaixo. O conteudo dos GIFtags e' o mesmo: TEXFLUSH=1.
+     */
+    DMATAG_CNT(q, 2, 0, 0, 0);
+    q++;
+    PACK_GIFTAG(q, GIF_SET_TAG(1, 1, 0, 0, GIF_FLG_PACKED, 1), GIF_REG_AD);
+    q++;
+    PACK_GIFTAG(q, 1, GS_REG_TEXFLUSH);
+    q++;
 
     rect = *base_rect;
     rect.t1.u = (float)width - 1.0f;
     rect.t1.v = (float)height - 1.0f;
 
-    if (g_draw_base_qwcs[tex_slot] != 0) {
-        memcpy(
-            draw_packet->data,
-            g_draw_base_packets[tex_slot],
-            g_draw_base_qwcs[tex_slot] * sizeof(qword_t)
-        );
-        q = draw_packet->data + g_draw_base_qwcs[tex_slot];
-    } else {
-        q = draw_packet->data;
-        q = draw_setup_environment(q, 0, &g_frame, &g_z);
-        q = draw_texture_sampling(q, 0, &g_lod_nearest);
-        q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
-    }
-
+    /*
+     * Tag DMATAG_END que cobre o restante do packet (setup + draw +
+     * finish). qwc final preenchido depois que sabemos quantos qwords
+     * o draw produziu.
+     */
     {
-        unsigned aspect_mode = ps2_video_get_effective_aspect_mode();
+        qword_t *draw_dmatag = q;
+        qword_t *draw_start;
+        unsigned draw_qwc;
 
-        if (aspect_mode != PS2_ASPECT_FULL &&
-            g_last_band_clear_mode != aspect_mode) {
-            q = ps2_video_clear_bands(
+        q++;
+        draw_start = q;
+
+        if (g_draw_base_qwcs[tex_slot] != 0) {
+            memcpy(
                 q,
-                base_rect->v0.x,
-                base_rect->v0.y,
-                base_rect->v1.x,
-                base_rect->v1.y
+                g_draw_base_packets[tex_slot],
+                g_draw_base_qwcs[tex_slot] * sizeof(qword_t)
             );
+            q += g_draw_base_qwcs[tex_slot];
+        } else {
+            q = draw_setup_environment(q, 0, &g_frame, &g_z);
+            q = draw_texture_sampling(q, 0, &g_lod_nearest);
+            q = draw_texturebuffer(q, 0, &g_tex, &g_clut_none);
         }
 
-        g_last_band_clear_mode = aspect_mode;
+        {
+            unsigned aspect_mode = ps2_video_get_effective_aspect_mode();
+
+            if (aspect_mode != PS2_ASPECT_FULL &&
+                g_last_band_clear_mode != aspect_mode) {
+                q = ps2_video_clear_bands(
+                    q,
+                    base_rect->v0.x,
+                    base_rect->v0.y,
+                    base_rect->v1.x,
+                    base_rect->v1.y
+                );
+            }
+
+            g_last_band_clear_mode = aspect_mode;
+        }
+
+        q = draw_rect_textured(q, 0, &rect);
+        q = draw_finish(q);
+
+        draw_qwc = (unsigned)(q - draw_start);
+        DMATAG_END(draw_dmatag, draw_qwc, 0, 0, 0);
     }
 
-    q = draw_rect_textured(q, 0, &rect);
-    q = draw_finish(q);
-
     /*
-     * Espera o tex-DMA terminar antes de enfileirar o draw packet
-     * (mesmo canal GIF: serializa naturalmente). Sem vsync wait aqui
-     * -- isso virou responsabilidade do caller (ver ps2_video_finish_frame
-     * pro caminho de gameplay).
+     * Sem vsync wait aqui -- responsabilidade do caller (ver
+     * ps2_video_finish_frame pro caminho de gameplay).
      */
     dma_wait_fast();
-
-    dma_channel_send_normal(DMA_CHANNEL_GIF, draw_packet->data, q - draw_packet->data, 0, 0);
+    dma_channel_send_chain(DMA_CHANNEL_GIF, tex_packet->data, q - tex_packet->data, 0, 0);
 
     g_last_uploaded_tex_slot = tex_slot;
     g_last_uploaded_tex_valid = 1;
