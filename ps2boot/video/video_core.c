@@ -87,7 +87,6 @@ void ps2_video_soft_reset(void)
     memset(g_launcher_upload, 0, sizeof(g_launcher_upload));
 
     ps2_video_packets_reset(0);
-    ps2_video_cache_invalidate();
 
     SyncDCache((void *)g_upload,
                (void *)((unsigned char *)g_upload + sizeof(g_upload)));

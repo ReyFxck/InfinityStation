@@ -111,8 +111,6 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 
         t2 = ps2_video_prof_read_count();
 
-        ps2_video_cache_invalidate();
-
         ps2_video_prof_commit(
                 (unsigned)(ps2_video_prof_delta(t1, t0) - t_ovl),
                 t_ovl,
@@ -138,8 +136,6 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
             PS2_VIDEO_TEX_WIDTH
         );
     }
-
-    ps2_video_cache_invalidate();
 
     t_ovl = 0;
     if (overlay_active) {

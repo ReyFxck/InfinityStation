@@ -87,11 +87,6 @@ void ps2_video_prof_commit(
 const char *ps2_video_prof_get_line1(void);
 const char *ps2_video_prof_get_line2(void);
 
-/* video_cache.c */
-int  ps2_video_cache_can_reuse_256(const uint16_t *src, unsigned width, unsigned height);
-void ps2_video_cache_store_256(const uint16_t *src, unsigned width, unsigned height);
-void ps2_video_cache_invalidate(void);
-
 /* video_packets.c */
 int  ps2_video_packets_init(void);
 void ps2_video_packets_reset(int hard);

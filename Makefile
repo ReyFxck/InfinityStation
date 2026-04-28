@@ -63,7 +63,6 @@ BASE_OBJS = \
         ps2boot/video/video_packets.o \
         ps2boot/video/video_present.o \
         ps2boot/video/video_prof.o \
-        ps2boot/video/video_cache.o \
         ps2boot/video/video_menu.o \
         ps2boot/video/video_debug.o \
         ps2boot/debug/debug_font.o \
