@@ -8,7 +8,7 @@ extern const unsigned int launcher_logo_height;
 static unsigned credits_text_width_sized(const char *text, unsigned char_w)
 {
     size_t len = text ? strlen(text) : 0;
-    return (unsigned)(len * (char_w + 2u));
+    return (unsigned)(len * (char_w + 3u));
 }
 
 static unsigned credits_center_x_in_box(unsigned box_x, unsigned box_w,

@@ -28,6 +28,14 @@ static void launcher_font_draw_char_scaled(unsigned x, unsigned y, char c, uint1
                             y + (unsigned)row * scale + sy,
                             color
                         );
+                        /* doublestrike: paint the same fragment one
+                         * scale-block to the right for a bold style.
+                         * Doubles every vertical stroke width. */
+                        ps2_launcher_video_put_pixel(
+                            x + (unsigned)col * scale + sx + scale,
+                            y + (unsigned)row * scale + sy,
+                            color
+                        );
                     }
                 }
             }
@@ -50,13 +58,16 @@ void launcher_font_draw_string_color_scaled(unsigned x, unsigned y, const char *
     if (scale == 0)
         scale = 1;
 
+    /* +scale to the per-char step compensates for the doublestrike,
+     * which extends each glyph one src-column further to the right
+     * (one full scale-block in dest coords). */
     for (i = 0; s[i]; i++) {
-        launcher_font_draw_char_scaled(x + i * (6 * scale) + scale,
+        launcher_font_draw_char_scaled(x + i * (7 * scale) + scale,
                                        y + scale,
                                        s[i],
                                        0x0000,
                                        scale);
-        launcher_font_draw_char_scaled(x + i * (6 * scale),
+        launcher_font_draw_char_scaled(x + i * (7 * scale),
                                        y,
                                        s[i],
                                        color,
