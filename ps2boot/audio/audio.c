@@ -26,24 +26,27 @@ static int g_backend_reprime_cooldown = 0;
 static int g_backend_empty_streak = 0;
 
 /*
- * Sinais event-driven pro frameskip auto:
+ * Sinal event-driven pro frameskip auto:
  *
  * g_audio_real_underrun_pending: setado pelo sound thread quando o
  *   backend audsrv ficou abaixo de BACKEND_FEED_BYTES por hysteresis
  *   completa (~16 ms) -- isto e', o SPU2 esta' a poucos ms de tocar
  *   silencio. Read-and-clear na proxima chamada de get_buffer_status.
  *
- * g_audio_frame_overran: setado pelo main loop apos retro_run quando
- *   o frame estourou o budget de tempo (1/fps). Mantem o valor ate o
- *   proximo set; nao limpa em get_buffer_status pra que dois frames
- *   ruins seguidos disparem dois skips, mas um frame OK depois de um
- *   ruim ja' libera.
+ * Volatile porque atravessa thread boundary (sound thread <-> main).
  *
- * Ambos sao volatile porque atravessam thread boundaries (sound thread,
- * main thread, eventualmente IRQ).
+ * NB: o sinal preditivo "frame_overran" foi REMOVIDO. A medicao de
+ * tempo de retro_run via wall-clock e' fundamentalmente quebrada nesse
+ * pipeline: graph_wait_vsync e' chamado DENTRO de retro_run (no
+ * video_cb), entao' o tempo total inclui a espera de vsync e fica
+ * sempre em torno de 1 vblank (~16.6 ms NTSC). Qualquer threshold
+ * razoavel (ate' 1.10x = 18.3 ms) era estourado por jitter normal de
+ * DMA/RPC e a flag ficava sticky em 1, fazendo libretro skipar 30
+ * frames seguidos (FRAMESKIP_MAX), renderizar 1, repetir -> 1.99 FPS
+ * observados. So' o sinal reativo e' confiavel: dispara so' depois de
+ * underrun real confirmado.
  */
 static volatile int g_audio_real_underrun_pending = 0;
-static volatile int g_audio_frame_overran = 0;
 
 static int g_sound_tid = -1;
 static volatile int g_sound_thread_running = 0;
@@ -197,36 +200,30 @@ void ps2_audio_internal_signal_real_underrun(void)
     g_audio_real_underrun_pending = 1;
 }
 
-void ps2_audio_note_frame_budget_overran(int exceeded)
-{
-    g_audio_frame_overran = exceeded ? 1 : 0;
-}
-
 /*
  * Reporta o estado da fila de audio pro libretro frontend.
  *
- * IMPORTANTE: o flag underrun_likely NAO e' baseado num threshold fixo
- * em cima da profundidade do buffer. Esse approach (legado) sofria de
- * falso positivo em steady state -- com sound thread mantendo o backend
- * em torno de BACKEND_QUEUE_TARGET_FRAMES (~64 ms @ 32 kHz) e o SPU2
- * consumindo continuamente, qualquer threshold "alto o suficiente pra
- * detectar underrun real" ficava perto demais do steady state e
- * disparava frameskip auto em quase todo frame, mascarando o EE de
- * folga (ver PR #41 para o diagnostico completo).
+ * underrun_likely e' inteiramente event-driven: setado pelo sound
+ * thread em ps2_audio_recover_backend_underrun (que so' e' chamado
+ * apos hysteresis confirmada de backend vazio), read-and-clear aqui.
  *
- * Aqui usamos dois sinais event-driven, OR'd:
+ * Approachs anteriores que falharam:
  *
- * 1) g_audio_real_underrun_pending: flag que o sound thread liga em
- *    ps2_audio_recover_backend_underrun. Esse evento so' acontece apos
- *    AUDIO_UNDERRUN_HYSTERESIS_LOOPS (16 ms) de backend genuinamente
- *    vazio -- e' inerentemente "real". Read-and-clear aqui pra que o
- *    frameskip dispare uma vez por evento e nao "trave" ligado.
+ * - Threshold em buffer level (total_frames < N): em steady state o
+ *   sound thread mantem o backend perto de BACKEND_QUEUE_TARGET_FRAMES
+ *   e total oscila perto do threshold, dando falso positivo continuo
+ *   -> frameskip auto disparava em quase todo frame -> FPS travado
+ *   em ~36 (PR #41).
  *
- * 2) g_audio_frame_overran: setado pelo main loop quando retro_run
- *    estourou o budget de tempo do frame. Sinal preditivo: se o EE
- *    ja' ficou para tras numa frame, provavelmente vai ficar de novo
- *    no proximo, e skip evita o cascading slowdown que gera underrun
- *    real depois.
+ * - Threshold em wall-clock de retro_run (frame > budget): graph_wait_vsync
+ *   esta DENTRO de retro_run, entao' wall-clock sempre fica em ~1 vsync
+ *   (~16.6 ms NTSC) e qualquer threshold razoavel era estourado por
+ *   jitter normal -> flag sticky -> libretro skipa 30 frames seguidos
+ *   (FRAMESKIP_MAX), renderiza 1, repete -> 1.99 FPS observados (PR #42).
+ *
+ * O sinal reativo (g_audio_real_underrun_pending) e' o unico confiavel:
+ * dispara so' depois do backend ter ficado vazio de verdade por mais de
+ * AUDIO_UNDERRUN_HYSTERESIS_LOOPS, entao' nao ha como dar falso positivo.
  *
  * occupancy continua calculado em cima do buffer real porque ele e'
  * usado pelo frameskip "manual" do snes9x2005, e nesse modo o usuario
@@ -265,7 +262,7 @@ void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underr
     g_audio_real_underrun_pending = 0;
 
     if (underrun_likely)
-        *underrun_likely = (real_underrun || g_audio_frame_overran);
+        *underrun_likely = (real_underrun != 0);
 }
 
 
@@ -738,7 +735,6 @@ int ps2_audio_init_once(void)
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_audio_real_underrun_pending = 0;
-    g_audio_frame_overran = 0;
     g_audio_state = 1;
     ps2_audio_set_backend_volume(PS2_AUDIO_BACKEND_VOLUME);
 
@@ -786,7 +782,6 @@ void ps2_audio_pause(void)
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_audio_real_underrun_pending = 0;
-    g_audio_frame_overran = 0;
     g_logged_first_push = 0;
     ps2_audio_log_state("paused");
 }
@@ -815,7 +810,6 @@ void ps2_audio_resume(void)
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_audio_real_underrun_pending = 0;
-    g_audio_frame_overran = 0;
     g_logged_first_push = 0;
 
     ps2_audio_set_backend_volume(0);
@@ -850,7 +844,6 @@ void ps2_audio_shutdown(void)
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_audio_real_underrun_pending = 0;
-    g_audio_frame_overran = 0;
     g_logged_first_push = 0;
 
     g_sound_thread_running = 0;
