@@ -341,12 +341,62 @@ static unsigned int ps2_audio_copy_from_ring(int16_t *dst, unsigned int frames)
     return copied;
 }
 
-static unsigned int ps2_audio_copy_to_ring(const int16_t *src, unsigned int frames)
+/*
+ * Faz make-room + copy_to_ring numa unica regiao critica.
+ *
+ * Antes existiam duas funcoes (ps2_audio_make_room_for_frames e
+ * ps2_audio_copy_to_ring), cada uma com seu proprio
+ * lock/unlock, e push_samples ainda fazia uma terceira leitura sem
+ * lock antes pra decidir se chamava make_room. No path de overflow
+ * (ring cheio, recovery de underrun) isso era 2x WaitSema +
+ * 2x SignalSema por chunk. No steady state era 1x, mas ainda tinha
+ * a leitura lockless redundante (ja' coberta pelo check de
+ * free_frames la' dentro).
+ *
+ * Aqui o make-room virou inline antes do loop de copy: se a leitura
+ * de g_buffered_frames mostra que nao cabe o chunk inteiro, droppa
+ * frames antigos pra abrir espaco -- tudo dentro do mesmo lock
+ * que vai cobrir o copy. Sem janela entre make-room e copy onde o
+ * sound thread poderia mexer no ring buffer.
+ *
+ * Retorna quantos frames foram efetivamente escritos. *out_dropped
+ * recebe quantos frames antigos foram descartados pra abrir espaco
+ * (pra logging em push_samples).
+ */
+static unsigned int ps2_audio_make_room_and_copy_to_ring(
+    const int16_t *src,
+    unsigned int frames,
+    unsigned int *out_dropped)
 {
     unsigned int written = 0;
+    unsigned int dropped = 0;
+
+    if (out_dropped)
+        *out_dropped = 0;
+
+    if (frames == 0)
+        return 0;
+
+    if (frames >= SOUND_TOTAL_FRAMES)
+        frames = SOUND_TOTAL_FRAMES - 1;
 
     ps2_audio_ring_lock();
 
+    /* Make room: descarta os mais antigos se o chunk nao cabe. */
+    {
+        unsigned int free_frames = SOUND_TOTAL_FRAMES - g_buffered_frames;
+
+        if (free_frames < frames) {
+            dropped = frames - free_frames;
+            if (dropped > g_buffered_frames)
+                dropped = g_buffered_frames;
+
+            g_read_pos = (g_read_pos + dropped) % SOUND_TOTAL_FRAMES;
+            g_buffered_frames -= dropped;
+        }
+    }
+
+    /* Copy: empurra os novos frames pro ring. */
     while (written < frames) {
         unsigned int free_frames = SOUND_TOTAL_FRAMES - g_buffered_frames;
         unsigned int wp = g_write_pos;
@@ -370,33 +420,11 @@ static unsigned int ps2_audio_copy_to_ring(const int16_t *src, unsigned int fram
     }
 
     ps2_audio_ring_unlock();
+
+    if (out_dropped)
+        *out_dropped = dropped;
+
     return written;
-}
-
-static unsigned int ps2_audio_make_room_for_frames(unsigned int wanted_frames)
-{
-    unsigned int dropped = 0;
-
-    if (wanted_frames >= SOUND_TOTAL_FRAMES)
-        wanted_frames = SOUND_TOTAL_FRAMES - 1;
-
-    ps2_audio_ring_lock();
-
-    if (wanted_frames > 0) {
-        unsigned int free_frames = SOUND_TOTAL_FRAMES - g_buffered_frames;
-
-        if (free_frames < wanted_frames) {
-            dropped = wanted_frames - free_frames;
-            if (dropped > g_buffered_frames)
-                dropped = g_buffered_frames;
-
-            g_read_pos = (g_read_pos + dropped) % SOUND_TOTAL_FRAMES;
-            g_buffered_frames -= dropped;
-        }
-    }
-
-    ps2_audio_ring_unlock();
-    return dropped;
 }
 
 
@@ -952,16 +980,23 @@ size_t ps2_audio_push_samples(const int16_t *data, size_t frames)
             chunk = SOUND_TOTAL_FRAMES - 1;
         }
 
-        if (ps2_audio_ring_buffered_frames() + chunk >= SOUND_TOTAL_FRAMES) {
-            dropped_for_room = ps2_audio_make_room_for_frames((unsigned int)chunk);
-            if (dropped_for_room && !g_warned_overrun) {
-                PS2AUDIO_LOG("[PS2AUDIO] ring full: dropped old frames=%u incoming=%u\n",
-                       dropped_for_room, (unsigned int)chunk);
-                g_warned_overrun = 1;
-            }
+        /*
+         * Single critical section: make-room (se necessario) + copy.
+         * Antes eram 2 lock/unlock pairs no path de overflow e 1 no
+         * steady state, alem de uma leitura lockless redundante de
+         * g_buffered_frames pra decidir entre os dois caminhos.
+         */
+        written = ps2_audio_make_room_and_copy_to_ring(
+            &data[done * PS2_AUDIO_CHANNELS],
+            (unsigned int)chunk,
+            &dropped_for_room);
+
+        if (dropped_for_room && !g_warned_overrun) {
+            PS2AUDIO_LOG("[PS2AUDIO] ring full: dropped old frames=%u incoming=%u\n",
+                   dropped_for_room, (unsigned int)chunk);
+            g_warned_overrun = 1;
         }
 
-        written = ps2_audio_copy_to_ring(&data[done * PS2_AUDIO_CHANNELS], (unsigned int)chunk);
         if (written < chunk) {
             if (!g_warned_overrun) {
                 PS2AUDIO_LOG("[PS2AUDIO] ring short write: written=%u expected=%u\n",
