@@ -323,12 +323,23 @@ void ps2_video_packets_upload_and_draw(
     q = draw_rect_textured(q, 0, &rect);
     q = draw_finish(q);
 
-    dma_wait_fast();
-
+    /*
+     * Vsync ANTES do dma_wait_fast: o vsync e' a espera mais longa
+     * (~16ms ou multiplos disso); o tex-DMA disparado la' em cima
+     * (dma_channel_send_chain) tipicamente termina dentro dessa
+     * janela. Antes a gente esperava o DMA primeiro e depois o
+     * vsync -- com a ordem nova, o DMA roda em paralelo enquanto
+     * o EE espera vsync, e o dma_wait_fast vira normalmente um
+     * no-op. Sem vsync (wait_vblanks=0) a sequencia e' equivalente
+     * porque o EE espera o DMA do mesmo jeito antes de enfileirar
+     * o draw packet no canal GIF.
+     */
     while (wait_vblanks != 0) {
         graph_wait_vsync();
         wait_vblanks--;
     }
+
+    dma_wait_fast();
 
     dma_channel_send_normal(DMA_CHANNEL_GIF, draw_packet->data, q - draw_packet->data, 0, 0);
 
@@ -400,12 +411,13 @@ void ps2_video_packets_redraw_last(unsigned width, unsigned height, unsigned wai
     q = draw_rect_textured(q, 0, &rect);
     q = draw_finish(q);
 
-    dma_wait_fast();
-
+    /* Mesma reordem do upload_and_draw: vsync absorve a espera de DMA. */
     while (wait_vblanks != 0) {
         graph_wait_vsync();
         wait_vblanks--;
     }
+
+    dma_wait_fast();
 
     dma_channel_send_normal(DMA_CHANNEL_GIF, draw_packet->data, q - draw_packet->data, 0, 0);
 }
