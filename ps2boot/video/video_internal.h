@@ -11,6 +11,9 @@
 
 #include <packet.h>
 #include <dma.h>
+#include <dma_tags.h>
+#include <gif_tags.h>
+#include <gs_gp.h>
 #include <graph.h>
 #include <draw.h>
 #include <gs_psm.h>
