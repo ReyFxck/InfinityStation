@@ -36,6 +36,10 @@ extern int g_video_off_x;
 extern int g_video_off_y;
 extern int g_aspect_mode;
 
+/* Veja comentario em video.c. Acumulado por ps2_video_present_rgb565,
+ * drenado por ps2_video_finish_frame (main loop, fora de retro_run). */
+extern unsigned g_video_pending_vblanks;
+
 extern framebuffer_t g_frame;
 extern zbuffer_t g_z;
 extern texbuffer_t g_tex;

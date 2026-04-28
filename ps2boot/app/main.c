@@ -44,6 +44,14 @@ static void die(const char *msg)
 static void app_runtime_finish_frame(void)
 {
     ps2_audio_pump();
+    /*
+     * Drena o vsync_wait pendente DEPOIS de retro_run + audio_pump.
+     * Isso e' o que move a espera de vblank pra fora da janela do
+     * core, deixando retro_run medir so' trabalho real do EE/GS/audio.
+     * Idempotente: e' no-op se nada esta' pendente (ex.: vsync OFF
+     * + frame_limit OFF, que nem sequer agendou wait).
+     */
+    ps2_video_finish_frame();
 }
 
 int main(int argc, char *argv[])

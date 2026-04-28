@@ -88,14 +88,22 @@ void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height,
 
     t1 = ps2_video_prof_read_count();
 
+    /*
+     * Submete o present (DMA do tex + DMA do draw packet) sem bloquear
+     * em vsync. O wait_vblanks fica acumulado em g_video_pending_vblanks
+     * pra ser consumido em ps2_video_finish_frame() do main loop -- fora
+     * de retro_run, pra liberar a janela de medicao de tempo de trabalho.
+     */
     ps2_video_packets_upload_and_draw(
         src,
         upload_stride,
         height,
         width,
         height,
-        wait_vblanks
+        0
     );
+
+    g_video_pending_vblanks += wait_vblanks;
 
     t2 = ps2_video_prof_read_count();
 
@@ -149,6 +157,18 @@ void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_v
         height,
         width,
         height,
-        wait_vblanks
+        0
     );
+
+    /*
+     * Caminho do menu: o vsync ainda e' inline porque essa funcao
+     * NAO e' chamada de dentro de retro_run -- entao manter o wait
+     * aqui simplifica o caller (ps2_menu_draw nao precisa lembrar
+     * de sincronizar). O custo extra e' nulo: ps2_video_finish_frame
+     * so' drena g_video_pending_vblanks, que aqui nao incrementamos.
+     */
+    while (wait_vblanks != 0) {
+        graph_wait_vsync();
+        wait_vblanks--;
+    }
 }
