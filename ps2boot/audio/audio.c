@@ -201,7 +201,7 @@ void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underr
         *occupancy = occ;
 
     if (underrun_likely)
-        *underrun_likely = (total_frames < BACKEND_REAL_TARGET_FRAMES);
+        *underrun_likely = (total_frames < BACKEND_UNDERRUN_REPORT_FRAMES);
 }
 
 
