@@ -31,7 +31,15 @@
 #define STAR_Z_NEAR     256        /* below this stars become 2x2 */
 #define STAR_Z_MAX      2048
 #define STAR_XY_RANGE   512        /* stars live in [-512, 511] world */
-#define STAR_DRIFT      2          /* z-units lost per frame; calm pace */
+/* Sub-frame drift accumulator. At 60 FPS the previous "STAR_DRIFT 2"
+ * looked frantic (calibrated when the launcher rendered at ~20 FPS).
+ * Express drift as the fraction STAR_DRIFT_NUM / STAR_DRIFT_DEN of a
+ * z-unit per frame so we can run smoothly at vsync without blowing
+ * past the user's "calm" tuning. With NUM=1 DEN=2 we lose one z-unit
+ * every other frame, equivalent to ~30 z-units per second at 60 FPS
+ * (vs ~40 at the old 20-FPS calibration). */
+#define STAR_DRIFT_NUM  1
+#define STAR_DRIFT_DEN  2
 #define STAR_PALETTES   3          /* white / blue / yellow */
 
 typedef struct star
@@ -152,15 +160,28 @@ static void star_color_rgb8(uint8_t palette,
 
 void launcher_background_advance(void)
 {
+    static int s_drift_acc = 0;
     int i;
+    int dz;
 
     if (!g_stars_initialized)
         launcher_starfield_init();
 
+    /* Sub-frame drift: accumulate STAR_DRIFT_NUM per frame, advance
+     * stars by floor(acc / STAR_DRIFT_DEN) z-units, keep the
+     * remainder for the next frame. At 60 FPS with NUM=1 DEN=2 this
+     * advances stars on every other frame. */
+    s_drift_acc += STAR_DRIFT_NUM;
+    dz = s_drift_acc / STAR_DRIFT_DEN;
+    s_drift_acc -= dz * STAR_DRIFT_DEN;
+
+    if (dz <= 0)
+        return;
+
     for (i = 0; i < STAR_COUNT; i++) {
         star_t *s = &g_stars[i];
 
-        s->z -= STAR_DRIFT;
+        s->z -= dz;
         if (s->z <= STAR_Z_MIN)
             star_respawn(s);
     }

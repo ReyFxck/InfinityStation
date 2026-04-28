@@ -205,24 +205,78 @@ void ps2_launcher_video_set_panel(int x, int y, int w, int h)
     g_launcher_panel.h = h;
 }
 
-/* Emit the glass panel as three nested filled rects:
- *   1. outer frame  (white border)
- *   2. body         (light grey, fills inside the border)
- *   3. top band     (white, fills the title strip)
- *
- * Replaces the previous CPU-side draw_glass_panel which iterated
- * over ~127k pixel positions running point_in_round_rect + put_pixel
- * for each. Three GS quads cost ~15 quadwords vs the equivalent
- * 250+ KB of put_pixel store traffic. */
-static qword_t *launcher_emit_panel(qword_t *q)
+/* Pre-computed inset offsets for an 8-px corner radius. For row i
+ * (counting from the corner outward) the panel's edge sits at
+ * round_offsets[i] pixels inside the bounding rect. Derived from a
+ * quarter-circle of r=8: offset[i] = r - floor(sqrt(r^2 - (r-1-i)^2)).
+ * Effective stair-stepped curve on a 8x8 grid. */
+static const unsigned char round_offsets[8] = {4, 3, 2, 1, 1, 0, 0, 0};
+
+#define LAUNCHER_PANEL_RADIUS    8
+/* Title strip height. Sized so the bold (doublestrike) titles --
+ * 20-px tall in main.c, 17-px in browser.c -- center vertically
+ * with ~8 px of breathing room above and below. */
+#define LAUNCHER_PANEL_TOP_BAND  36
+
+static qword_t *launcher_emit_strip(qword_t *q, int x0, int y0, int x1, int y1,
+                                    uint8_t cr, uint8_t cg, uint8_t cb)
 {
     rect_t r;
+
+    memset(&r, 0, sizeof(r));
+    r.v0.x = (float)x0;
+    r.v0.y = (float)y0;
+    r.v0.z = 0;
+    r.v1.x = (float)x1;
+    r.v1.y = (float)y1;
+    r.v1.z = 0;
+    r.color.r = cr;
+    r.color.g = cg;
+    r.color.b = cb;
+    /* Non-zero alpha so the panel quads render unconditionally; the
+     * UI texture's alpha test (NOTEQUAL 0) is enabled only AFTER
+     * the panel is drawn. */
+    r.color.a = 0x80;
+    r.color.q = 1.0f;
+    return draw_rect_filled(q, 0, &r);
+}
+
+/* Emit the glass panel with rounded corners as a strip-stack of
+ * filled GS rects. Layout (from top to bottom):
+ *
+ *   rows 0..R-1                    rounded top   (top-band color)
+ *   rows R..top_band_h-1           top band      (top-band color)
+ *   rows top_band_h..h-R-1         body          (body color)
+ *   rows h-R..h-1                  rounded base  (body color)
+ *
+ * Each "rounded" row is a 1-px-tall rect with a per-row inset taken
+ * from round_offsets[]. The straight middle sections are emitted as
+ * single tall rects, so the whole panel costs (2 * R) + 2 quads
+ * regardless of panel size. With R=8 that's 18 quads per panel,
+ * ~90 quadwords -- still trivial vs the previous ~127k put_pixel
+ * iterations.
+ *
+ * Replaces the previous square-cornered, 3-rect panel that lost the
+ * snestation-style curvature. */
+static qword_t *launcher_emit_panel(qword_t *q)
+{
     int x;
     int y;
     int w;
     int h;
-    int border = 2;
-    int top_band_h = 26;
+    int top_band_h = LAUNCHER_PANEL_TOP_BAND;
+    int radius = LAUNCHER_PANEL_RADIUS;
+    int i;
+
+    /* Top-band color (header strip): white. */
+    const uint8_t tb_r = 0xFF;
+    const uint8_t tb_g = 0xFF;
+    const uint8_t tb_b = 0xFF;
+
+    /* Body color: light cool-grey. */
+    const uint8_t bd_r = 0xE8;
+    const uint8_t bd_g = 0xEC;
+    const uint8_t bd_b = 0xE8;
 
     if (g_launcher_panel.w <= 0 || g_launcher_panel.h <= 0)
         return q;
@@ -232,51 +286,58 @@ static qword_t *launcher_emit_panel(qword_t *q)
     w = g_launcher_panel.w;
     h = g_launcher_panel.h;
 
-    /* Body / outer rect: a single white filled rect spanning the
-     * whole panel area. The body rect drawn next overwrites the
-     * interior, leaving only a `border`-px white frame visible. */
-    memset(&r, 0, sizeof(r));
-    r.v0.x = (float)x;
-    r.v0.y = (float)y;
-    r.v0.z = 0;
-    r.v1.x = (float)(x + w);
-    r.v1.y = (float)(y + h);
-    r.v1.z = 0;
-    r.color.r = 0xFF;
-    r.color.g = 0xFF;
-    r.color.b = 0xFF;
-    /* Alpha must be non-zero so that the alpha test (configured
-     * later for the UI texture) doesn't accidentally clip these
-     * quads. The alpha test for the panel-emit phase is still off
-     * (we enable it only before draw_rect_textured below), so this
-     * is just a defensive value that also keeps the fragment opaque
-     * if any blend stage is enabled later. */
-    r.color.a = 0x80;
-    r.color.q = 1.0f;
-    q = draw_rect_filled(q, 0, &r);
+    /* Defensive: if the panel is smaller than 2*radius we'd wrap;
+     * clamp the radius to half the smaller dimension. */
+    if (h < 2 * radius)
+        radius = h / 2;
+    if (w < 2 * radius)
+        radius = w / 2;
+    if (top_band_h > h - radius)
+        top_band_h = h - radius;
 
-    /* Body fill: light grey, drawn on top of the outer frame
-     * leaving a `border`-px white edge. */
-    r.v0.x = (float)(x + border);
-    r.v0.y = (float)(y + border);
-    r.v1.x = (float)(x + w - border);
-    r.v1.y = (float)(y + h - border);
-    r.color.r = 0xE8;
-    r.color.g = 0xEC;
-    r.color.b = 0xE8;
-    q = draw_rect_filled(q, 0, &r);
+    /* Top rounded section: R 1-px-tall rects in the top-band color,
+     * each progressively wider as we move away from the corner. */
+    for (i = 0; i < radius; i++) {
+        int off = (int)round_offsets[i];
+        q = launcher_emit_strip(q,
+                                x + off,
+                                y + i,
+                                x + w - off,
+                                y + i + 1,
+                                tb_r, tb_g, tb_b);
+    }
 
-    /* Top band: white strip behind the title text, only if the
-     * panel is tall enough to have one. */
-    if (h > border + top_band_h + border) {
-        r.v0.x = (float)(x + border);
-        r.v0.y = (float)(y + border);
-        r.v1.x = (float)(x + w - border);
-        r.v1.y = (float)(y + border + top_band_h);
-        r.color.r = 0xFF;
-        r.color.g = 0xFF;
-        r.color.b = 0xFF;
-        q = draw_rect_filled(q, 0, &r);
+    /* Top band middle (rows R..top_band_h-1) in the top-band color,
+     * if the band extends below the rounded corner. */
+    if (top_band_h > radius) {
+        q = launcher_emit_strip(q,
+                                x,
+                                y + radius,
+                                x + w,
+                                y + top_band_h,
+                                tb_r, tb_g, tb_b);
+    }
+
+    /* Body middle (rows top_band_h..h-R-1) in the body color. */
+    if (top_band_h < h - radius) {
+        q = launcher_emit_strip(q,
+                                x,
+                                y + top_band_h,
+                                x + w,
+                                y + h - radius,
+                                bd_r, bd_g, bd_b);
+    }
+
+    /* Bottom rounded section: R 1-px-tall rects in the body color,
+     * mirrored vs the top corners. */
+    for (i = 0; i < radius; i++) {
+        int off = (int)round_offsets[radius - 1 - i];
+        q = launcher_emit_strip(q,
+                                x + off,
+                                y + h - radius + i,
+                                x + w - off,
+                                y + h - radius + i + 1,
+                                bd_r, bd_g, bd_b);
     }
 
     return q;
