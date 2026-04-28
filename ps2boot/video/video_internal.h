@@ -32,7 +32,6 @@ static inline int clamp_int(int v, int lo, int hi)
 }
 
 extern int g_video_ready;
-extern int g_lut_ready;
 extern int g_video_off_x;
 extern int g_video_off_y;
 extern int g_aspect_mode;
@@ -45,7 +44,6 @@ extern packet_t *g_draw_packets[PS2_VIDEO_TEX_SLOTS];
 
 extern uint16_t g_upload[PS2_VIDEO_TEX_PIXELS];
 extern uint16_t g_upload_256[PS2_VIDEO_UPLOAD_256_PIXELS];
-extern uint16_t g_rgb565_lut[65536];
 
 extern char g_dbg1[48];
 extern char g_dbg2[48];
@@ -57,7 +55,6 @@ extern int g_ui_target_launcher;
 
 int select_menu_actions_game_vsync_enabled(void);
 
-void ps2_video_build_lut(void);
 void ps2_video_apply_display_offset(void);
 void ps2_video_present_ui_fixed_rgb565(const void *data, unsigned width, unsigned height, size_t pitch);
 void ps2_video_upload_and_draw_bound(unsigned width, unsigned height, int wait_vsync);

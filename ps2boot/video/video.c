@@ -1,7 +1,6 @@
 #include "video_internal.h"
 
 int g_video_ready = 0;
-int g_lut_ready = 0;
 int g_video_off_x = 0;
 int g_video_off_y = 0;
 int g_aspect_mode = PS2_ASPECT_FULL;
@@ -14,7 +13,6 @@ packet_t *g_draw_packets[PS2_VIDEO_TEX_SLOTS] = {0};
 
 uint16_t g_upload[PS2_VIDEO_TEX_PIXELS] __attribute__((aligned(64)));
 uint16_t g_upload_256[PS2_VIDEO_UPLOAD_256_PIXELS] __attribute__((aligned(64)));
-uint16_t g_rgb565_lut[65536] __attribute__((aligned(64)));
 
 char g_dbg1[48] = "";
 char g_dbg2[48] = "";
