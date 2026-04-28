@@ -38,12 +38,20 @@ CNF
 # so the launcher renders pretty names; the ELF/SYSTEM.CNF entries on
 # the PVD stay 8.3-clean for the PS2 BIOS boot path, which only reads
 # the Primary Volume Descriptor.
+#
+# NUNCA passar `-iso-level 2` ou `-full-iso9660-filenames` aqui: o
+# CDVDMAN do Open PS2 Loader assume disco strict ISO9660 level 1 e
+# usa um buffer de 14 caracteres por entrada de TOC, entao' nomes
+# longos no PVD estouram o buffer e a tela do OPL fica branca antes
+# do ELF rodar. Detalhes em modules/iopcore/cdvdman/searchfile.c do
+# upstream do OPL.
+ISO_FLAGS=(-V INFSTATION_PS2 -sysid PLAYSTATION -A PLAYSTATION -publisher PLAYSTATION -J -joliet-long)
 if command -v xorriso >/dev/null 2>&1; then
-  xorriso -as mkisofs -V INFSTATION_PS2 -J -joliet-long -o "$ISO_NAME" "$WORK_DIR"
+  xorriso -as mkisofs "${ISO_FLAGS[@]}" -o "$ISO_NAME" "$WORK_DIR"
 elif command -v genisoimage >/dev/null 2>&1; then
-  genisoimage -V INFSTATION_PS2 -J -joliet-long -o "$ISO_NAME" "$WORK_DIR"
+  genisoimage "${ISO_FLAGS[@]}" -o "$ISO_NAME" "$WORK_DIR"
 elif command -v mkisofs >/dev/null 2>&1; then
-  mkisofs -V INFSTATION_PS2 -J -joliet-long -o "$ISO_NAME" "$WORK_DIR"
+  mkisofs "${ISO_FLAGS[@]}" -o "$ISO_NAME" "$WORK_DIR"
 else
   echo "nenhum gerador de ISO encontrado (xorriso, genisoimage ou mkisofs)" >&2
   exit 1

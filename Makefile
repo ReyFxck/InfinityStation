@@ -421,13 +421,30 @@ iso-root: $(EE_BIN) iso-check
 # original (UCS-2) filenames intact. The launcher reads the SVD when
 # present so users see e.g. "Super Mario World 2 - Yoshi's Island"
 # instead of the truncated PVD form 'SUPER_MARIO_WORLD_2___YOSHI.SFC'.
+#
+# IMPORTANT: o PVD (Primary Volume Descriptor) precisa ficar em
+# ISO9660 *level 1* (nomes 8.3). O CDVDMAN do Open PS2 Loader assume
+# disco level 1 estrito e usa um buffer de 14 caracteres por entrada
+# do TOC (modules/iopcore/cdvdman/searchfile.c, "we'll assume that
+# ISO9660 disc images are all _strictly_ compliant with ISO9660
+# level 1"). Se a gente usar `-iso-level 2 -full-iso9660-filenames`,
+# o PVD ganha nomes longos (ex.: 'README.TXT' fica como
+# 'readme.txt' minusculo, e qualquer ROM extra na raiz vira nome de
+# 30+ chars), o cdvdman_curdir[] estoura e o LoadElf de
+# cdrom0:\SLUS_999.99;1 falha — OPL pinta a tela branca. O PCSX2
+# nao tem essa restricao porque emula o CDVDFS oficial da Sony.
+#
+# Os nomes bonitos das ROMs ficam preservados na Joliet SVD, que e'
+# o que o launcher do InfinityStation le' (ps2boot/ui/launcher/
+# browser/scan.c, PR #24). OPL nunca abre a Joliet SVD — so' le' o
+# PVD em sector 16 — entao' a coexistencia e' segura.
 iso: iso-root
 	@mkdir -p "$$(dirname "$(ISO_OUT)")"
 	@xorriso -as mkisofs \
 		-V "$(ISO_LABEL)" \
 		-sysid PLAYSTATION \
-		-iso-level 2 \
-		-full-iso9660-filenames \
+		-A PLAYSTATION \
+		-publisher PLAYSTATION \
 		-J -joliet-long \
 		-o "$(ISO_OUT)" \
 		"$(ISO_ROOT_DIR)"
