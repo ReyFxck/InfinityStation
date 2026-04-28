@@ -48,6 +48,34 @@ static int g_backend_empty_streak = 0;
  */
 static volatile int g_audio_real_underrun_pending = 0;
 
+/*
+ * Cache do audsrv_queued() publicado pelo sound thread.
+ *
+ * Motivo: ps2_audio_get_buffer_status e' chamado pelo libretro a cada
+ * audio_batch_cb (uma vez por retro_run em USE_BLARGG_APU). Antes ele
+ * disparava ps2_backend_queued_bytes() -> audsrv_queued() -> SifCallRpc
+ * sincrono pro IOP, custando ~50-200 us por frame so' pra reportar
+ * occupancy do SPU2.
+ *
+ * O sound thread ja' poll'a audsrv_queued() em cada iteracao do loop
+ * (~1 ms), entao da' pra publicar o ultimo valor lido aqui e o main
+ * thread so' precisa ler. Stale window e' ~1 ms, irrelevante pra
+ * decisao de frameskip que opera em escala de frame (~16.6 ms).
+ *
+ * Volatile porque cruza thread boundary (sound -> main).
+ */
+static volatile int g_backend_queued_bytes_cached = 0;
+
+static inline int ps2_audio_queued_bytes_cached(void)
+{
+    return g_backend_queued_bytes_cached;
+}
+
+static inline void ps2_audio_publish_queued_bytes(int bytes)
+{
+    g_backend_queued_bytes_cached = bytes;
+}
+
 static int g_sound_tid = -1;
 static volatile int g_sound_thread_running = 0;
 static volatile int g_sound_thread_exit = 0;
@@ -168,11 +196,23 @@ static void ps2_audio_fade_backend_volume(unsigned int from, unsigned int to)
 
 static unsigned int ps2_audio_ring_buffered_frames(void)
 {
-    unsigned int v;
-    ps2_audio_ring_lock();
-    v = g_buffered_frames;
-    ps2_audio_ring_unlock();
-    return v;
+    /*
+     * Lockless: g_buffered_frames e' volatile uint32 alinhado, e na
+     * EE leitura de palavra alinhada e' atomica em hardware (nao da'
+     * pra ler torn). O lock no antigo path so' garantia que o
+     * compilador nao cacheasse a leitura -- volatile ja' faz isso.
+     *
+     * Os writers (copy_to_ring/copy_from_ring/make_room/clear) seguem
+     * pegando o lock pq fazem read-modify-write (incremento de pos +
+     * pos) que precisa ser atomico em relacao a outros writers.
+     *
+     * Leitores so' usam o valor como hint pra decidir o que fazer
+     * proximo (skip/feed/recover); ler um valor ate' ~1 op atras nao
+     * muda a logica. Antes esse helper segurava o semaforo a cada
+     * audio_batch_cb e dentro do sound thread loop -> overhead
+     * mensuravel.
+     */
+    return g_buffered_frames;
 }
 
 
@@ -239,7 +279,13 @@ void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underr
     int real_underrun;
 
     if ((g_audio_state == 1) && !g_audio_paused) {
-        queued_bytes = ps2_backend_queued_bytes();
+        /*
+         * Le o cache publicado pelo sound thread em vez de chamar
+         * audsrv_queued() (SifCallRpc sincrono pro IOP, ~50-200 us).
+         * O cache e' atualizado a cada iteracao do sound thread
+         * (~1 ms) -- bom o suficiente pra decisao de frameskip.
+         */
+        queued_bytes = ps2_audio_queued_bytes_cached();
         if (queued_bytes > 0)
             backend_frames = (unsigned int)queued_bytes / PS2_AUDIO_FRAME_BYTES;
     }
@@ -400,6 +446,7 @@ static void ps2_audio_fill_backend_silence_to_target(void)
 
     while (!g_sound_thread_exit) {
         queued_bytes = ps2_backend_queued_bytes();
+        ps2_audio_publish_queued_bytes(queued_bytes);
         if (queued_bytes >= BACKEND_QUEUE_TARGET_BYTES)
             break;
 
@@ -492,6 +539,7 @@ static void ps2_audio_sound_thread(void *arg)
         }
 
         queued_bytes = ps2_backend_queued_bytes();
+        ps2_audio_publish_queued_bytes(queued_bytes);
         buffered_frames = ps2_audio_ring_buffered_frames();
 
         if (!g_audio_paused &&
@@ -524,6 +572,7 @@ static void ps2_audio_sound_thread(void *arg)
 
             ps2_audio_finish_resume_if_ready();
             queued_bytes = ps2_backend_queued_bytes();
+            ps2_audio_publish_queued_bytes(queued_bytes);
         }
 
         if (queued_bytes >= BACKEND_QUEUE_TARGET_BYTES) {
@@ -735,6 +784,7 @@ int ps2_audio_init_once(void)
     g_warned_overrun = 0;
     g_warned_underrun = 0;
     g_audio_real_underrun_pending = 0;
+    ps2_audio_publish_queued_bytes(0);
     g_audio_state = 1;
     ps2_audio_set_backend_volume(PS2_AUDIO_BACKEND_VOLUME);
 
@@ -783,6 +833,7 @@ void ps2_audio_pause(void)
     g_warned_underrun = 0;
     g_audio_real_underrun_pending = 0;
     g_logged_first_push = 0;
+    ps2_audio_publish_queued_bytes(0);
     ps2_audio_log_state("paused");
 }
 
@@ -811,6 +862,7 @@ void ps2_audio_resume(void)
     g_warned_underrun = 0;
     g_audio_real_underrun_pending = 0;
     g_logged_first_push = 0;
+    ps2_audio_publish_queued_bytes(0);
 
     ps2_audio_set_backend_volume(0);
     (void)ps2_audio_reprime_backend_with_silence();
@@ -845,6 +897,7 @@ void ps2_audio_shutdown(void)
     g_warned_underrun = 0;
     g_audio_real_underrun_pending = 0;
     g_logged_first_push = 0;
+    ps2_audio_publish_queued_bytes(0);
 
     g_sound_thread_running = 0;
     g_sound_thread_exit = 0;

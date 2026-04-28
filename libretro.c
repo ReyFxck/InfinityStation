@@ -144,17 +144,6 @@ static inline unsigned app_core_prof_delta(unsigned t1, unsigned t0)
     return (unsigned)(t1 - t0);
 }
 
-static inline void app_core_sync_dcache_range(const void *ptr, size_t len)
-{
-#if defined(__mips__) && !defined(PSP)
-    if (ptr && len)
-        SyncDCache((void *)ptr, (void *)((const uint8_t *)ptr + len));
-#else
-    (void)ptr;
-    (void)len;
-#endif
-}
-
 static inline float app_core_prof_cycles_to_ms(unsigned long long cycles, unsigned frames)
 {
     if (!frames)
@@ -1060,8 +1049,13 @@ void retro_run(void)
 
    if (IPPU.RenderThisFrame)
    {
-      app_core_sync_dcache_range(GFX.Screen,
-            (size_t)GFX.Pitch * (size_t)IPPU.RenderedScreenHeight);
+      /*
+       * Sem SyncDCache aqui: ps2_video_packets_upload_and_draw (chamado
+       * pelo video_cb) ja' faz SyncDCache no buffer de upload antes de
+       * disparar o DMA pro GIF. O flush extra que existia aqui
+       * percorria o mesmo range (~230 KB com GFX.Pitch=1024 e altura
+       * 224) duas vezes por frame -- desperdicio puro.
+       */
       video_cb(GFX.Screen, IPPU.RenderedScreenWidth, IPPU.RenderedScreenHeight, GFX.Pitch);
    }
    else
