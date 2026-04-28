@@ -24,6 +24,16 @@ static packet_t *g_launcher_draw_packet = 0;
 static framebuffer_t g_launcher_frame;
 static zbuffer_t g_launcher_z;
 
+/* Glass panel scheduled by the UI layer for this frame. w == 0 means
+ * "no panel". Reset to {0} by begin_frame() so callers must re-arm
+ * it each frame they want it visible. */
+static struct {
+    int x;
+    int y;
+    int w;
+    int h;
+} g_launcher_panel;
+
 /* TEXA register tells the GS how to interpret 1-bit alpha textures
  * (which is what we use for the launcher: GS_PSM_16). With AEM=0:
  *   - texel A bit = 0  ->  fragment alpha = TA0
@@ -146,6 +156,13 @@ void ps2_launcher_video_begin_frame(uint16_t clear_color)
      * The `clear_color` argument is kept for API stability but is
      * only honored when non-zero (callers wanting an opaque colored
      * background can still ask for it explicitly). */
+    /* Reset the per-frame GS-quad state. Callers must re-arm the
+     * panel every frame they want it shown. */
+    g_launcher_panel.x = 0;
+    g_launcher_panel.y = 0;
+    g_launcher_panel.w = 0;
+    g_launcher_panel.h = 0;
+
     if (clear_color == 0) {
         memset(g_launcher_upload, 0, sizeof(g_launcher_upload));
         return;
@@ -170,6 +187,99 @@ void ps2_launcher_video_put_pixel(unsigned x, unsigned y, uint16_t color)
         return;
 
     g_launcher_upload[y][x] = ps2_video_convert_rgb565(color);
+}
+
+void ps2_launcher_video_set_panel(int x, int y, int w, int h)
+{
+    if (w <= 0 || h <= 0) {
+        g_launcher_panel.x = 0;
+        g_launcher_panel.y = 0;
+        g_launcher_panel.w = 0;
+        g_launcher_panel.h = 0;
+        return;
+    }
+
+    g_launcher_panel.x = x;
+    g_launcher_panel.y = y;
+    g_launcher_panel.w = w;
+    g_launcher_panel.h = h;
+}
+
+/* Emit the glass panel as three nested filled rects:
+ *   1. outer frame  (white border)
+ *   2. body         (light grey, fills inside the border)
+ *   3. top band     (white, fills the title strip)
+ *
+ * Replaces the previous CPU-side draw_glass_panel which iterated
+ * over ~127k pixel positions running point_in_round_rect + put_pixel
+ * for each. Three GS quads cost ~15 quadwords vs the equivalent
+ * 250+ KB of put_pixel store traffic. */
+static qword_t *launcher_emit_panel(qword_t *q)
+{
+    rect_t r;
+    int x;
+    int y;
+    int w;
+    int h;
+    int border = 2;
+    int top_band_h = 26;
+
+    if (g_launcher_panel.w <= 0 || g_launcher_panel.h <= 0)
+        return q;
+
+    x = g_launcher_panel.x;
+    y = g_launcher_panel.y;
+    w = g_launcher_panel.w;
+    h = g_launcher_panel.h;
+
+    /* Body / outer rect: a single white filled rect spanning the
+     * whole panel area. The body rect drawn next overwrites the
+     * interior, leaving only a `border`-px white frame visible. */
+    memset(&r, 0, sizeof(r));
+    r.v0.x = (float)x;
+    r.v0.y = (float)y;
+    r.v0.z = 0;
+    r.v1.x = (float)(x + w);
+    r.v1.y = (float)(y + h);
+    r.v1.z = 0;
+    r.color.r = 0xFF;
+    r.color.g = 0xFF;
+    r.color.b = 0xFF;
+    /* Alpha must be non-zero so that the alpha test (configured
+     * later for the UI texture) doesn't accidentally clip these
+     * quads. The alpha test for the panel-emit phase is still off
+     * (we enable it only before draw_rect_textured below), so this
+     * is just a defensive value that also keeps the fragment opaque
+     * if any blend stage is enabled later. */
+    r.color.a = 0x80;
+    r.color.q = 1.0f;
+    q = draw_rect_filled(q, 0, &r);
+
+    /* Body fill: light grey, drawn on top of the outer frame
+     * leaving a `border`-px white edge. */
+    r.v0.x = (float)(x + border);
+    r.v0.y = (float)(y + border);
+    r.v1.x = (float)(x + w - border);
+    r.v1.y = (float)(y + h - border);
+    r.color.r = 0xE8;
+    r.color.g = 0xEC;
+    r.color.b = 0xE8;
+    q = draw_rect_filled(q, 0, &r);
+
+    /* Top band: white strip behind the title text, only if the
+     * panel is tall enough to have one. */
+    if (h > border + top_band_h + border) {
+        r.v0.x = (float)(x + border);
+        r.v0.y = (float)(y + border);
+        r.v1.x = (float)(x + w - border);
+        r.v1.y = (float)(y + border + top_band_h);
+        r.color.r = 0xFF;
+        r.color.g = 0xFF;
+        r.color.b = 0xFF;
+        q = draw_rect_filled(q, 0, &r);
+    }
+
+    return q;
 }
 
 void ps2_launcher_video_end_frame(void)
@@ -271,6 +381,12 @@ void ps2_launcher_video_end_frame(void)
      * textured UI sprite. Alpha test stays disabled here so all star
      * sprites render unconditionally. */
     q = launcher_background_emit_packet(q);
+
+    /* Glass panel quads (border + body + top band) are drawn AFTER
+     * stars and BEFORE the UI texture overlay. Stars below the panel
+     * are hidden, but text/icons drawn into the upload buffer (which
+     * will be composited next) appear on top of the panel body. */
+    q = launcher_emit_panel(q);
 
     /* Now switch on the alpha test and draw the UI texture: the
      * transparent regions reveal the stars beneath. */
