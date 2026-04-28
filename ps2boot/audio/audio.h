@@ -38,4 +38,13 @@ void ps2_audio_resume(void);
 void ps2_audio_set_iop_ready(int ready);
 
 void ps2_audio_get_buffer_status(bool *active, unsigned *occupancy, bool *underrun_likely);
+
+/*
+ * Sinaliza pro modulo de audio que o ultimo frame do core estourou o
+ * budget de tempo (1/fps). Quando exceeded != 0, a proxima chamada de
+ * ps2_audio_get_buffer_status retorna underrun_likely = true,
+ * disparando frameskip auto preventivamente. Chamado pelo main loop
+ * depois de cada retro_run.
+ */
+void ps2_audio_note_frame_budget_overran(int exceeded);
 #endif
