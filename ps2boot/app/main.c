@@ -46,6 +46,37 @@ static void app_runtime_finish_frame(void)
     ps2_audio_pump();
 }
 
+/*
+ * Mede o tempo gasto em retro_run e sinaliza pro modulo de audio se o
+ * frame estourou o budget (1/fps + margem). Esse sinal alimenta o
+ * heuristico de underrun_likely / frameskip auto: se o EE ja' esta'
+ * atras da curva, vale a pena pular o PPU do proximo frame pra evitar
+ * cascading slowdown -- antes mesmo do backend audsrv ficar vazio de
+ * verdade.
+ *
+ * Margem de 10 % em cima do budget nominal pra absorver jitter de DMA
+ * e RPC IOP sem disparar skip atoa. Alternativa seria EWMA, mas o
+ * libretro frameskip auto ja' faz seu proprio averaging implicito
+ * (so' skipa um frame por vez), entao' threshold simples basta.
+ */
+static void app_runtime_measure_frame(u64 start_ticks)
+{
+    u64 elapsed;
+    double fps;
+    u64 budget_ticks;
+
+    elapsed = GetTimerSystemTime() - start_ticks;
+
+    fps = app_overlay_get_core_nominal_fps();
+    if (fps < 1.0)
+        fps = 60.0;
+
+    /* budget = 1.10 * (kBUSCLK / fps) -- 10% de margem pro jitter. */
+    budget_ticks = (u64)(((double)kBUSCLK * 1.10) / fps);
+
+    ps2_audio_note_frame_budget_overran(elapsed > budget_ticks);
+}
+
 int main(int argc, char *argv[])
 {
     struct retro_system_av_info av;
@@ -100,7 +131,11 @@ int main(int argc, char *argv[])
 
         if (menu_consumed)
             continue;
-        retro_run();
+        {
+            u64 frame_start = GetTimerSystemTime();
+            retro_run();
+            app_runtime_measure_frame(frame_start);
+        }
         app_runtime_finish_frame();
         app_prof_commit(0, 0, 0);
         g_prev_buttons = buttons;
