@@ -1,25 +1,5 @@
 #include "video_internal.h"
 
-void ps2_video_build_lut(void)
-{
-    unsigned i;
-
-    if (g_lut_ready)
-        return;
-
-    for (i = 0; i < 65536; i++) {
-        uint16_t c = (uint16_t)i;
-        uint16_t r = (c >> 11) & 0x1f;
-        uint16_t g = (c >> 5)  & 0x3f;
-        uint16_t b =  c        & 0x1f;
-
-        g >>= 1;
-
-        g_rgb565_lut[i] = (1u << 15) | (b << 10) | (g << 5) | r;
-    }
-
-    g_lut_ready = 1;
-}
 
 void menu_tint_blue(void)
 {
@@ -41,5 +21,8 @@ void menu_tint_blue(void)
 
 uint16_t ps2_video_convert_rgb565(uint16_t color)
 {
-    return g_rgb565_lut[color];
+    uint16_t r = (color >> 11) & 0x1fu;
+    uint16_t g = (color >>  6) & 0x1fu;
+    uint16_t b =  color        & 0x1fu;
+    return (uint16_t)(0x8000u | (b << 10) | (g << 5) | r);
 }

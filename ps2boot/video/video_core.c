@@ -16,8 +16,6 @@ int ps2_video_init_once(void)
     if (g_video_ready)
         return 1;
 
-    ps2_video_build_lut();
-
     dma_channel_initialize(DMA_CHANNEL_GIF, 0, 0);
     dma_channel_fast_waits(DMA_CHANNEL_GIF);
 

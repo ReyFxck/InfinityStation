@@ -1,24 +1,37 @@
 #include "video_internal.h"
 #include "app/overlay.h"
 
+/*
+ * SNES RGB565  -> PS2 PSMCT16 (RGB5A1 com R em low bits, A=1).
+ * Antes era LUT de 128KB (g_rgb565_lut), que excede em muito o D-cache
+ * de 16KB do EE e fazia cada pixel virar miss em RAM. Compute direto:
+ * 3 shifts + 3 masks + 3 ors -- pipeline limpo, zero pressao de cache.
+ */
+static inline uint16_t ps2_video_pixel_snes_to_gs(uint16_t c)
+{
+    uint16_t r = (c >> 11) & 0x1fu;
+    uint16_t g = (c >>  6) & 0x1fu;  /* descarta LSB do verde (6->5 bits) */
+    uint16_t b =  c        & 0x1fu;
+    return (uint16_t)(0x8000u | (b << 10) | (g << 5) | r);
+}
+
 static inline void ps2_video_convert_rgb565_linear(
     const uint16_t *src, uint16_t *dst, unsigned count
 )
 {
-    const uint16_t *lut = g_rgb565_lut;
     unsigned i = 0;
 
     for (; i + 4u <= count; i += 4u) {
-        dst[0] = lut[src[0]];
-        dst[1] = lut[src[1]];
-        dst[2] = lut[src[2]];
-        dst[3] = lut[src[3]];
+        dst[0] = ps2_video_pixel_snes_to_gs(src[0]);
+        dst[1] = ps2_video_pixel_snes_to_gs(src[1]);
+        dst[2] = ps2_video_pixel_snes_to_gs(src[2]);
+        dst[3] = ps2_video_pixel_snes_to_gs(src[3]);
         src += 4;
         dst += 4;
     }
 
     for (; i < count; i++)
-        *dst++ = lut[*src++];
+        *dst++ = ps2_video_pixel_snes_to_gs(*src++);
 }
 
 static inline void ps2_video_convert_rgb565_pitched_stride(
@@ -26,7 +39,6 @@ static inline void ps2_video_convert_rgb565_pitched_stride(
     uint16_t *dst_base, unsigned dst_stride
 )
 {
-    const uint16_t *lut = g_rgb565_lut;
     unsigned y;
 
     for (y = 0; y < height; y++) {
@@ -35,16 +47,16 @@ static inline void ps2_video_convert_rgb565_pitched_stride(
         unsigned x = 0;
 
         for (; x + 4u <= width; x += 4u) {
-            dst[0] = lut[src[0]];
-            dst[1] = lut[src[1]];
-            dst[2] = lut[src[2]];
-            dst[3] = lut[src[3]];
+            dst[0] = ps2_video_pixel_snes_to_gs(src[0]);
+            dst[1] = ps2_video_pixel_snes_to_gs(src[1]);
+            dst[2] = ps2_video_pixel_snes_to_gs(src[2]);
+            dst[3] = ps2_video_pixel_snes_to_gs(src[3]);
             src += 4;
             dst += 4;
         }
 
         for (; x < width; x++)
-            *dst++ = lut[*src++];
+            *dst++ = ps2_video_pixel_snes_to_gs(*src++);
     }
 }
 
