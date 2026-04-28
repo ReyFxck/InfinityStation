@@ -5,6 +5,24 @@ int g_video_off_x = 0;
 int g_video_off_y = 0;
 int g_aspect_mode = PS2_ASPECT_FULL;
 
+/*
+ * Vblanks pendentes pra esperar fora do retro_run.
+ *
+ * O caminho antigo chamava graph_wait_vsync() la' DENTRO do
+ * ps2_video_packets_upload_and_draw, que e' chamado durante o video_cb
+ * do libretro, que esta' DENTRO do retro_run. Resultado: nao da pra
+ * medir o tempo de "trabalho real" do retro_run sem incluir o wait
+ * de vsync (~16.6 ms), o que quebra qualquer detector preditivo de
+ * frame budget.
+ *
+ * Agora ps2_video_present_rgb565 ACUMULA aqui o numero de vblanks que
+ * o frame quer esperar e retorna sem bloquear. O main loop chama
+ * ps2_video_finish_frame() DEPOIS de retro_run, e e' la' que o
+ * graph_wait_vsync acontece. Assim a janela de vsync fica fora da
+ * medicao de retro_run.
+ */
+unsigned g_video_pending_vblanks = 0;
+
 framebuffer_t g_frame;
 zbuffer_t g_z;
 texbuffer_t g_tex;
@@ -65,4 +83,20 @@ unsigned ps2_video_frame_width(void)
 unsigned ps2_video_frame_height(void)
 {
     return g_frame.height;
+}
+
+void ps2_video_finish_frame(void)
+{
+    unsigned waits;
+
+    if (!g_video_ready)
+        return;
+
+    waits = g_video_pending_vblanks;
+    g_video_pending_vblanks = 0;
+
+    while (waits > 0) {
+        graph_wait_vsync();
+        waits--;
+    }
 }

@@ -48,6 +48,15 @@ void ps2_video_launcher_end_frame(void);
 
 void ps2_video_draw_menu(int page, int main_sel, int video_sel, int aspect_sel);
 void ps2_video_present_rgb565(const void *data, unsigned width, unsigned height, size_t pitch);
+/*
+ * Termina o frame: dispara o vsync_wait pendente (acumulado pelo
+ * ps2_video_present_rgb565). Deve ser chamado pelo main loop DEPOIS
+ * de retro_run, fora da chamada do core. Assim, o tempo de retro_run
+ * mede so' trabalho real do EE+GS+audio sem incluir a espera de vblank.
+ *
+ * Idempotente: se nao tem wait pendente, e' no-op.
+ */
+void ps2_video_finish_frame(void);
 void ps2_video_hard_reset(void);
 void ps2_video_soft_reset(void);
 
