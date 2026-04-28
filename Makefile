@@ -159,16 +159,29 @@ EE_OBJS = \
         $(EXTRA_OBJS)
 
 EE_INCS += -I$(PS2SDK)/ports/include  -I$(CORE_DIR) -I$(SRC_DIR) -I$(COMM_DIR)/include
-# INF: default -O2; HOT_CORE_OBJS / HOT_FRONTEND_OBJS abaixo
-# adicionam -O3 -fomit-frame-pointer apenas nos hot paths reais
-# (apu/ppu/cpuexec do core + present/packets/callbacks/overlay do
-# frontend). -O3 global cresce binario e raramente ajuda fora
-# de loops bem-comportados.
-EE_CFLAGS += -O2 -G0 -DLAGFIX -DLOAD_FROM_MEMORY -DUSE_BLARGG_APU
+# INF: -O3 default. snes9x e' hot end-to-end, nao da' pra eleger
+# "5 arquivos hot" e deixar o resto em -O2: cada acesso a memoria
+# do SNES passa por memmap.c/getset.c, cada DMA passa por dma.c,
+# cada linha renderizada passa por gfx.c, e jogos com chip extra
+# (Yoshi's Island e Super Mario RPG -> SA-1, Mario Kart -> DSP-1)
+# ficam estrangulados se sa1cpu.c/dsp1.c cairem pra -O2.
+#
+# Mudar pra -O2 default + lista de 5 "hot files" foi reportado
+# pelo Thomas como regressao perceptivel (jogos que rodavam 60fps
+# cairam muito) no PS2 real. Manter -O3 global custa ~63 KB no
+# ELF (4654 KB -> 4717 KB), o que e' irrelevante na pratica. Os
+# HOT_*_OBJS ainda existem so' pra ligar -fomit-frame-pointer nos
+# arquivos onde ele realmente rende cycles (libera $30 nos loops
+# de tile/ppu/cpuexec, pequeno mas mensuravel).
+EE_CFLAGS += -O3 -G0 -DLAGFIX -DLOAD_FROM_MEMORY -DUSE_BLARGG_APU
 EE_CFLAGS += -Ips2boot -Ips2boot/rom_loader -Ips2boot/rom_loader/vendor -Ips2boot/rom_loader/vendor/miniz -DMINIZ_NO_ARCHIVE_WRITING_APIS
 EE_CFLAGS += -Ips2boot/audio -Ips2boot/video -Ips2boot/input -Ips2boot/menu -Ips2boot/storage -Ips2boot/debug -Ips2boot/irx -Ips2boot/ui/font
 EE_CFLAGS += -Ips2boot/ui/select_menu -Ips2boot/ui/select_menu/state -Ips2boot/ui/select_menu/render -Ips2boot/ui/select_menu/pages -Ips2boot/ui/select_menu/actions -Ips2boot/ui/select_menu/font
 
+# -fomit-frame-pointer extra so' nos hot loops mais quentes do
+# core (CPU/PPU/APU/tile) e do front (present/packets/callbacks).
+# -O3 ja' esta' no EE_CFLAGS global; reaplicar e' redundante mas
+# inofensivo (GCC pega o ultimo -O da linha).
 HOT_CORE_OBJS = \
 	$(SRC_DIR)/apu_blargg.o \
 	$(SRC_DIR)/ppu.o \
@@ -176,7 +189,7 @@ HOT_CORE_OBJS = \
 	$(SRC_DIR)/cpuops.o \
 	$(SRC_DIR)/cpuexec.o
 
-$(HOT_CORE_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
+$(HOT_CORE_OBJS): EE_CFLAGS += -fomit-frame-pointer
 
 HOT_FRONTEND_OBJS = \
 	ps2boot/video/video_present.o \
@@ -184,7 +197,7 @@ HOT_FRONTEND_OBJS = \
 	ps2boot/app/callbacks.o \
 	ps2boot/app/overlay.o
 
-$(HOT_FRONTEND_OBJS): EE_CFLAGS += -O3 -fomit-frame-pointer
+$(HOT_FRONTEND_OBJS): EE_CFLAGS += -fomit-frame-pointer
 
 # INF: warnings tratados como erro APENAS em codigo nosso
 # (ps2boot/* fora de irx/ e rom_loader/vendor/, mais libretro.o).
